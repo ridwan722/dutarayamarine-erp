@@ -26,6 +26,7 @@ export interface penawaranM {
   terkirim_by?: string;
   grandtotal_pengeluaran?: number;
   perihal: string; 
+  currency: string;
   pengeluaran?: pengeluaranM[];
   penawaran_item: penawaranItemM[]; 
   subtotal_penawaran: number;

@@ -24,7 +24,9 @@ export const usecustomerStore = defineStore("customerStore", {
       const notificationStore = useNotificationStore();
       try {
         useloadingStore().setLoading(true);
-        await tambahdatabase(COLLECTION, data);
+        const customerRef = await tambahdatabase(COLLECTION, data);
+        // Simpan ID dokumen Firestore di dalam data customer juga.
+        await updatedatabase(COLLECTION, customerRef.id, { id: customerRef.id });
         // sessionStorage.removeItem(COLLECTION);
         await this.tarikDataCustomerAct();
         notificationStore.showSuccess("Customer berhasil ditambahkan");

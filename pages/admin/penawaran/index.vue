@@ -98,6 +98,16 @@
           rows="2"
         />
 
+        <a-select-new
+          v-model="newPenawaran.currency"
+          label="Currency"
+          :items="[
+            { title: 'IDR', value: 'IDR' },
+            { title: 'USD', value: 'USD' },
+            { title: 'SGD', value: 'SGD' },
+          ]"
+        />
+
         <div class="mx-auto text-center mb-3 mt-2">
           <span class="text-subtitle-2 font-weight-bold text-primary">
             Rincian Item
@@ -205,17 +215,16 @@
               <v-col cols="12" sm="3" class="pa-1">
                 <a-field-number-new
                   v-model="item.amount"
-                  label="Harga satuan"
+                  :label="`Harga satuan (${currencyLabel(newPenawaran.currency)})`"
                   placeholder="0"
                 />
               </v-col>
               <v-col cols="12" sm="3" class="pa-1">
                 <a-text-field-new
-                  :model-value="
-                    (
-                      Number(item.qty || 0) * Number(item.amount || 0)
-                    ).toLocaleString('id-ID')
-                  "
+                  :model-value="formatCurrency(
+                    Number(item.qty || 0) * Number(item.amount || 0),
+                    newPenawaran.currency,
+                  )"
                   label="Subtotal"
                   placeholder="0"
                   disabled
@@ -263,7 +272,7 @@
               >Total Quotation :</span
             >
             <span class="text-h6 text-sm-h5 font-weight-black text-primary">
-              Rp {{ rupiah(subtotalPenawaran) }}
+              {{ formatCurrency(subtotalPenawaran, newPenawaran.currency) }}
             </span>
           </div>
         </v-card>
@@ -539,7 +548,7 @@
       </template>
 
       <template v-slot:item.grand_total="{ item }">
-        <strong>Rp {{ rupiah(item.grand_total_penawaran) }}</strong>
+        <strong>{{ formatCurrency(item.grand_total_penawaran, item.currency) }}</strong>
       </template>
 
       <template v-slot:item.status="{ item }">
@@ -763,6 +772,7 @@ function emptyPenawaran(): penawaranM {
     sign_by: "Seilla Maryana",
     status: "Draft",
     perihal: "",
+    currency: "IDR",
     penawaran_item: [
       {
         nama: "",
@@ -779,6 +789,26 @@ function emptyPenawaran(): penawaranM {
     terbilang: "",
     termCondition: [],
   };
+}
+
+function formatCurrency(value: number | null | undefined, currency?: string) {
+  const code = currency === "USD" || currency === "SGD" ? currency : "IDR";
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: code,
+    maximumFractionDigits: code === "IDR" ? 0 : 2,
+  }).format(Number(value) || 0);
+}
+
+function currencyLabel(currency?: string) {
+  switch (currency) {
+    case "USD":
+      return "USD";
+    case "SGD":
+      return "SGD";
+    default:
+      return "IDR";
+  }
 }
 
 const sortedTermConditions = computed(() => {
@@ -881,16 +911,11 @@ function openDialogTambahPenawaran() {
 }
 
 function openDialogEditPenawaran(item: penawaranM) {
-  const customer = customerStore.getDataCustomer.find(
-    (dataCustomer: any) =>
-      dataCustomer.id === item.id_perusahaan ||
-      dataCustomer.nama === item.id_perusahaan ||
-      dataCustomer.nama === item.nama_perusahaan ||
-      dataCustomer.pic === item.pic ||
-      dataCustomer.vessel === item.vessel ||
-      dataCustomer.email === item.email ||
-      dataCustomer.no_telp === item.no_telp,
-  );
+  const customers = customerStore.getDataCustomer;
+  const customer =
+    customers.find((dataCustomer) => dataCustomer.id === item.id_perusahaan) ??
+    customers.find((dataCustomer) => dataCustomer.nama === item.id_perusahaan) ??
+    customers.find((dataCustomer) => dataCustomer.nama === item.nama_perusahaan);
 
   const penawaran = JSON.parse(JSON.stringify(item)) as penawaranM;
   penawaran.termCondition ??= [];

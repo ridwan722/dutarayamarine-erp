@@ -173,6 +173,12 @@
               <span class="sep">:</span>
               <span class="val bold-navy">Batam</span>
             </div>
+
+            <div class="meta-row">
+              <span class="lbl">Currency</span>
+              <span class="sep">:</span>
+              <span class="val bold-navy">{{ currencyLabel }}</span>
+            </div>
           </div>
         </div>
 
@@ -298,10 +304,10 @@
                 <td class="text-center">{{ item.qty }}</td>
                 <td class="text-center text-slate-500">{{ item.uom }}</td>
                 <td class="text-right text-slate-600">
-                  Rp {{ rupiah(item.amount) }}
+                  {{ formatCurrency(item.amount) }}
                 </td>
                 <td class="text-right text-navy">
-                  Rp {{ rupiah(item.subtotal_item) }}
+                  {{ formatCurrency(item.subtotal_item) }}
                 </td>
               </tr>
             </tbody>
@@ -312,7 +318,7 @@
                   {{ t.grandTotal }}
                 </td>
                 <td class="text-right font-weight-bold text-navy">
-                  Rp {{ rupiah(props.detailpenawaran.grand_total_penawaran) }}
+                  {{ formatCurrency(props.detailpenawaran.grand_total_penawaran) }}
                 </td>
               </tr>
 
@@ -631,10 +637,11 @@ const teksTerbilang = computed(() => {
   const total = props.detailpenawaran?.grand_total_penawaran || 0;
   if (!total) return "-";
 
+  const currencyName = currencyCode.value === "IDR" ? "Rupiah" : currencyCode.value;
   if (lang.value === "id") {
-    return `${terbilangIndonesia(total).replace(/\s+/g, " ").trim()} Rupiah`;
+    return `${terbilangIndonesia(total).replace(/\s+/g, " ").trim()} ${currencyName}`;
   }
-  return `${numberToWordsEnglish(total).replace(/\s+/g, " ").trim()} Rupiah`;
+  return `${numberToWordsEnglish(total).replace(/\s+/g, " ").trim()} ${currencyName}`;
 });
 
 const warnaTeksHeader = computed(() => {
@@ -660,6 +667,17 @@ const formatTanggal = (tanggal: string) => {
 
 const rubahtanggalpenawaran = (tgl: any) => formatTanggal(tgl);
 const rupiah = (val: number) => new Intl.NumberFormat("id-ID").format(val || 0);
+const currencyCode = computed(() => {
+  const currency = props.detailpenawaran?.currency;
+  return currency === "USD" || currency === "SGD" ? currency : "IDR";
+});
+const currencyLabel = computed(() => ({ IDR: "IDR", USD: "USD", SGD: "SGD" }[currencyCode.value]));
+const formatCurrency = (value: number | null | undefined) =>
+  new Intl.NumberFormat(lang.value === "id" ? "id-ID" : "en-SG", {
+    style: "currency",
+    currency: currencyCode.value,
+    maximumFractionDigits: currencyCode.value === "IDR" ? 0 : 2,
+  }).format(Number(value) || 0);
 
 const loadWatermarkImage = (): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
@@ -710,7 +728,7 @@ const createPaginatedQuotationPdf = async () => {
     backgroundColor: "#ffffff",
     logging: false,
     onclone: preparePrintClone,
-  };
+  }; 
   const [letterheadCanvas, footerCanvas, contentCanvas, watermarkImage] =
     await Promise.all([
       html2canvas(letterheadElement as HTMLElement, captureOptions),
