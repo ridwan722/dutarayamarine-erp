@@ -14,12 +14,6 @@ export default defineNuxtConfig({
 
   ssr: false,
 
-  vite: {
-    build: {
-      chunkSizeWarningLimit: 1000,
-    },
-  },
-
   // Prevents stale build asset caching issues on deploy
   experimental: {
     payloadExtraction: false,
