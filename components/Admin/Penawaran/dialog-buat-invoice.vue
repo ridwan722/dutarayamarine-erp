@@ -2,8 +2,13 @@
   <div
     v-if="modelValue"
     class="modal-overlay"
+<<<<<<< HEAD
   >
   <!-- @click.self="emit('update:modelValue', false)" -->
+=======
+    @click.self="emit('update:modelValue', false)"
+  >
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     <div class="modal-card">
       <!-- Header -->
       <div class="modal-header">
@@ -19,9 +24,15 @@
             />
           </svg>
           <span class="modal-title">Create Invoice</span>
+<<<<<<< HEAD
           <!-- <span class="text-body-2 text-grey"
             ># tarik data penomoran invoice + 1</span
           > -->
+=======
+          <span class="text-body-2 text-grey"
+            ># tarik data penomoran invoice + 1</span
+          >
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         </div>
         <button class="btn-close" @click="emit('update:modelValue', false)">
           &times;
@@ -38,6 +49,7 @@
           <a-text-field-new type="text" v-model="form.no_telp" disabled />
           <a-text-field-new type="text" v-model="form.email" disabled />
         </div>
+<<<<<<< HEAD
 
         <a-textarea-new v-model="form.alamat_customer" disabled />
 
@@ -64,6 +76,27 @@
         </v-row>
 
         <div class="po-upload-row mt-2">
+=======
+        <a-textarea-new
+          v-model="form.alamat_customer"
+          disabled
+        ></a-textarea-new>
+
+        <v-divider class="my-3" />
+
+        <a-date-picker-new
+          v-model="form.tanggal"
+          label="Invoice Date"
+        ></a-date-picker-new>
+        <a-text-field-new
+          class="mt-2"
+          label="No. Pre Order (PO)"
+          v-model="form.no_preorder"
+          placeholder="No PO"
+        ></a-text-field-new>
+        <v-divider class="my-2" />
+        <div class="po-upload-row">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           <!-- Upload -->
           <div class="po-upload-wrapper">
             <label for="upload-po" class="po-upload-label"> Upload PO </label>
@@ -112,7 +145,15 @@
           </div>
         </div>
         <v-divider class="my-2" />
+<<<<<<< HEAD
         <a-textarea-new class="mt-2" label="Subject" v-model="form.perihal" />
+=======
+        <a-text-field-new
+          class="mt-2"
+          label="Subject"
+          v-model="form.perihal"
+        ></a-text-field-new>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
         <!-- Items Table Section -->
         <div class="section-title mt-3">Description</div>
@@ -149,6 +190,7 @@
           </table>
         </div>
 
+<<<<<<< HEAD
         <!-- Summary and signer cards -->
         <div class="summary-sign-row">
           <v-card class="sign-card" elevation="0">
@@ -294,6 +336,29 @@
                 <span class="font-bold">Grand Total</span>
                 <span class="grand-total-val">Rp {{ rupiah(grandTotal) }}</span>
               </div>
+=======
+        <!-- Summary Section -->
+        <div class="summary-wrapper">
+          <div class="summary-box">
+            <div class="summary-row">
+              <span class="text-muted">Subtotal</span>
+              <span class="font-medium">Rp {{ rupiah(subtotal) }}</span>
+            </div>
+
+            <div class="summary-row align-center">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="form.pakai_ppn" />
+                <span>PPN 11%</span>
+              </label>
+              <span class="font-medium">Rp {{ rupiah(ppn) }}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="summary-row total-row">
+              <span class="font-bold">Grand Total</span>
+              <span class="grand-total-val">Rp {{ rupiah(grandTotal) }}</span>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             </div>
           </div>
         </div>
@@ -423,7 +488,10 @@ const emptyForm = (): invoiceM => ({
   pic: "",
   tanggal: "",
   perihal: "",
+<<<<<<< HEAD
   sign_by: "",
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   item_pekerjaan: [],
   pakai_ppn: false,
   subtotal_invoice: 0,
@@ -434,12 +502,18 @@ const emptyForm = (): invoiceM => ({
   createdBy: "",
   termCondition: [],
   no_preorder: "",
+<<<<<<< HEAD
   tanggal_preorder: "",
   doc_preorder: [],
   tanggal_bayar: "",
   doc_bukti_bayar: [],
   down_payment: false,
   dp_persen: 0,
+=======
+  doc_preorder: [],
+  tanggal_bayar: "",
+  doc_bukti_bayar: [],
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 });
 
 onMounted(async () => {
@@ -455,6 +529,7 @@ const subtotal = computed(() =>
 const ppn = computed(() =>
   form.value.pakai_ppn ? Math.round(subtotal.value * 0.11) : 0,
 );
+<<<<<<< HEAD
 const grandTotal = computed(() => {
   if (form.value.down_payment) {
     return dpNominal.value + ppn.value;
@@ -462,6 +537,10 @@ const grandTotal = computed(() => {
 
   return subtotal.value + ppn.value;
 });
+=======
+const grandTotal = computed(() => subtotal.value + ppn.value);
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 watch(
   () => props.modelValue,
   (open) => {
@@ -479,7 +558,10 @@ watch(
       email: props.penawaran.email || "",
       vessel: props.penawaran.vessel || "",
       perihal: props.penawaran.perihal || "",
+<<<<<<< HEAD
       sign_by: props.penawaran.sign_by || "",
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       pic: props.penawaran.pic,
       tanggal: moment().format("YYYY-MM-DD"),
       item_pekerjaan: (props.penawaran.penawaran_item || []).map((item) => ({
@@ -501,6 +583,7 @@ watch(
   },
 );
 
+<<<<<<< HEAD
 const dpNominal = computed(() => {
   if (!form.value.down_payment) return 0;
 
@@ -509,6 +592,8 @@ const dpNominal = computed(() => {
   return Math.round(subtotal.value * (persen / 100));
 });
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 const sortedTermConditions = computed(() => {
   const terms = [...termconditionStore.getDataTermcondition];
   const selected = form.value.termCondition || [];
@@ -569,8 +654,11 @@ async function save() {
     grandtotal_invoice: grandTotal.value,
     id_penawaran: props.penawaran.id,
     no_penawaran: props.penawaran.no_penawaran,
+<<<<<<< HEAD
     tanggal_preorder: form.value.tanggal_preorder,
     tanggal_penawaran: props.penawaran.tanggal_penawaran,
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     createdAt: moment().unix(),
     createdBy: userStore.getEmail,
   };
@@ -690,7 +778,11 @@ function addfile(event: Event) {
 /* Header */
 .modal-header {
   padding: 10px 16px;
+<<<<<<< HEAD
   background-color: #f59e0b;
+=======
+  background: #f8f9fa;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   border-bottom: 1px solid #e9ecef;
   display: flex;
   justify-content: space-between;
@@ -848,7 +940,11 @@ function addfile(event: Event) {
   font-weight: 500;
 }
 .text-muted {
+<<<<<<< HEAD
   color: #000000;
+=======
+  color: #6c757d;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 .text-subtotal {
   padding-right: 8px;
@@ -859,6 +955,7 @@ function addfile(event: Event) {
 .summary-wrapper {
   display: flex;
   justify-content: flex-end;
+<<<<<<< HEAD
   flex: 0 0 auto;
 }
 
@@ -885,6 +982,14 @@ function addfile(event: Event) {
 .summary-box {
   width: 300px;
   background: #f59e0b;
+=======
+  margin-top: 10px;
+}
+
+.summary-box {
+  width: 260px;
+  background: #f8f9fa;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   border: 1px solid #dee2e6;
   border-radius: 4px;
   padding: 8px 12px;
@@ -921,6 +1026,10 @@ function addfile(event: Event) {
 
 .grand-total-val {
   font-weight: 700;
+<<<<<<< HEAD
+=======
+  color: #1976d2;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 /* Footer & Buttons */
@@ -1086,6 +1195,7 @@ function addfile(event: Event) {
 .po-file-remove:hover:not(:disabled) {
   color: #dc2626;
 }
+<<<<<<< HEAD
 
 .sign-card {
   width: 100%;
@@ -1172,4 +1282,6 @@ function addfile(event: Event) {
   color: #303740;
   text-align: center;
 }
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 </style>

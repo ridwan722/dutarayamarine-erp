@@ -1,1 +1,27 @@
+<<<<<<< HEAD
 node_modules
+=======
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env.*
+!.env.example
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a

@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+```vue
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 <template>
   <div>
     <ConfirmationDialog ref="confirmationDialog" />
@@ -13,6 +17,10 @@
       Kembali
     </v-btn>
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     <v-dialog v-model="dialogDikirim" max-width="500" persistent>
       <v-card class="rounded-lg">
         <v-card-title class="bg-primary text-white pa-4">
@@ -42,6 +50,7 @@
       </v-card>
     </v-dialog>
 
+<<<<<<< HEAD
     <v-dialog
       v-model="data.dialogSelesai"
       max-width="700"
@@ -199,6 +208,189 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+=======
+   <v-dialog
+  v-model="data.dialogSelesai"
+  max-width="700"
+  scrollable
+  :persistent="readingBuktiBayar"
+>
+  <v-card class="finish-invoice-dialog" rounded="xl">
+    <!-- HEADER -->
+    <div class="finish-dialog-header">
+      <div class="finish-header-icon">
+        <v-icon icon="mdi-check-circle-outline" size="28" />
+      </div>
+
+      <div>
+        <div class="finish-header-title">Selesaikan Invoice</div>
+        <div class="finish-header-subtitle">
+          Lengkapi tanggal pembayaran dan bukti pembayaran
+        </div>
+      </div>
+    </div>
+
+    <v-divider />
+
+    <v-card-text class="pa-6">
+      <!-- TANGGAL PEMBAYARAN -->
+      <div class="form-section">
+        <div class="section-title">
+          <v-icon
+            icon="mdi-calendar-check-outline"
+            size="19"
+            class="mr-2"
+          />
+          Informasi Pembayaran
+        </div>
+
+        <a-date-picker-new
+          label="Tanggal Dibayar"
+          v-model="invoiceDetail.tanggal_bayar"
+        />
+      </div>
+
+      <!-- UPLOAD BUKTI BAYAR -->
+      <div class="form-section mt-6">
+        <div class="section-title">
+          <v-icon
+            icon="mdi-file-document-outline"
+            size="19"
+            class="mr-2"
+          />
+          Bukti Pembayaran
+        </div>
+
+        <div class="upload-card">
+          <label for="upload-po" class="upload-area">
+            <input
+              id="upload-po"
+              type="file"
+              multiple
+              class="po-file-input"
+              :disabled="readingBuktiBayar"
+              @change="addfile"
+            />
+
+            <div class="upload-icon-wrapper">
+              <v-icon
+                icon="mdi-cloud-upload-outline"
+                size="30"
+              />
+            </div>
+
+            <div class="upload-content">
+              <div class="upload-title">
+                Klik untuk memilih file
+              </div>
+
+              <div class="upload-description">
+                Upload bukti pembayaran invoice
+              </div>
+
+              <div class="upload-limit">
+                Maksimal ukuran file 650 KB
+              </div>
+            </div>
+          </label>
+
+          <!-- LOADING -->
+          <div
+            v-if="readingBuktiBayar"
+            class="upload-loading"
+          >
+            <v-progress-circular
+              indeterminate
+              size="20"
+              width="2"
+              class="mr-2"
+            />
+            Membaca file...
+          </div>
+        </div>
+
+        <!-- FILE TERPILIH -->
+        <div v-if="poFiles.length" class="selected-files mt-4">
+          <div class="selected-files-header">
+            <div class="selected-files-title">
+              File Terpilih
+            </div>
+
+            <div class="file-count">
+              {{ poFiles.length }} file
+            </div>
+          </div>
+
+          <div class="po-file-list">
+            <div
+              v-for="(file, index) in poFiles"
+              :key="index"
+              class="po-file-item"
+            >
+              <div class="file-left">
+                <div class="file-icon">
+                  <v-icon
+                    icon="mdi-file-check-outline"
+                    size="20"
+                  />
+                </div>
+
+                <div class="file-info">
+                  <div class="po-file-name">
+                    {{ file.name }}
+                  </div>
+
+                  <div class="file-size">
+                    {{ Math.ceil(file.size / 1024) }} KB
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="po-file-remove"
+                :disabled="readingBuktiBayar"
+                @click="poFiles.splice(index, 1)"
+              >
+                <v-icon
+                  icon="mdi-close"
+                  size="18"
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </v-card-text>
+
+    <!-- FOOTER -->
+    <v-divider />
+
+    <v-card-actions class="dialog-footer">
+      <v-btn
+        variant="text"
+        color="grey-darken-1"
+        :disabled="readingBuktiBayar || savingInvoice"
+        @click="data.dialogSelesai = false"
+      >
+        Batal
+      </v-btn>
+
+      <v-btn
+        color="primary"
+        variant="flat"
+        rounded="lg"
+        prepend-icon="mdi-check-circle-outline"
+        :loading="savingInvoice"
+        :disabled="readingBuktiBayar || savingInvoice"
+        @click="ubahStatusSelesai"
+      >
+        Simpan Bukti Bayar
+      </v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
     <a-icon-success v-if="invoiceDetail.status == 'Selesai'" />
 
@@ -222,10 +414,19 @@
             </div>
 
             <div class="invoice-heading">
+<<<<<<< HEAD
               <div class="invoice-eyebrow">INVOICE</div>
 
               <div class="invoice-number">
                 #INV/DRM/2026/{{ invoiceDetail.id }}
+=======
+              <div class="invoice-eyebrow">
+                INVOICE
+              </div>
+
+              <div class="invoice-number">
+                #INV/SNS/2026/{{ invoiceDetail.id }}
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               </div>
 
               <NuxtLink
@@ -241,9 +442,14 @@
               <div class="text-caption">
                 {{ invoiceDetail.perihal }}
               </div>
+<<<<<<< HEAD
               <div class="text-caption font-weight-bold" style="display: flex">
                 <v-icon color="#1e3a5f" class="mr-1">mdi-domain</v-icon
                 >{{ invoiceDetail.nama_customer }}
+=======
+              <div class="text-caption font-weight-bold" style="display: flex;">
+                <v-icon color="#1e3a5f" class="mr-1">mdi-domain</v-icon>{{ invoiceDetail.nama_customer }}
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               </div>
             </div>
           </div>
@@ -251,7 +457,16 @@
           <!-- RIGHT -->
           <div class="invoice-meta">
             <div class="invoice-status-row">
+<<<<<<< HEAD
               <v-chip size="small" variant="flat" class="invoice-status" label>
+=======
+              <v-chip
+                size="small"
+                variant="flat"
+                class="invoice-status"
+                label
+              >
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 {{ invoiceDetail.status }}
               </v-chip>
 
@@ -299,7 +514,13 @@
         <div class="reference-grid">
           <!-- INVOICE BASED ON -->
           <div class="reference-block reference-left">
+<<<<<<< HEAD
             <div class="reference-label">INVOICE BASED ON</div>
+=======
+            <div class="reference-label">
+              INVOICE BASED ON
+            </div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
             <div class="reference-value">
               {{ invoiceDetail.no_preorder || "-" }}
@@ -308,9 +529,20 @@
 
           <!-- PURCHASE ORDER -->
           <div class="reference-block reference-right">
+<<<<<<< HEAD
             <div class="reference-label">PURCHASE ORDER DOCUMENT</div>
 
             <div v-if="invoiceDetail.doc_preorder?.length" class="po-list">
+=======
+            <div class="reference-label">
+              PURCHASE ORDER DOCUMENT
+            </div>
+
+            <div
+              v-if="invoiceDetail.doc_preorder?.length"
+              class="po-list"
+            >
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               <v-chip
                 v-for="(item, index) in invoiceDetail.doc_preorder"
                 :key="index"
@@ -331,7 +563,16 @@
               </v-chip>
             </div>
 
+<<<<<<< HEAD
             <div v-else class="reference-empty">No document attached</div>
+=======
+            <div
+              v-else
+              class="reference-empty"
+            >
+              No document attached
+            </div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
 
           <!-- DIVIDER -->
@@ -339,7 +580,13 @@
 
           <!-- TANGGAL BAYAR -->
           <div class="reference-block reference-left payment-block">
+<<<<<<< HEAD
             <div class="reference-label">TANGGAL BAYAR</div>
+=======
+            <div class="reference-label">
+              TANGGAL BAYAR
+            </div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
             <div class="reference-value">
               {{ invoiceDetail.tanggal_bayar || "-" }}
@@ -348,9 +595,20 @@
 
           <!-- BUKTI BAYAR -->
           <div class="reference-block reference-right payment-block">
+<<<<<<< HEAD
             <div class="reference-label">DOC. BUKTI BAYAR</div>
 
             <div v-if="invoiceDetail.doc_bukti_bayar?.length" class="po-list">
+=======
+            <div class="reference-label">
+              DOC. BUKTI BAYAR
+            </div>
+
+            <div
+              v-if="invoiceDetail.doc_bukti_bayar?.length"
+              class="po-list"
+            >
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               <v-chip
                 v-for="(item, index) in invoiceDetail.doc_bukti_bayar"
                 :key="index"
@@ -371,7 +629,16 @@
               </v-chip>
             </div>
 
+<<<<<<< HEAD
             <div v-else class="reference-empty">No document attached</div>
+=======
+            <div
+              v-else
+              class="reference-empty"
+            >
+              No document attached
+            </div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
         </div>
       </v-card>
@@ -383,6 +650,7 @@
 
     <div class="preview-container d-flex justify-center">
       <div ref="printArea" class="invoice-paper-wrapper">
+<<<<<<< HEAD
         <v-btn
           class="no-print text-center mx-auto mb-3"
           size="x-small"
@@ -425,6 +693,29 @@
             <span class="font-weight-bold" style="font-size: 23px"
               >INVOICE</span
             >
+=======
+        <v-card width="850" class="pa-10 invoice-paper elevation-2">
+
+          <div class="d-flex justify-space-between align-start mb-4">
+            <div>
+              <img
+                src="/public/Logo-SNS.png"
+                class="logo-header"
+                alt="Logo SNS"
+              />
+
+              <div class="company-address">
+                <strong>CV. SOLUSI NUSA SEGARA</strong><br />
+                Ruko Dream Land Blok A No.05, Dreamland Square, Marina City,
+                <br />
+                Tanjung Riau, Kec. Sekupang, Kota Batam 29425.
+                <br />
+                Hp. +62821 9998 8670
+              </div>
+            </div>
+
+            <div class="invoice-title">INVOICE</div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
 
           <div class="info-grid mb-4">
@@ -432,6 +723,7 @@
               <table class="w-100">
                 <tbody>
                   <tr>
+<<<<<<< HEAD
                     <td style="vertical-align: top">
                       {{ invoiceLanguage === "id" ? "Perihal" : "Subject" }}
                     </td>
@@ -445,6 +737,9 @@
                     <td width="80">
                       {{ invoiceLanguage === "id" ? "Pelanggan" : "Customer" }}
                     </td>
+=======
+                    <td width="80">Customer</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                     <td width="10">:</td>
                     <td>
                       <span>{{ invoiceDetail.nama_customer }}</span>
@@ -452,9 +747,13 @@
                   </tr>
 
                   <tr>
+<<<<<<< HEAD
                     <td style="vertical-align: top">
                       {{ invoiceLanguage === "id" ? "Alamat" : "Address" }}
                     </td>
+=======
+                    <td style="vertical-align: top">Location</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                     <td style="vertical-align: top">:</td>
                     <td style="vertical-align: top">
                       {{ invoiceDetail.alamat_customer }}
@@ -462,14 +761,19 @@
                   </tr>
 
                   <tr>
+<<<<<<< HEAD
                     <td width="80">
                       {{ invoiceLanguage === "id" ? "PIC" : "Attn" }}
                     </td>
+=======
+                    <td width="80">Attn</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                     <td width="10">:</td>
                     <td>
                       <span>{{ invoiceDetail.pic }}</span>
                     </td>
                   </tr>
+<<<<<<< HEAD
 
                   <tr>
                     <td width="80">
@@ -490,6 +794,8 @@
                       <span>Batam</span>
                     </td>
                   </tr>
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 </tbody>
               </table>
             </div>
@@ -498,6 +804,7 @@
               <table class="w-100">
                 <tbody>
                   <tr>
+<<<<<<< HEAD
                     <td width="110">
                       {{
                         invoiceLanguage === "id"
@@ -508,10 +815,17 @@
                     <td width="10">:</td>
                     <td>
                       {{ invoiceDetail.no_penawaran }}
+=======
+                    <td width="110">Invoice No</td>
+                    <td width="10">:</td>
+                    <td>
+                      INV/SNS/2026/{{ invoiceDetail.no_inv }}
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                     </td>
                   </tr>
 
                   <tr>
+<<<<<<< HEAD
                     <td width="110">
                       {{
                         invoiceLanguage === "id"
@@ -563,14 +877,21 @@
                           : "Invoice Date"
                       }}
                     </td>
+=======
+                    <td>Inv Date</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                     <td>:</td>
                     <td>{{ formatTanggal(invoiceDetail.tanggal) }}</td>
                   </tr>
 
                   <tr>
+<<<<<<< HEAD
                     <td>
                       {{ invoiceLanguage === "id" ? "Mata Uang" : "Currency" }}
                     </td>
+=======
+                    <td>Currency</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                     <td>:</td>
                     <td>IDR – (Rupiah)</td>
                   </tr>
@@ -583,6 +904,7 @@
             <thead>
               <tr>
                 <th width="3%">NO.</th>
+<<<<<<< HEAD
                 <th width="47%">
                   {{ invoiceLanguage === "id" ? "DESKRIPSI" : "DESCRIPTION" }}
                 </th>
@@ -593,6 +915,12 @@
                 <th width="35%">
                   {{ invoiceLanguage === "id" ? "JUMLAH" : "AMOUNT" }}
                 </th>
+=======
+                <th width="47%">DESCRIPTION</th>
+                <th width="5%">QTY</th>
+                <th width="5%">UOM</th>
+                <th width="35%">AMOUNT</th>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               </tr>
             </thead>
 
@@ -602,13 +930,21 @@
                 :key="index"
               >
                 <td class="no-cell v-align-middle">
+<<<<<<< HEAD
                   <div class="text-center">
+=======
+                  <div class="text-center font-weight-bold">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                     <span>{{ index + 1 }}.</span>
                   </div>
                 </td>
 
                 <td class="desc-cell">
+<<<<<<< HEAD
                   <div>
+=======
+                  <div class="font-weight-bold">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                     <span style="white-space: pre-line">
                       {{ item.nama }}
                     </span>
@@ -641,7 +977,11 @@
                 <td></td>
 
                 <td class="footer-label">
+<<<<<<< HEAD
                   <span>TOTAL</span>
+=======
+                  <strong>SUB TOTAL</strong>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 </td>
 
                 <td class="footer-value">
@@ -658,9 +998,13 @@
                 <td></td>
 
                 <td class="footer-label">
+<<<<<<< HEAD
                   <strong>{{
                     invoiceLanguage === "id" ? "PPN 11%" : "VAT 11%"
                   }}</strong>
+=======
+                  <strong>PPn 11%</strong>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 </td>
 
                 <td class="footer-value">
@@ -671,12 +1015,17 @@
                 </td>
               </tr>
 
+<<<<<<< HEAD
               <tr v-if="invoiceDetail.dp_persen > 0">
+=======
+              <tr>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 <td></td>
                 <td></td>
                 <td></td>
 
                 <td class="footer-label">
+<<<<<<< HEAD
                   <strong
                     >{{
                       invoiceLanguage === "id" ? "Uang Muka" : "Down Payment"
@@ -691,6 +1040,17 @@
                     <strong>{{
                       rupiah(invoiceDetail.grandtotal_invoice)
                     }}</strong>
+=======
+                  <strong>TOTAL</strong>
+                </td>
+
+                <td class="footer-value">
+                  <div class="d-flex justify-space-between font-weight-bold">
+                    <span>Rp</span>
+                    <span>
+                      {{ rupiah(invoiceDetail.grandtotal_invoice) }}
+                    </span>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                   </div>
                 </td>
               </tr>
@@ -698,6 +1058,7 @@
           </table>
 
           <div class="terbilang-strip">
+<<<<<<< HEAD
             <span v-if="invoiceLanguage === 'id'">
               Terbilang: #{{
                 jadirupiah(invoiceDetail.grandtotal_invoice)
@@ -713,11 +1074,21 @@
           </div>
 
           <table class="w-100" v-if="invoiceDetail.termCondition?.length > 0">
+=======
+            <strong>
+              Terbilang : #{{ jadirupiah(invoiceDetail.grandtotal_invoice) }}
+              Rupiah.
+            </strong>
+          </div>
+
+          <table class="w-100">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             <tbody>
               <tr>
                 <td class="remark-cell">
                   <div class="remark-border-box">
                     <strong class="text-body-2 font-weight-bold">
+<<<<<<< HEAD
                       {{
                         invoiceLanguage === "id"
                           ? "SYARAT & KETENTUAN :"
@@ -726,6 +1097,15 @@
                     </strong>
 
                     <ul class="remark-list-style" style="list-style: none">
+=======
+                      TERMS & CONDITIONS :
+                    </strong>
+
+                    <ul
+                      class="remark-list-style"
+                      style="list-style: none"
+                    >
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                       <li
                         v-for="(item, index) in invoiceDetail.termCondition"
                         :key="index"
@@ -744,6 +1124,7 @@
               <div class="bank-details">
                 <div>
                   <table class="bank-table">
+<<<<<<< HEAD
                     <tbody v-if="invoiceDetail.sign_by == 'Seilla Maryana'">
                       <tr>
                         <td>
@@ -751,11 +1132,17 @@
                             invoiceLanguage === "id" ? "NAMA BANK" : "BANK NAME"
                           }}
                         </td>
+=======
+                    <tbody>
+                      <tr>
+                        <td>BANK</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                         <td>:</td>
                         <td>BCA</td>
                       </tr>
 
                       <tr>
+<<<<<<< HEAD
                         <td>
                           {{
                             invoiceLanguage === "id"
@@ -837,11 +1224,15 @@
                               : "ACCOUNT NUMBER"
                           }}
                         </td>
+=======
+                        <td>NO. REKENING</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                         <td>:</td>
                         <td>8691 8096 92</td>
                       </tr>
 
                       <tr>
+<<<<<<< HEAD
                         <td>
                           {{
                             invoiceLanguage === "id"
@@ -851,12 +1242,18 @@
                         </td>
                         <td>:</td>
                         <td>Muhammad Ridwan</td>
+=======
+                        <td>NAMA PENERIMA</td>
+                        <td>:</td>
+                        <td>MUHAMMAD RIDWAN</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
+<<<<<<< HEAD
           </div>
 
           <div class="mt-8 signature-area">
@@ -905,6 +1302,22 @@
             <strong v-if="invoiceDetail.sign_by == 'Lilis Trisnawati'"
               >Lilis Trisnawati</strong
             >
+=======
+
+            <div class="text-center signature-area">
+              <span class="font-italic">Your sincerely,</span><br />
+
+              <strong>CV. SOLUSI NUSA SEGARA</strong>
+
+              <v-img
+                src="/public/ttd_ridwan.png"
+                width="120"
+                class="ml-11"
+              ></v-img>
+
+              <strong>( Muhammad Ridwan )</strong>
+            </div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
         </v-card>
       </div>
@@ -918,6 +1331,10 @@
         variant="elevated"
         :loading="isSavingPdf"
         @click="handleSavePdf"
+<<<<<<< HEAD
+=======
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         class="mr-2"
       >
         Save PDF Invoice
@@ -928,6 +1345,10 @@
         color="indigo"
         variant="elevated"
         @click="printInvoice"
+<<<<<<< HEAD
+=======
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       >
         Print Invoice
       </v-btn>
@@ -957,13 +1378,19 @@ const notificationStore = useNotificationStore();
 const userStore = useUserStore();
 const route = useRoute();
 
+<<<<<<< HEAD
 const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
   null,
 );
+=======
+const confirmationDialog =
+  ref<InstanceType<typeof ConfirmationDialog> | null>(null);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 const dialogDikirim = ref(false);
 const isSavingPdf = ref(false);
 const readingBuktiBayar = ref(false);
+<<<<<<< HEAD
 const invoiceLanguage = ref<"id" | "en">("en");
 
 function numberToWordsEnglish(value: number): string {
@@ -1023,6 +1450,8 @@ function numberToWordsEnglish(value: number): string {
 
   return `${value < 0 ? "Minus " : ""}${convert(number)}`;
 }
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 onMounted(async () => {
   useloadingStore().setLoading(true);
@@ -1062,7 +1491,12 @@ async function tambahDokumenBb(event: Event) {
 
   input.value = "";
 
+<<<<<<< HEAD
   if (!files.length || readingBuktiBayar.value || savingInvoice.value) return;
+=======
+  if (!files.length || readingBuktiBayar.value || savingInvoice.value)
+    return;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
   const draft = invoiceDetail.value;
 
@@ -1112,11 +1546,23 @@ async function tambahDokumenBb(event: Event) {
       });
     }
 
+<<<<<<< HEAD
     const doc_bukti_bayar = [...(draft.doc_bukti_bayar || []), ...documents];
 
     if (
       new TextEncoder().encode(JSON.stringify({ ...draft, doc_bukti_bayar }))
         .byteLength > MAX_INVOICE_BYTES
+=======
+    const doc_bukti_bayar = [
+      ...(draft.doc_bukti_bayar || []),
+      ...documents,
+    ];
+
+    if (
+      new TextEncoder().encode(
+        JSON.stringify({ ...draft, doc_bukti_bayar }),
+      ).byteLength > MAX_INVOICE_BYTES
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     ) {
       return notificationStore.showError(
         "Ukuran invoice beserta dokumen PO terlalu besar. Kurangi ukuran atau jumlah file.",
@@ -1151,8 +1597,14 @@ function bukaDokumenPo(document: invoiceBuktiBayarM) {
           throw new Error("Format dokumen PO tidak valid");
         }
 
+<<<<<<< HEAD
         const bytes = Uint8Array.from(atob(url.slice(separator + 1)), (char) =>
           char.charCodeAt(0),
+=======
+        const bytes = Uint8Array.from(
+          atob(url.slice(separator + 1)),
+          (char) => char.charCodeAt(0),
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         );
 
         const contentType =
@@ -1197,7 +1649,13 @@ function tutupDialogDikirim() {
 async function ubahStatusDikirim() {
   const id = route.params.id as string;
 
+<<<<<<< HEAD
   const invoice = JSON.parse(JSON.stringify(invoiceDetail.value)) as invoiceM;
+=======
+  const invoice = JSON.parse(
+    JSON.stringify(invoiceDetail.value),
+  ) as invoiceM;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
   invoice.status = "Dikirim";
   invoice.dokumen_dikirim = uploadStoreInstance.getUrlRef;
@@ -1229,7 +1687,12 @@ function readPoFile(file: File): Promise<string> {
     reader.onerror = () =>
       reject(reader.error || new Error("File PO tidak dapat dibaca"));
 
+<<<<<<< HEAD
     reader.onabort = () => reject(new Error("Pembacaan file PO dibatalkan"));
+=======
+    reader.onabort = () =>
+      reject(new Error("Pembacaan file PO dibatalkan"));
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
     reader.readAsDataURL(file);
   });
@@ -1239,7 +1702,14 @@ function addfile(event: Event) {
   const target = event.target as HTMLInputElement;
 
   if (target.files && target.files.length > 0) {
+<<<<<<< HEAD
     poFiles.value = [...poFiles.value, ...Array.from(target.files)];
+=======
+    poFiles.value = [
+      ...poFiles.value,
+      ...Array.from(target.files),
+    ];
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   }
 
   target.value = "";
@@ -1260,7 +1730,13 @@ async function ubahStatusSelesai() {
 
   const id = route.params.id as string;
 
+<<<<<<< HEAD
   const invoice = JSON.parse(JSON.stringify(invoiceDetail.value)) as invoiceM;
+=======
+  const invoice = JSON.parse(
+    JSON.stringify(invoiceDetail.value),
+  ) as invoiceM;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
   const newDocuments: invoiceBuktiBayarM[] = [];
 
@@ -1368,10 +1844,18 @@ const handleSavePdf = async () => {
   isSavingPdf.value = true;
 
   try {
+<<<<<<< HEAD
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
       import("html2canvas"),
       import("jspdf"),
     ]);
+=======
+    const [{ default: html2canvas }, { jsPDF }] =
+      await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
     const fullCanvas = await html2canvas(targetElement, {
       scale: 2,
@@ -1403,6 +1887,7 @@ const handleSavePdf = async () => {
     const marginTopSecondPageMm = 12;
     const marginBottomMm = 10;
 
+<<<<<<< HEAD
     const containerRect = targetElement.getBoundingClientRect();
 
     const scaleY = fullCanvas.height / containerRect.height;
@@ -1410,6 +1895,18 @@ const handleSavePdf = async () => {
     const breakableElements = targetElement.querySelectorAll(
       ".main-table tr, .terbilang-strip, .remark-border-box, .page-break-section, .info-grid",
     );
+=======
+    const containerRect =
+      targetElement.getBoundingClientRect();
+
+    const scaleY =
+      fullCanvas.height / containerRect.height;
+
+    const breakableElements =
+      targetElement.querySelectorAll(
+        ".main-table tr, .terbilang-strip, .remark-border-box, .page-break-section, .info-grid",
+      );
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
     const avoidPositionsPx: {
       top: number;
@@ -1419,9 +1916,17 @@ const handleSavePdf = async () => {
     breakableElements.forEach((el) => {
       const rect = el.getBoundingClientRect();
 
+<<<<<<< HEAD
       const topPx = (rect.top - containerRect.top) * scaleY;
 
       const bottomPx = (rect.bottom - containerRect.top) * scaleY;
+=======
+      const topPx =
+        (rect.top - containerRect.top) * scaleY;
+
+      const bottomPx =
+        (rect.bottom - containerRect.top) * scaleY;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
       avoidPositionsPx.push({
         top: topPx,
@@ -1437,12 +1942,18 @@ const handleSavePdf = async () => {
         pdf.addPage();
       }
 
+<<<<<<< HEAD
       const currentTopMarginMm = pageCount > 0 ? marginTopSecondPageMm : 0;
+=======
+      const currentTopMarginMm =
+        pageCount > 0 ? marginTopSecondPageMm : 0;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
       const currentBottomMarginMm =
         pageCount > 0 ? marginBottomMm : footerGapMm;
 
       const maxUsablePdfHeightMm =
+<<<<<<< HEAD
         pdfHeight - currentTopMarginMm - currentBottomMarginMm;
 
       let targetSliceHeightPx =
@@ -1465,6 +1976,44 @@ const handleSavePdf = async () => {
       }
 
       const pageCanvas = document.createElement("canvas");
+=======
+        pdfHeight -
+        currentTopMarginMm -
+        currentBottomMarginMm;
+
+      let targetSliceHeightPx =
+        (maxUsablePdfHeightMm * fullCanvas.width) /
+        pdfWidth;
+
+      const remainingCanvasHeightPx =
+        fullCanvas.height - currentCanvasY;
+
+      if (remainingCanvasHeightPx > targetSliceHeightPx) {
+        const theoreticalCutY =
+          currentCanvasY + targetSliceHeightPx;
+
+        const conflictingElement =
+          avoidPositionsPx.find(
+            (pos) =>
+              theoreticalCutY > pos.top &&
+              theoreticalCutY < pos.bottom,
+          );
+
+        if (
+          conflictingElement &&
+          conflictingElement.top > currentCanvasY
+        ) {
+          targetSliceHeightPx =
+            conflictingElement.top - currentCanvasY;
+        }
+      } else {
+        targetSliceHeightPx =
+          remainingCanvasHeightPx;
+      }
+
+      const pageCanvas =
+        document.createElement("canvas");
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
       pageCanvas.width = fullCanvas.width;
       pageCanvas.height = targetSliceHeightPx;
@@ -1474,7 +2023,16 @@ const handleSavePdf = async () => {
       if (ctx) {
         ctx.fillStyle = "#ffffff";
 
+<<<<<<< HEAD
         ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+=======
+        ctx.fillRect(
+          0,
+          0,
+          pageCanvas.width,
+          pageCanvas.height,
+        );
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
         ctx.drawImage(
           fullCanvas,
@@ -1489,10 +2047,19 @@ const handleSavePdf = async () => {
         );
       }
 
+<<<<<<< HEAD
       const imgData = pageCanvas.toDataURL("image/png");
 
       const slicePdfHeightMm =
         (targetSliceHeightPx * pdfWidth) / fullCanvas.width;
+=======
+      const imgData =
+        pageCanvas.toDataURL("image/png");
+
+      const slicePdfHeightMm =
+        (targetSliceHeightPx * pdfWidth) /
+        fullCanvas.width;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
       pdf.addImage(
         imgData,
@@ -1508,9 +2075,16 @@ const handleSavePdf = async () => {
     }
 
     const year = new Date().getFullYear();
+<<<<<<< HEAD
     const invoiceId = invoiceDetail.value?.id || route.params.id;
 
     pdf.save(`INV-DRM-${year}-${invoiceId}.pdf`);
+=======
+    const invoiceId =
+      invoiceDetail.value?.id || route.params.id;
+
+    pdf.save(`INV-SNS-${year}-${invoiceId}.pdf`);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   } catch (error) {
     console.error("Gagal menyimpan PDF:", error);
   } finally {
@@ -1736,7 +2310,11 @@ const handleSavePdf = async () => {
    ============================================================ */
 
 .logo-header {
+<<<<<<< HEAD
   max-width: 140px;
+=======
+  max-width: 100px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   height: auto;
   object-fit: contain;
   display: block;
@@ -1833,7 +2411,12 @@ const handleSavePdf = async () => {
 }
 
 .bank-table td:first-child {
+<<<<<<< HEAD
   width: 160px;
+=======
+  width: 130px;
+  font-weight: bold;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 .desc-cell {
@@ -2097,7 +2680,15 @@ const handleSavePdf = async () => {
   align-items: center;
   gap: 14px;
   padding: 22px 24px;
+<<<<<<< HEAD
   background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+=======
+  background: linear-gradient(
+    135deg,
+    #f8fafc 0%,
+    #ffffff 100%
+  );
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 .finish-header-icon {
@@ -2368,6 +2959,7 @@ const handleSavePdf = async () => {
     max-width: 250px;
   }
 }
+<<<<<<< HEAD
 
 .header-section {
   display: grid;
@@ -2424,3 +3016,7 @@ const handleSavePdf = async () => {
   background-color: #032752;
 }
 </style>
+=======
+</style>
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a

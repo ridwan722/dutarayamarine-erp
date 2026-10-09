@@ -23,7 +23,11 @@
           {{ data.invoiceAddEdit === "add" ? "Create" : "Edit" }} Invoice
         </h4>
         <span class="text-body-2 text-grey"
+<<<<<<< HEAD
           >{{ newInvoice.id }}</span
+=======
+          ># tarik data penomoran invoice + 1</span
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         >
       </v-card-item>
 
@@ -207,7 +211,11 @@
             </v-col>
             <v-col cols="3">
               <a-select-new
+<<<<<<< HEAD
                 v-model="item.kategori_item"
+=======
+                v-model="item.nama"
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 label="Kategori"
                 :items="[
                   'Unit',
@@ -449,16 +457,26 @@
             style="max-width: 280px"
           />
         </v-col>
+<<<<<<< HEAD
         <!-- <v-col>
+=======
+        <v-col>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           <a-select-new
             v-model="data.filterStatus"
             label=""
             placeholder="Semua Status"
             :items="filterStatusOptions"
           />
+<<<<<<< HEAD
         </v-col> -->
         <v-col class="text-right">
           <!-- <v-btn
+=======
+        </v-col>
+        <v-col class="text-right">
+          <v-btn
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             color="primary"
             variant="flat"
             size="small"
@@ -467,7 +485,11 @@
             @click="openDialogTambahInvoice"
           >
             Create Invoice
+<<<<<<< HEAD
           </v-btn> -->
+=======
+          </v-btn>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
           <v-btn
             color="green"
@@ -477,7 +499,11 @@
             prepend-icon="mdi-database-export"
             @click="getallinvoice()"
           >
+<<<<<<< HEAD
             Tarik Semua Status Invoice
+=======
+            Get All Invoice
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </v-btn>
 
           <v-btn
@@ -511,11 +537,16 @@
         rubahtanggallengkap(item.tanggal)
       }}</template>
 
+<<<<<<< HEAD
       <!-- <template v-slot:item.no_inv="{ item }">
+=======
+      <template v-slot:item.no_inv="{ item }">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         <NuxtLink
           :to="'/admin/invoice/' + item.no_inv"
           class="penawaran-link font-weight-medium"
         >
+<<<<<<< HEAD
           #INV/DRM/2026/{{ item.no_inv }}
         </NuxtLink>
       </template> -->
@@ -527,6 +558,10 @@
             </span>
           </NuxtLink>
         </div>
+=======
+          #INV/SNS/2026/{{ item.no_inv }}
+        </NuxtLink>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       </template>
 
       <template v-slot:item.nama_customer="{ item }">
@@ -661,12 +696,21 @@ const data = reactive({
   showAllInvoice: false,
   headInvoice: [
     { title: "No", value: "no", width: "10px" },
+<<<<<<< HEAD
     { title: "Tanggal", value: "tanggal", sortable: true, width: "150px" },
     { title: "Based On Quotation", value: "no_penawaran", sortable: true },
     { title: "No. Invoice", value: "no_inv", sortable: true },
     { title: "Client", value: "nama_customer", sortable: true },
     { title: "Subject", value: "perihal", sortable: true },
     { title: "Total", value: "grandtotal_invoice", sortable: true, width: "140px" },
+=======
+    { title: "Tanggal", value: "tanggal", sortable: true },
+    { title: "No. Quotation", value: "no_penawaran", sortable: true },
+    { title: "No. Invoice", value: "no_inv", sortable: true },
+    { title: "Subject", value: "perihal", sortable: true },
+    { title: "Client", value: "nama_customer", sortable: true },
+    { title: "Total", value: "grandtotal_invoice", sortable: true },
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     { title: "Status Inv", value: "status", sortable: true },
     { title: "Aksi", align: "center" as const, value: "aksi", width: "100px" },
   ],
@@ -682,7 +726,10 @@ function emptyInvoice(): invoiceM {
     doc_preorder: [],
     vessel: "",
     no_telp: "",
+<<<<<<< HEAD
     sign_by: "",
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     email: "",
     pic: "",
     tanggal: moment().format("YYYY-MM-DD"),
@@ -714,16 +761,36 @@ const sortedTermConditions = computed(() => {
   const terms = [...termconditionStore.getDataTermcondition];
   const selected = newInvoice.value.termCondition || [];
 
+<<<<<<< HEAD
   // Yang dipilih mengikuti urutan saat dipilih
   const selectedTerms = selected
     .map((selectedItem: any) => {
       return terms.find((term: any) =>
+=======
+  // Gunakan snapshot yang tersimpan di invoice untuk term yang dipilih.
+  // Dengan begitu isi invoice tidak berubah bila master T&C diedit/dihapus.
+  const selectedTerms = selected
+    .map((selectedItem: any) => {
+      const masterTerm = terms.find((term: any) =>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         term.id
           ? term.id === selectedItem.id
           : term.nama_term === selectedItem.nama_term,
       );
+<<<<<<< HEAD
     })
     .filter(Boolean);
+=======
+
+      return {
+        ...masterTerm,
+        ...selectedItem,
+        id: selectedItem.id ?? masterTerm?.id,
+        nama_term: selectedItem.nama_term || masterTerm?.nama_term || "",
+      };
+    })
+    .filter((term) => term.nama_term);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
   // Yang belum dipilih tetap mengikuti urutan asli
   const unselectedTerms = terms.filter(
@@ -871,7 +938,11 @@ async function getallinvoice() {
     sessionStorage.removeItem("invoice");
     await invoiceStore.tarikDataInvoiceAct();
     data.showAllInvoice = true;
+<<<<<<< HEAD
     notificationStore.showSuccess("Semua invoice (all status) berhasil dimuat");
+=======
+    notificationStore.showSuccess("Semua invoice berhasil dimuat");
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   } catch (error) {
     console.error("Gagal memuat semua invoice:", error);
     notificationStore.showError("Gagal memuat semua invoice");
@@ -904,6 +975,17 @@ function openDialogEditInvoice(item: invoiceM) {
   );
 
   const invoice = JSON.parse(JSON.stringify(item)) as invoiceM;
+<<<<<<< HEAD
+=======
+  // Data invoice lama dapat belum memiliki field ini atau tersimpan dengan
+  // bentuk yang tidak lengkap. Pastikan v-model checkbox selalu menerima array.
+  invoice.termCondition = Array.isArray(invoice.termCondition)
+    ? invoice.termCondition.filter(
+        (term): term is invoiceM["termCondition"][number] =>
+          !!term && typeof term.nama_term === "string",
+      )
+    : [];
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   if (customer?.id) {
     invoice.id_customer = customer.id;
     invoice.nama_customer = customer.nama;
@@ -1028,6 +1110,7 @@ async function refreshData() {
 </script>
 
 <style scoped>
+<<<<<<< HEAD
 .quotation-link {
   text-decoration: none;
 }
@@ -1051,6 +1134,8 @@ async function refreshData() {
   box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
   transform: translateY(-1px);
 }
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .penawaran-link {
   color: rgb(11, 66, 194);
   transition: color 0.2s ease;

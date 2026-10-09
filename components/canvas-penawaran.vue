@@ -67,6 +67,7 @@
   <div>
     <div id="offer-to-print" class="offer-card">
       <div class="watermark">
+<<<<<<< HEAD
         <img src="/logowatermark.png" alt="Logo Watermark" />
       </div>
 
@@ -104,6 +105,53 @@
          <div class="text-center">
           <strong style="font-size: 20px">QUOTATION</strong>
         </div>
+=======
+        <img src="/Logo-SNS.png" alt="Logo Watermark" />
+      </div>
+
+      <div class="header-section">
+        <div class="header-brand">
+          <div class="logo-wrapper">
+            <img src="/Logo-SNS.png" alt="Logo Header" />
+          </div>
+          <div class="company-titles">
+            <h1 class="company-name">CV. SOLUSI NUSA SEGARA</h1>
+          </div>
+        </div>
+
+        <div class="header-contact">
+          <p class="address-line">
+            Ruko Dream Land Blok A No.05,<br />
+            Dreamland Square, Marina City Tanjung Riau, <br />Kec. Sekupang,
+            Kota Batam 29425
+          </p>
+          <p class="phone-line">Hp. +62821 9998 8670</p>
+        </div>
+      </div>
+
+      <div class="header-divider">
+        <div
+          class="accent-bar"
+          :style="{ backgroundColor: warnaBackgroundCustom }"
+        ></div>
+        <div class="secondary-bar"></div>
+      </div>
+
+      <div class="content-body">
+        <div class="doc-meta-header">
+          <div
+            class="doc-badge"
+            :style="{ borderColor: warnaBackgroundCustom }"
+          ></div>
+          <div class="doc-date">
+            <span>Batam, </span>
+            <strong>{{
+              rubahtanggalpenawaran(props.detailpenawaran.tanggal_penawaran)
+            }}</strong>
+          </div>
+        </div>
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         <div class="info-grid-card">
           <div class="grid-col">
             <div class="meta-row">
@@ -114,6 +162,7 @@
               }}</span>
             </div>
             <div class="meta-row">
+<<<<<<< HEAD
               <span class="lbl">{{ t.date }}</span>
               <span class="sep">:</span>
               <span class="val bold">
@@ -125,6 +174,8 @@
 </span>
             </div>
             <div class="meta-row">
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               <span class="lbl">{{ t.to }}</span>
               <span class="sep">:</span>
               <span class="val bold">{{
@@ -133,17 +184,43 @@
             </div>
 
             <div class="meta-row">
+<<<<<<< HEAD
+=======
+              <span class="lbl">{{ t.address }}</span>
+              <span class="sep">:</span>
+              <span class="val bold">{{
+                props.detailpenawaran.alamat_perusahaan || "-"
+              }}</span>
+            </div>
+            <div class="meta-row">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               <span class="lbl">{{ t.attn }}</span>
               <span class="sep">:</span>
               <span class="val">{{ props.detailpenawaran.pic || "-" }}</span>
             </div>
 
             <div class="meta-row">
+<<<<<<< HEAD
+=======
+              <span class="lbl">{{ t.phone }}</span>
+              <span class="sep">:</span>
+              <span class="val">{{
+                props.detailpenawaran.no_telp || "-"
+              }}</span>
+            </div>
+
+            <div class="meta-row">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               <span class="lbl">{{ t.email }}</span>
               <span class="sep">:</span>
               <span class="val">{{ props.detailpenawaran.email || "-" }}</span>
             </div>
+<<<<<<< HEAD
 
+=======
+          </div>
+          <div class="grid-col">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             <div class="meta-row">
               <span class="lbl">{{ t.subject }}</span>
               <span class="sep">:</span>
@@ -151,6 +228,7 @@
                 props.detailpenawaran.perihal || "-"
               }}</span>
             </div>
+<<<<<<< HEAD
 
             <div class="meta-row">
               <span class="lbl">{{ t.address }}</span>
@@ -166,23 +244,50 @@
               <span class="val bold-navy">{{
                 props.detailpenawaran.vessel || "-"
               }}</span>
+=======
+            <div class="meta-row">
+              <span class="lbl">{{ t.vessel }}</span>
+              <span class="sep">:</span>
+              <span class="val">{{ props.detailpenawaran.vessel }}</span>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             </div>
 
             <div class="meta-row">
               <span class="lbl">{{ t.location }}</span>
               <span class="sep">:</span>
+<<<<<<< HEAD
               <span class="val bold-navy">Batam</span>
+=======
+              <span class="val">Batam</span>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             </div>
           </div>
         </div>
 
         <div class="text-salutation">
+<<<<<<< HEAD
           <!-- <p class="salutation-title">{{ t.salutationTitle }}</p> -->
           <p class="salutation-body" v-if="lang === 'id'">
             Bersama ini kami sampaikan penawaran harga sebagai berikut:
           </p>
           <p class="salutation-body" v-else>
             We are pleased to submit our quotation as follows:
+=======
+          <p class="salutation-title">{{ t.salutationTitle }}</p>
+          <p class="salutation-body" v-if="lang === 'id'">
+            Sehubungan dengan kebutuhan operasional perusahaan Bapak/Ibu,
+            bersama surat ini kami mengajukan penawaran harga untuk
+            <strong>{{ props.detailpenawaran.perihal }}</strong> kepada
+            <strong>{{ props.detailpenawaran.nama_perusahaan }}</strong> dengan
+            rincian sebagai berikut:
+          </p>
+          <p class="salutation-body" v-else>
+            In response to your company's operational requirements, we are
+            pleased to submit our quotation for
+            <strong>{{ props.detailpenawaran.perihal }}</strong> to
+            <strong>{{ props.detailpenawaran.nama_perusahaan }}</strong
+            >, with the following details:
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </p>
         </div>
 
@@ -220,7 +325,11 @@
                   class="text-center print-only-cell"
                   :style="{ color: warnaTeksHeader }"
                 >
+<<<<<<< HEAD
                   SN
+=======
+                  NO
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 </th>
 
                 <th
@@ -230,7 +339,11 @@
                 >
                   {{ t.thDescription }}
                 </th>
+<<<<<<< HEAD
                 <!-- <th
+=======
+                 <!-- <th
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                   width="60"
                   class="text-center no-print"
 
@@ -263,7 +376,11 @@
                   class="text-right"
                   :style="{ color: warnaTeksHeader }"
                 >
+<<<<<<< HEAD
                   Total Price
+=======
+                  Total Amount
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 </th>
               </tr>
             </thead>
@@ -286,6 +403,7 @@
                   class="text-left text-slate-800"
                   style="white-space: pre-line"
                 >
+<<<<<<< HEAD
                   <div
                     v-for="(line, lineIndex) in item.nama.split(/\r?\n/)"
                     :key="lineIndex"
@@ -295,6 +413,11 @@
                   </div>
                 </td>
                 <!-- <td class="text-center no-print">{{ item.kategori_item }}</td> -->
+=======
+                  {{ item.nama }}
+                </td>
+                 <!-- <td class="text-center no-print">{{ item.kategori_item }}</td> -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 <td class="text-center">{{ item.qty }}</td>
                 <td class="text-center text-slate-500">{{ item.uom }}</td>
                 <td class="text-right text-slate-600">
@@ -307,11 +430,33 @@
             </tbody>
 
             <tfoot v-if="showTotal">
+<<<<<<< HEAD
+=======
+              <tr class="summary-row subtotal-row">
+                <td colspan="5" class="text-right text-slate-600">
+                  {{ t.subtotal }}
+                </td>
+                <td class="text-right text-slate-800">
+                  Rp
+                  {{
+                    rupiah(
+                      props.detailpenawaran.subtotal_penawaran ||
+                        props.detailpenawaran.grand_total_penawaran,
+                    )
+                  }}
+                </td>
+              </tr>
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               <tr class="summary-row grand-total-row">
                 <td colspan="5" class="text-right font-weight-bold text-navy">
                   {{ t.grandTotal }}
                 </td>
+<<<<<<< HEAD
                 <td class="text-right font-weight-bold text-navy">
+=======
+                <td class="text-right font-weight-bold text-navy gt-text">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                   Rp {{ rupiah(props.detailpenawaran.grand_total_penawaran) }}
                 </td>
               </tr>
@@ -347,7 +492,15 @@
           </div>
         </div>
 
+<<<<<<< HEAD
         <div class="closing-paragraph" v-if="(detailpenawaran.termCondition?.length ?? 0) > 0" >
+=======
+        <p class="closing-paragraph" v-if="showTable">
+          {{ t.closingText }}
+        </p>
+
+        <div class="closing-paragraph" v-if="showTable">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           <p><strong>TERMS &amp; CONDITIONS:</strong></p>
           <ul class="ml-3" style="list-style: none; padding-left: 0">
             <li
@@ -362,6 +515,7 @@
         <div class="signatures-wrapper">
           <div class="sig-block">
             <p class="sig-header">{{ t.sigHeaderLeft }}</p>
+<<<<<<< HEAD
             <p class="sig-sub">PT. DUTA RAYA MARINE</p>
             <div class="sig-img-container">
               <img src="/ttd_ridwan.png" v-if="detailpenawaran.sign_by == 'Muhammad Ridwan'" alt="Signature" class="sig-image" />
@@ -373,6 +527,13 @@
             <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Seilla Maryana'">Seilla Maryana</p>
              <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Leo Adiatmaja Sembiring'">Leo Adiatmaja Sembiring</p>
               <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Lilis Trisnawati'">Lilis Trisnawati</p>
+=======
+            <p class="sig-sub">CV. SOLUSI NUSA SEGARA</p>
+            <div class="sig-img-container">
+              <img src="/ttd_ridwan.png" alt="Signature" class="sig-image" />
+            </div>
+            <p class="sig-person-name">Muhammad Ridwan</p>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
 
           <div class="sig-block">
@@ -389,9 +550,13 @@
         </div>
       </div>
 
+<<<<<<< HEAD
       <div class="page-footer" aria-hidden="true">
         <div class="footer-line"></div>
       </div>
+=======
+      <div class="footer-wave"></div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     </div>
 
     <div
@@ -428,7 +593,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import type { penawaranM } from "~/types/penawaranModel";
+<<<<<<< HEAD
 import moment from "moment";
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 const props = defineProps<{
   detailpenawaran: penawaranM;
@@ -453,7 +621,10 @@ const t = computed(() => {
   if (lang.value === "id") {
     return {
       refNo: "No. Penawaran",
+<<<<<<< HEAD
       date: "Tanggal",
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       to: "Kepada",
       attn: "Up.",
       phone: "No. Telp",
@@ -479,7 +650,10 @@ const t = computed(() => {
   }
   return {
     refNo: "Quotation Ref No",
+<<<<<<< HEAD
     date: "Date",
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     to: "To",
     attn: "Attn",
     phone: "Phone",
@@ -489,7 +663,11 @@ const t = computed(() => {
     subject: "Subject",
     vessel: "Vessel",
     salutationTitle: "Dear Sir/Madam,",
+<<<<<<< HEAD
     thDescription: "DESCRIPTION",
+=======
+    thDescription: "DESCRIPTION / KETERANGAN",
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     thQty: "QTY",
     thUom: "UOM",
     thUnitPrice: "UNIT/PRICE",
@@ -585,7 +763,11 @@ function numberToWordsEnglish(n: number): string {
     "",
     "Twenty",
     "Thirty",
+<<<<<<< HEAD
     "Fourty",
+=======
+    "Forty",
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     "Fifty",
     "Sixty",
     "Seventy",
@@ -661,6 +843,7 @@ const formatTanggal = (tanggal: string) => {
 const rubahtanggalpenawaran = (tgl: any) => formatTanggal(tgl);
 const rupiah = (val: number) => new Intl.NumberFormat("id-ID").format(val || 0);
 
+<<<<<<< HEAD
 const loadWatermarkImage = (): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -879,10 +1062,129 @@ const handlePrint = async () => {
   } catch (error) {
     console.error("Gagal menyiapkan print quotation:", error);
     useNotificationStore().showError("Gagal menyiapkan print quotation");
+=======
+const handlePrint = () => {
+  const printContents = document.getElementById("offer-to-print")?.innerHTML;
+  if (!printContents) return;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) return;
+
+  let styles = "";
+  document.querySelectorAll("link[rel='stylesheet'], style").forEach((node) => {
+    if (node.tagName === "LINK") {
+      styles += `@import url('${(node as HTMLLinkElement).href}');`;
+    } else {
+      styles += node.innerHTML;
+    }
+  });
+
+  doc.write(`
+    <html>
+      <head>
+        <title>Penawaran_${props.detailpenawaran?.no_penawaran || "SNS"}</title>
+        <style>
+          ${styles} 
+
+          @media print {
+            @page {
+              size: A4;
+              margin: 0mm;
+            }
+
+            html, body {
+              font-family: 'Segoe UI', Arial, sans-serif;
+              height: 100%;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #fff !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            .offer-card {
+              box-shadow: none !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              margin: 0 !important;
+              padding: 12mm 16mm 20mm 16mm !important;
+              box-sizing: border-box !important;
+              position: relative !important;
+              overflow: hidden !important;
+              page-break-after: avoid;
+              page-break-before: avoid;
+            }
+
+            .no-print, .no-print-cell, .drag-icon {
+              display: none !important;
+            }
+
+            .print-only-cell {
+              display: table-cell !important;
+            }
+
+            .footer-wave {
+              position: absolute !important;
+              bottom: 0 !important;
+              left: 0 !important;
+              width: 100% !important;
+              height: 130px !important;
+              z-index: 0 !important;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="offer-card">
+          ${printContents}
+        </div>
+      </body>
+    </html>
+  `);
+
+  doc.close();
+
+  const images = doc.getElementsByTagName("img");
+  const printAction = () => {
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 600);
+  };
+
+  if (images.length > 0) {
+    let loaded = 0;
+    for (let i = 0; i < images.length; i++) {
+      images[i].onload = () => {
+        loaded++;
+        if (loaded === images.length) printAction();
+      };
+      images[i].onerror = () => {
+        loaded++;
+        if (loaded === images.length) printAction();
+      };
+    }
+  } else {
+    iframe.onload = printAction;
+    printAction();
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   }
 };
 
 const handleSavePdf = async () => {
+<<<<<<< HEAD
   if (isSavingPdf.value) return;
   isSavingPdf.value = true;
   try {
@@ -896,6 +1198,64 @@ const handleSavePdf = async () => {
   } catch (error) {
     console.error("Gagal membuat PDF quotation:", error);
     useNotificationStore().showError("Gagal membuat PDF quotation");
+=======
+  const offerElement = document.getElementById("offer-to-print");
+  if (!offerElement || isSavingPdf.value) return;
+
+  isSavingPdf.value = true;
+
+  try {
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import("html2canvas"),
+      import("jspdf"),
+    ]);
+    const canvas = await html2canvas(offerElement, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+      onclone: (clonedDocument) => {
+        clonedDocument
+          .querySelectorAll(".no-print, .no-print-cell, .drag-icon")
+          .forEach((element) => {
+            (element as HTMLElement).style.display = "none";
+          });
+        clonedDocument
+          .querySelectorAll(".print-only-cell")
+          .forEach((element) => {
+            (element as HTMLElement).style.display = "table-cell";
+          });
+      },
+    });
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imageHeight = (canvas.height * pageWidth) / canvas.width;
+    const image = canvas.toDataURL("image/png");
+
+    let heightLeft = imageHeight;
+    let position = 0;
+    pdf.addImage(image, "PNG", 0, position, pageWidth, imageHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 1) {
+      position = heightLeft - imageHeight;
+      pdf.addPage();
+      pdf.addImage(image, "PNG", 0, position, pageWidth, imageHeight);
+      heightLeft -= pageHeight;
+    }
+
+    const number = props.detailpenawaran?.no_penawaran || "SNS";
+    const nama = props.detailpenawaran?.pic || "SNS";
+    const subject = props.detailpenawaran?.perihal || "";
+    const nomorQT = number.match(/\d{5}$/)?.[0] || "00000";
+
+    pdf.save(`Quotation ${subject} #${nomorQT}.pdf`);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   } finally {
     isSavingPdf.value = false;
   }
@@ -906,7 +1266,11 @@ const handleSavePdf = async () => {
 .offer-card {
   width: 210mm;
   min-height: 297mm;
+<<<<<<< HEAD
   padding: 2mm 18mm 25mm 18mm;
+=======
+  padding: 14mm 18mm 25mm 18mm;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   margin: 0 auto;
   background: #ffffff;
   position: relative;
@@ -928,11 +1292,16 @@ const handleSavePdf = async () => {
   left: 50%;
   transform: translate(-50%, -50%);
   opacity: 0.105;
+<<<<<<< HEAD
   width: 540px;
+=======
+  width: 440px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   z-index: 0;
   pointer-events: none;
 }
 .watermark img {
+<<<<<<< HEAD
   width: 540px;
 }
 
@@ -947,16 +1316,43 @@ const handleSavePdf = async () => {
 
 .logo-wrapper img {
 
+=======
+  width: 100%;
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  position: relative;
+  z-index: 1;
+  padding-bottom: 8px;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logo-wrapper img {
+  width: 105px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   height: auto;
   display: block;
 }
 
+<<<<<<< HEAD
 .letterhead-info {
   text-align: center;
 }
 
 .company-name {
   font-size: 26px;
+=======
+.company-name {
+  font-size: 17px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   font-weight: 800;
   color: #0f2b48;
   letter-spacing: 0.3px;
@@ -964,11 +1360,28 @@ const handleSavePdf = async () => {
   line-height: 1.2;
 }
 
+<<<<<<< HEAD
 .address-line,
 .phone-line {
   font-size: 9.5px;
   line-height: 1.4;
   margin: 1px 0 0;
+=======
+.header-contact {
+  text-align: right;
+  line-height: 1.4;
+}
+
+.address-line,
+.phone-line {
+  font-size: 9.5px;
+  color: #475569;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 250px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 .header-divider {
@@ -976,7 +1389,11 @@ const handleSavePdf = async () => {
   flex-direction: column;
   gap: 2px;
   margin-top: 6px;
+<<<<<<< HEAD
   margin-bottom: 6px;
+=======
+  margin-bottom: 16px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 .accent-bar {
@@ -1015,10 +1432,24 @@ const handleSavePdf = async () => {
   text-transform: uppercase;
 }
 
+<<<<<<< HEAD
 .info-grid-card {
   display: grid;
   gap: 16px;
 
+=======
+.doc-date {
+  font-size: 11px;
+  color: #475569;
+}
+
+.info-grid-card {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   border-radius: 8px;
   padding: 10px 14px;
   margin-bottom: 14px;
@@ -1028,7 +1459,11 @@ const handleSavePdf = async () => {
   display: flex;
   align-items: center;
   font-size: 10.5px;
+<<<<<<< HEAD
   margin-bottom: 0px;
+=======
+  margin-bottom: 3px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 .meta-row:last-child {
   margin-bottom: 0;
@@ -1036,11 +1471,40 @@ const handleSavePdf = async () => {
 
 .meta-row .lbl {
   width: 105px;
+<<<<<<< HEAD
+=======
+  color: #64748b;
+  font-weight: 600;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   flex-shrink: 0;
 }
 
 .meta-row .sep {
   width: 12px;
+<<<<<<< HEAD
+=======
+  color: #94a3b8;
+}
+
+.meta-row .val {
+  color: #334155;
+  font-weight: 500;
+}
+
+.meta-row .val.highlight {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.meta-row .val.bold {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.meta-row .val.bold-navy {
+  font-weight: 700;
+  color: #0f2b48;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 .text-salutation {
@@ -1052,7 +1516,11 @@ const handleSavePdf = async () => {
 
 .salutation-title {
   font-weight: 700;
+<<<<<<< HEAD
   margin-bottom: 0px;
+=======
+  margin-bottom: 3px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   color: #0f2b48;
 }
 
@@ -1092,11 +1560,14 @@ const handleSavePdf = async () => {
   border-bottom: 1px solid #f1f5f9;
 }
 
+<<<<<<< HEAD
 .description-line {
   min-height: 1.5em;
   line-height: 1.5;
 }
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .modern-table tbody tr.zebra-row {
   background-color: #f8fafc;
 }
@@ -1238,6 +1709,7 @@ const handleSavePdf = async () => {
   margin-top: 2px;
 }
 
+<<<<<<< HEAD
 .page-footer {
   position: absolute;
   bottom: 0;
@@ -1254,6 +1726,22 @@ const handleSavePdf = async () => {
   width: 100%;
   height: 1px;
   background-color: #cbd5e1;
+=======
+.footer-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 130px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.footer-wave svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 .text-navy {

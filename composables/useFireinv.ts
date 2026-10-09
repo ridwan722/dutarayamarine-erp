@@ -18,7 +18,10 @@ import type { invoiceM } from "~/types/invoice";
 import type { penawaranM } from "~/types/penawaranModel";
 import { arrayUnion } from "firebase/firestore";
 import type { CompanyInspectionReport } from "~/types/beritaAcaraModel";
+<<<<<<< HEAD
 import type { purchaseorderM } from "~/types/purchaseorderModel";
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 // export const setinvoice = async (data: invoiceM) => {
 //     const db = useFirestore();
@@ -984,8 +987,13 @@ export const setberitaacara = async (data: CompanyInspectionReport) => {
             const datanomor = getnomor.data();
             const newnumber = datanomor!.no_berita_acara + 1;
             const stringnewnumber = _.toString(newnumber).padStart(3, "0");
+<<<<<<< HEAD
             const no_berita_acara = `BA-DRM-${stringnewnumber}`;
             const id_berita_acara = `BA-DRM-${stringnewnumber}`;
+=======
+            const no_berita_acara = `BA-SNS-${stringnewnumber}`;
+            const id_berita_acara = `BA-SNS-${stringnewnumber}`;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             const setdata = {
                 ...data,
                 no_berita_acara,
@@ -1031,8 +1039,13 @@ export const setPenawaran = async (data: penawaranM) => {
             const newnumber = datanomor!.no_penawaran + 1;
             const stringnewnumber = _.toString(newnumber).padStart(5, "0");
             const year = moment().format("YYYY");
+<<<<<<< HEAD
             const no_penawaran = `QT/DRM/${year}/${stringnewnumber}`;
             const id_penawaran = `QT-DRM-${year}-${stringnewnumber}`;
+=======
+            const no_penawaran = `QT/SNS/${year}/${stringnewnumber}`;
+            const id_penawaran = `QT-SNS-${year}-${stringnewnumber}`;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             const setdata = {
                 ...data,
                 no_penawaran,
@@ -1067,6 +1080,7 @@ export const setPenawaran = async (data: penawaranM) => {
         return error.message;
     }
 };
+<<<<<<< HEAD
 
 
 export const setPurchaseOrder = async (data: purchaseorderM) => {
@@ -1107,3 +1121,5 @@ export const setPurchaseOrder = async (data: purchaseorderM) => {
         return error.message;
     }
 };
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a

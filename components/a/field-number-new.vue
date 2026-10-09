@@ -33,7 +33,11 @@
         :value="formattedValue"
         :placeholder="placeholder"
         :disabled="disabled"
+<<<<<<< HEAD
         :inputmode="allowDecimal ? 'decimal' : 'numeric'"
+=======
+        inputmode="numeric"
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         autocomplete="off"
         @input="onInput"
         @blur="onBlur"
@@ -170,11 +174,14 @@ const props = defineProps({
     type: Number,
     default: 1,
   },
+<<<<<<< HEAD
 
   allowDecimal: {
     type: Boolean,
     default: false,
   },
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 });
 
 /* =========================
@@ -193,7 +200,10 @@ const errorMessages = ref([]);
 const showError = ref(false);
 
 const rawValue = ref(props.modelValue);
+<<<<<<< HEAD
 const editingValue = ref(null);
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 /* =========================
    FORMAT NUMBER
@@ -204,9 +214,13 @@ function formatNumber(value) {
     return "";
   }
 
+<<<<<<< HEAD
   return Number(value).toLocaleString("id-ID", {
     maximumFractionDigits: props.allowDecimal ? 2 : 0,
   });
+=======
+  return Number(value).toLocaleString("id-ID");
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 /* =========================
@@ -224,6 +238,7 @@ function parseFormattedNumber(value) {
    * 1.500 -> 1500
    * 10.000 -> 10000
    */
+<<<<<<< HEAD
   const input = String(value);
   if (!props.allowDecimal) {
     return Number(input.replace(/\D/g, ""));
@@ -236,6 +251,9 @@ function parseFormattedNumber(value) {
     .replace(/[^\d.-]/g, "");
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+=======
+  return Number(String(value).replace(/\D/g, ""));
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 /* =========================
@@ -243,7 +261,10 @@ function parseFormattedNumber(value) {
 ========================= */
 
 const formattedValue = computed(() => {
+<<<<<<< HEAD
   if (editingValue.value !== null) return editingValue.value;
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   return formatNumber(rawValue.value);
 });
 
@@ -254,10 +275,13 @@ const formattedValue = computed(() => {
 function onInput(event) {
   if (props.disabled) return;
 
+<<<<<<< HEAD
   if (props.allowDecimal) {
     editingValue.value = event.target.value;
   }
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   const numericValue = parseFormattedNumber(event.target.value);
 
   let value = numericValue;
@@ -308,7 +332,11 @@ function onKeyDown(event) {
   /*
    * Hanya angka
    */
+<<<<<<< HEAD
   if (!/^[0-9]$/.test(event.key) && !(props.allowDecimal && event.key === ",")) {
+=======
+  if (!/^[0-9]$/.test(event.key)) {
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     event.preventDefault();
   }
 }
@@ -318,7 +346,10 @@ function onKeyDown(event) {
 ========================= */
 
 function onBlur() {
+<<<<<<< HEAD
   editingValue.value = null;
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   validate();
 }
 
@@ -329,8 +360,11 @@ function onBlur() {
 function increment() {
   if (props.disabled) return;
 
+<<<<<<< HEAD
   editingValue.value = null;
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   let value = Number(rawValue.value || 0) + props.step;
 
   if (value > props.max) {
@@ -354,8 +388,11 @@ function increment() {
 function decrement() {
   if (props.disabled) return;
 
+<<<<<<< HEAD
   editingValue.value = null;
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   let value = Number(rawValue.value || 0) - props.step;
 
   if (value < props.min) {

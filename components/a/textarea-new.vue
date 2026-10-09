@@ -40,7 +40,11 @@
 </template>
 
 <script setup>
+<<<<<<< HEAD
 import { ref, computed, nextTick, onMounted } from "vue";
+=======
+import { ref, computed } from "vue";
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 const props = defineProps({
   modelValue: {
@@ -100,6 +104,7 @@ const inputRef = ref(null);
 const errorMessages = ref([]);
 const showError = ref(false);
 
+<<<<<<< HEAD
 function resizeTextarea() {
   const textarea = inputRef.value;
 
@@ -112,6 +117,8 @@ function resizeTextarea() {
   textarea.style.height = `${Math.max(48, textarea.scrollHeight)}px`;
 }
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 function onInput(event) {
   if (props.disabled) return;
 
@@ -119,10 +126,13 @@ function onInput(event) {
 
   errorMessages.value = [];
   showError.value = false;
+<<<<<<< HEAD
 
   nextTick(() => {
     resizeTextarea();
   });
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 function validate() {
@@ -153,12 +163,15 @@ const firstErrorMessage = computed(() => {
     : "";
 });
 
+<<<<<<< HEAD
 onMounted(() => {
   nextTick(() => {
     resizeTextarea();
   });
 });
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 defineExpose({
   validate,
   focus: () => inputRef.value?.focus(),
@@ -205,6 +218,7 @@ defineExpose({
 }
 
 .textarea-field {
+<<<<<<< HEAD
   min-height: 48px;
   line-height: 1.5;
 
@@ -213,6 +227,11 @@ defineExpose({
 
   /* Tinggi mengikuti isi */
   overflow: hidden;
+=======
+  min-height: 70px;
+  line-height: 1.5;
+  resize: vertical;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 .input-field:focus {

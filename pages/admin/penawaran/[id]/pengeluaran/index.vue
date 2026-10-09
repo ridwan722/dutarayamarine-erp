@@ -1,8 +1,13 @@
 <script setup lang="ts">
+<<<<<<< HEAD
 import { collection, doc, updateDoc } from "firebase/firestore";
 import { useCollection, useDocument, useFirestore } from "vuefire";
 import { persistPengeluaranDocuments } from "~/composables/useInvoiceAresaDigital";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
+=======
+import { doc, updateDoc } from "firebase/firestore";
+import { useDocument, useFirestore } from "vuefire";
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 import type {
   buktiPengeluaranM,
   penawaranM,
@@ -17,6 +22,7 @@ const route = useRoute();
 const db = useFirestore();
 
 const idPenawaran = computed(() => String(route.params.id));
+<<<<<<< HEAD
 const addPengeluaranDialog = ref(false);
 
 const penawaranRef = computed(() => doc(db, "penawaran", idPenawaran.value));
@@ -28,11 +34,18 @@ const { data: penawaran, pending, error } = useDocument(penawaranRef);
 const { data: pengeluaranFileChunks } = useCollection(
   pengeluaranFileChunksRef,
 );
+=======
+
+const penawaranRef = computed(() => doc(db, "penawaran", idPenawaran.value));
+
+const { data: penawaran, pending, error } = useDocument(penawaranRef);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 const detailPenawaran = computed(
   () => penawaran.value as penawaranM | undefined,
 );
 
+<<<<<<< HEAD
 const fileDataUrls = computed(() => {
   const groupedChunks = new Map<
     string,
@@ -81,6 +94,9 @@ const pengeluaran = computed(() => {
       );
     });
 });
+=======
+const pengeluaran = computed(() => detailPenawaran.value?.pengeluaran ?? []);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 /* =====================================================
    EDIT
@@ -88,9 +104,15 @@ const pengeluaran = computed(() => {
 
 const editDialog = ref(false);
 const savingEdit = ref(false);
+<<<<<<< HEAD
 const deletingPengeluaranId = ref<string | null>(null);
 const editIndex = ref<number | null>(null);
 const editFiles = ref<File[]>([]);
+=======
+const editIndex = ref<number | null>(null);
+const editFiles = ref<File[]>([]);
+const MAX_INVOICE_BYTES = 900_000;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 const notificationStore = useNotificationStore();
 
 const editForm = reactive<pengeluaranM>({
@@ -105,7 +127,10 @@ const editForm = reactive<pengeluaranM>({
   lokasi_vendor: "",
   dikeluarkan_oleh: "",
   doc_pengeluaran: [],
+<<<<<<< HEAD
   status_pengeluaran: ""
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 });
 
 /* =====================================================
@@ -130,11 +155,14 @@ const headers = [
     minWidth: "220px",
   },
   {
+<<<<<<< HEAD
     title: "Dikeluarkan oleh",
     key: "dikeluarkan_oleh",
     maxWidth: "100px"
   },
   {
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     title: "NOMINAL",
     key: "nominal",
     align: "end",
@@ -148,6 +176,7 @@ const headers = [
   {
     title: "VENDOR",
     key: "nama_vendor",
+<<<<<<< HEAD
     minWidth: "180px",
   },
 
@@ -161,11 +190,33 @@ const headers = [
     title: "Status",
     key: "status_pengeluaran",
     minWidth: "50px",
+=======
+    minWidth: "160px",
+  },
+  {
+    title: "TELEPON",
+    key: "no_telp_vendor",
+    minWidth: "140px",
+  },
+  {
+    title: "LOKASI",
+    key: "lokasi_vendor",
+    minWidth: "170px",
+  },
+  {
+    title: "Dikeluarkan oleh",
+    key: "dikeluarkan_oleh",
+    minWidth: "150px",
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   },
   {
     title: "AKSI",
     key: "actions",
+<<<<<<< HEAD
     width: "110px",
+=======
+    width: "80px",
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     sortable: false,
     align: "center",
   },
@@ -222,7 +273,10 @@ const openEdit = (item: any, index: number) => {
   editForm.lokasi_vendor = item.lokasi_vendor || "";
   editForm.dikeluarkan_oleh = item.dikeluarkan_oleh || "";
   editForm.doc_pengeluaran = [...(item.doc_pengeluaran || [])];
+<<<<<<< HEAD
   editForm.status_pengeluaran = item.status_pengeluaran || "";
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   editFiles.value = [];
 
   editDialog.value = true;
@@ -304,6 +358,20 @@ const saveEdit = async () => {
       return;
     }
 
+<<<<<<< HEAD
+=======
+    const estimatedFileBytes = editFiles.value.reduce(
+      (total, file) => total + 4 * Math.ceil(file.size / 3),
+      0,
+    );
+    if (estimatedFileBytes > MAX_INVOICE_BYTES) {
+      notificationStore.showError(
+        "Total file bukti terlalu besar. Kurangi ukuran atau jumlah file.",
+      );
+      return;
+    }
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     const newDocuments: buktiPengeluaranM[] = [];
     for (const file of editFiles.value) {
       newDocuments.push({
@@ -313,11 +381,15 @@ const saveEdit = async () => {
         contentType: file.type || "application/octet-stream",
       });
     }
+<<<<<<< HEAD
     const doc_pengeluaran = await persistPengeluaranDocuments(
       idPenawaran.value,
       dataLama.id_pengeluaran,
       [...editForm.doc_pengeluaran, ...newDocuments],
     );
+=======
+    const doc_pengeluaran = [...editForm.doc_pengeluaran, ...newDocuments];
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
     pengeluaranBaru[index] = {
       ...dataLama,
@@ -333,7 +405,10 @@ const saveEdit = async () => {
       no_telp_vendor: editForm.no_telp_vendor,
       lokasi_vendor: editForm.lokasi_vendor,
       dikeluarkan_oleh: editForm.dikeluarkan_oleh,
+<<<<<<< HEAD
       status_pengeluaran: editForm.status_pengeluaran,
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       doc_pengeluaran,
     };
 
@@ -349,6 +424,7 @@ const saveEdit = async () => {
     savingEdit.value = false;
   }
 };
+<<<<<<< HEAD
 
 const deletePengeluaran = async (item: any) => {
   const idPengeluaran = item.id_pengeluaran;
@@ -432,6 +508,12 @@ const previewImage = (dataUrl: string) => {
         </v-card-text>
       </v-card>
     </v-dialog>
+=======
+</script>
+
+<template>
+  <v-container fluid class="expense-page pa-4 pa-md-5">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     <!-- =================================================
          HEADER
     ================================================== -->
@@ -448,6 +530,10 @@ const previewImage = (dataUrl: string) => {
         />
 
         <div>
+<<<<<<< HEAD
+=======
+          <div class="page-eyebrow">PROJECT EXPENSE</div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
           <h1 class="page-title">Pengeluaran Project</h1>
         </div>
@@ -472,7 +558,11 @@ const previewImage = (dataUrl: string) => {
           </div>
 
           <div class="project-reference">
+<<<<<<< HEAD
             <div class="reference-label">QUOTATION NO.</div>
+=======
+            <div class="reference-label">NO. REFERENSI</div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
             <div class="reference-number">
               {{ detailPenawaran?.no_penawaran || idPenawaran }}
@@ -564,6 +654,7 @@ const previewImage = (dataUrl: string) => {
           </div>
         </div>
 
+<<<<<<< HEAD
         <div class="d-flex align-center ga-2">
           <v-chip
             variant="tonal"
@@ -583,6 +674,16 @@ const previewImage = (dataUrl: string) => {
             Tambah Pengeluaran
           </v-btn>
         </div>
+=======
+        <v-chip
+          variant="tonal"
+          size="small"
+          prepend-icon="mdi-format-list-bulleted"
+          class="transaction-chip"
+        >
+          {{ pengeluaran.length }} transaksi
+        </v-chip>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       </div>
 
       <v-divider />
@@ -668,7 +769,11 @@ const previewImage = (dataUrl: string) => {
           <!-- VENDOR -->
 
           <template #item.nama_vendor="{ item }">
+<<<<<<< HEAD
             <div class="vendor-cell mt-2">
+=======
+            <div class="vendor-cell">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               <div class="vendor-icon">
                 <v-icon icon="mdi-store-outline" size="15" />
               </div>
@@ -676,6 +781,7 @@ const previewImage = (dataUrl: string) => {
               <span>
                 {{ item.nama_vendor || "-" }}
               </span>
+<<<<<<< HEAD
               
             </div>
              <div class="vendor-cell mt-2 ml-1">
@@ -693,10 +799,37 @@ const previewImage = (dataUrl: string) => {
               <div>
                 <v-icon icon="mdi-store-outline" size="15" />
               </div>
+=======
+            </div>
+          </template>
+
+          <!-- TELEPON -->
+
+          <template #item.no_telp_vendor="{ item }">
+            <a
+              v-if="item.no_telp_vendor"
+              :href="`tel:${item.no_telp_vendor}`"
+              class="phone-link"
+            >
+              <v-icon icon="mdi-phone-outline" size="14" class="mr-1" />
+
+              {{ item.no_telp_vendor }}
+            </a>
+
+            <span v-else class="text-disabled"> - </span>
+          </template>
+
+          <!-- LOKASI -->
+
+          <template #item.lokasi_vendor="{ item }">
+            <div class="location-cell">
+              <v-icon icon="mdi-map-marker-outline" size="15" class="mr-1" />
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
               <span>
                 {{ item.lokasi_vendor || "-" }}
               </span>
+<<<<<<< HEAD
               
             </div>
           </template>
@@ -753,10 +886,23 @@ const previewImage = (dataUrl: string) => {
     {{ item.status_pengeluaran || "-" }}
   </div>
 </template>
+=======
+            </div>
+          </template>
+
+          <!-- DIKELUARKAN OLEH -->
+
+          <template #item.dikeluarkan_oleh="{ item }">
+            <div class="issued-by-cell">
+              {{ item.dikeluarkan_oleh || "-" }}
+            </div>
+          </template>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
           <!-- AKSI -->
 
           <template #item.actions="{ item, index }">
+<<<<<<< HEAD
             <div class="d-flex align-center justify-center">
               <v-btn
                 icon="mdi-pencil-outline"
@@ -787,6 +933,21 @@ const previewImage = (dataUrl: string) => {
                 </v-tooltip>
               </v-btn>
             </div>
+=======
+            <v-btn
+              icon="mdi-pencil-outline"
+              variant="text"
+              size="small"
+              color="grey-darken-1"
+              @click="openEdit(item, index)"
+            >
+              <v-icon size="18"> mdi-pencil-outline </v-icon>
+
+              <v-tooltip activator="parent" location="top">
+                Edit Pengeluaran
+              </v-tooltip>
+            </v-btn>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </template>
         </v-data-table>
       </div>
@@ -812,6 +973,7 @@ const previewImage = (dataUrl: string) => {
       <div class="edit-modal-card">
         <div class="edit-modal-header">
           <div class="edit-title-group">
+<<<<<<< HEAD
             <v-icon color="primary" size="18"
               >mdi-file-document-edit-outline</v-icon
             >
@@ -862,10 +1024,27 @@ const previewImage = (dataUrl: string) => {
               label="Nominal"
               :disabled="savingEdit"
             />
+=======
+            <v-icon color="primary" size="18">mdi-file-document-edit-outline</v-icon>
+            <span class="edit-modal-title">Edit Pengeluaran</span>
+          </div>
+          <button class="edit-btn-close" :disabled="savingEdit" @click="closeEdit">&times;</button>
+        </div>
+
+        <div class="edit-modal-body">
+          <a-date-picker-new v-model="editForm.tanggal_pengeluaran" label="Tanggal Pengeluaran" :disabled="savingEdit" class="mb-2" />
+          <a-text-field-new v-model="editForm.dikeluarkan_oleh" label="Dikeluarkan Oleh" placeholder="Nama" :disabled="savingEdit" class="my-2" />
+          <a-textarea-new v-model="editForm.keterangan" label="Keterangan" :disabled="savingEdit" />
+          <div class="edit-form-grid">
+            <a-text-field-new v-model="editForm.qty" label="Qty" :disabled="savingEdit" />
+            <a-select-new v-model="editForm.satuan" label="Satuan" :disabled="savingEdit" :items="['Unit', 'Pcs', 'Kg']" />
+            <a-field-number-new v-model="editForm.nominal" label="Nominal" :disabled="savingEdit" />
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
 
           <div class="edit-section-title mt-3">Informasi Vendor</div>
           <div class="edit-form-grid">
+<<<<<<< HEAD
             <a-text-field-new
               v-model="editForm.nama_vendor"
               label="Nama Vendor"
@@ -881,11 +1060,17 @@ const previewImage = (dataUrl: string) => {
               label="Lokasi Vendor"
               :disabled="savingEdit"
             />
+=======
+            <a-text-field-new v-model="editForm.nama_vendor" label="Nama Vendor" :disabled="savingEdit" />
+            <a-text-field-new v-model="editForm.no_telp_vendor" label="No. Telepon Vendor" :disabled="savingEdit" />
+            <a-text-field-new v-model="editForm.lokasi_vendor" label="Lokasi Vendor" :disabled="savingEdit" />
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
 
           <v-divider class="my-2" />
           <div class="edit-upload-row">
             <div class="edit-upload-wrapper">
+<<<<<<< HEAD
               <label for="edit-upload-bukti" class="edit-upload-label"
                 >Bill Upload</label
               >
@@ -940,10 +1125,30 @@ const previewImage = (dataUrl: string) => {
                   >
                     &times;
                   </button>
+=======
+              <label for="edit-upload-bukti" class="edit-upload-label">Bill Upload</label>
+              <div class="edit-upload-box">
+                <input id="edit-upload-bukti" type="file" multiple class="edit-file-input" :disabled="savingEdit" @change="addEditFile" />
+                <div class="edit-upload-icon">↑</div>
+                <div><div class="edit-upload-title">Pilih File</div><div class="edit-upload-info">Maks. 650 KB</div></div>
+              </div>
+            </div>
+            <div v-if="editForm.doc_pengeluaran.length || editFiles.length" class="edit-files-wrapper">
+              <div class="edit-upload-label">File Terpilih</div>
+              <div class="edit-file-list">
+                <div v-for="(file, index) in editForm.doc_pengeluaran" :key="`${file.name}-${index}`" class="edit-file-item">
+                  <div class="edit-file-name">📄 {{ file.name }}</div>
+                  <button type="button" class="edit-file-remove" :disabled="savingEdit" @click="editForm.doc_pengeluaran.splice(index, 1)">&times;</button>
+                </div>
+                <div v-for="(file, index) in editFiles" :key="`${file.name}-${file.lastModified}-${index}`" class="edit-file-item">
+                  <div class="edit-file-name">📄 {{ file.name }}</div>
+                  <button type="button" class="edit-file-remove" :disabled="savingEdit" @click="editFiles.splice(index, 1)">&times;</button>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 </div>
               </div>
             </div>
           </div>
+<<<<<<< HEAD
            <a-select-new
             v-model="editForm.status_pengeluaran"
             :items="['Hutang', 'Lunas']"
@@ -966,6 +1171,13 @@ const previewImage = (dataUrl: string) => {
             :disabled="savingEdit"
             @click="saveEdit"
           >
+=======
+        </div>
+
+        <div class="edit-modal-footer">
+          <button class="edit-btn edit-btn-secondary" :disabled="savingEdit" @click="closeEdit">Batal</button>
+          <button class="edit-btn edit-btn-primary" :disabled="savingEdit" @click="saveEdit">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             {{ savingEdit ? "Memproses..." : "Simpan Pengeluaran" }}
           </button>
         </div>
@@ -1422,6 +1634,7 @@ const previewImage = (dataUrl: string) => {
   background: #f8f9fa;
 }
 
+<<<<<<< HEAD
 .edit-modal-header {
   border-bottom: 1px solid #e9ecef;
 }
@@ -1435,6 +1648,11 @@ const previewImage = (dataUrl: string) => {
   align-items: center;
   gap: 8px;
 }
+=======
+.edit-modal-header { border-bottom: 1px solid #e9ecef; }
+.edit-modal-footer { justify-content: flex-end; gap: 8px; border-top: 1px solid #e9ecef; }
+.edit-title-group { display: flex; align-items: center; gap: 8px; }
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .edit-modal-title {
   font-size: 14px;
   font-weight: 700;
@@ -1447,6 +1665,7 @@ const previewImage = (dataUrl: string) => {
   background: transparent;
   cursor: pointer;
 }
+<<<<<<< HEAD
 .edit-btn-close {
   color: #6c757d;
   font-size: 20px;
@@ -1601,6 +1820,35 @@ const previewImage = (dataUrl: string) => {
     flex-direction: column;
     gap: 12px;
   }
+=======
+.edit-btn-close { color: #6c757d; font-size: 20px; line-height: 1; }
+.edit-modal-body { padding: 12px 16px; overflow-y: auto; }
+.edit-section-title { margin-bottom: 6px; color: #6c757d; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+.edit-form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.edit-upload-row { display: flex; align-items: flex-start; gap: 24px; width: 100%; }
+.edit-upload-wrapper { flex-shrink: 0; }
+.edit-files-wrapper { flex: 1; min-width: 0; }
+.edit-upload-label { display: block; margin-bottom: 6px; color: #334155; font-size: 13px; font-weight: 600; }
+.edit-upload-box { position: relative; display: flex; align-items: center; justify-content: center; gap: 9px; width: 150px; height: 82px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; cursor: pointer; }
+.edit-file-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.edit-upload-icon { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #475569; font-size: 17px; }
+.edit-upload-title { color: #334155; font-size: 12px; font-weight: 600; }
+.edit-upload-info { margin-top: 2px; color: #94a3b8; font-size: 10px; }
+.edit-file-list { display: flex; flex-direction: column; gap: 6px; }
+.edit-file-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 38px; padding: 6px 9px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+.edit-file-name { min-width: 0; overflow: hidden; color: #475569; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.edit-file-remove { flex-shrink: 0; color: #94a3b8; font-size: 18px; line-height: 1; }
+.edit-file-remove:hover:not(:disabled) { color: #dc2626; }
+.edit-btn { padding: 5px 14px; border: 1px solid transparent; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.edit-btn-secondary { border-color: #ced4da; background: #fff; color: #495057; }
+.edit-btn-primary { background: #1976d2; color: #fff; }
+.edit-btn:disabled, .edit-btn-close:disabled, .edit-file-remove:disabled { opacity: .65; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+  .edit-modal-card { max-height: 100vh; border-radius: 0; }
+  .edit-form-grid { grid-template-columns: 1fr; }
+  .edit-upload-row { flex-direction: column; gap: 12px; }
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 /* =====================================================

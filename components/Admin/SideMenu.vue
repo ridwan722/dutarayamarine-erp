@@ -34,13 +34,21 @@
 
     <!-- <v-list-item
       class="nav-item mb-1"
+<<<<<<< HEAD
       title="Kas (new)"
+=======
+      title="Petty Cash (new)"
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       prepend-icon="mdi-cash-multiple"
       @click="openPinDialog"
     /> -->
     <v-list-item
       class="nav-item mb-1"
+<<<<<<< HEAD
       title="Kas"
+=======
+      title="Petty Cash"
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       prepend-icon="mdi-cash-multiple"
       to="/admin/petty-cash"
     />
@@ -58,7 +66,11 @@
           v-bind="props"
           class="nav-item"
           prepend-icon="mdi-receipt-text-outline"
+<<<<<<< HEAD
           title="INV Duta Raya Marine"
+=======
+          title="INV Solusi Nusa Segara"
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         />
       </template>
 
@@ -89,7 +101,11 @@
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
         </div>
+<<<<<<< HEAD
         <h3>PIN Akses Kas</h3>
+=======
+        <h3>PIN Akses Petty Cash</h3>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         <p>Silakan masukkan PIN keamanan Anda untuk melanjutkan</p>
       </div>
 

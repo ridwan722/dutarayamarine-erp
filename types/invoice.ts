@@ -27,11 +27,17 @@ export interface invoiceM {
   id?: string;
   id_invoice?: string;
   no_inv: string;
+<<<<<<< HEAD
 
+=======
+  no_preorder?:string;
+  doc_preorder?: invoicePoDocumentM[];
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   id_customer: string;
   nama_customer: string;
   alamat_customer: string;
   vessel: string;
+<<<<<<< HEAD
   no_telp: string;
   email: string;
   pic: string,
@@ -40,6 +46,13 @@ export interface invoiceM {
   no_penawaran?: string,
   tanggal_penawaran?: string,
 
+=======
+  id_penawaran?: string,
+  no_penawaran?: string,
+  no_telp: string;
+  email: string;
+  pic: string,
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   tanggal: string;
   perihal: string;
   item_pekerjaan: invoiceItemM[];
@@ -47,7 +60,10 @@ export interface invoiceM {
   subtotal_invoice: number;
   ppn: number;
   grandtotal_invoice: number;
+<<<<<<< HEAD
 sign_by: string,
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   status: string;
   createdAt: number;
   createdBy: string;
@@ -55,6 +71,7 @@ sign_by: string,
   dikirimBy?: string;
   selesaiAt?: number;
   selesaiBy?: string;
+<<<<<<< HEAD
 
   termCondition: termconditionM[];
 
@@ -67,4 +84,11 @@ sign_by: string,
   doc_bukti_bayar: invoiceBuktiBayarM[]
   down_payment: false,
   dp_persen: 0,
+=======
+  termCondition: termconditionM[];
+
+  // BUKTI BAYAR
+  tanggal_bayar: string,
+  doc_bukti_bayar: invoiceBuktiBayarM[]
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }

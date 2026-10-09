@@ -10,7 +10,10 @@ import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-peng
 import { ref } from "vue";
 
 const activeTab = ref(0);
+<<<<<<< HEAD
 const purchaseorderPreviewKey = ref(0);
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
 definePageMeta({ layout: "admin" });
 
@@ -36,7 +39,10 @@ const data = reactive({
   pageKategori: 1,
   dialogPenawaran: false,
   dialogAddPengeluaran: false,
+<<<<<<< HEAD
   dialogPurchaseOrder: false,
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
   new_pemberkasan: {
     id_dokumen: "",
@@ -85,12 +91,15 @@ async function opendialogaddpengeluaran() {
     :penawaran="detailpenawaran"
   />
 
+<<<<<<< HEAD
   <admin-penawaran-dialog-purchaseorder
     v-model="data.dialogPurchaseOrder"
     :penawaran="detailpenawaran"
     @saved="purchaseorderPreviewKey++"
   />
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   <div v-if="detailpenawaran" class="quotation-page">
     <!-- STICKY HEADER WRAPPER -->
     <header class="top-sticky-container">
@@ -109,9 +118,15 @@ async function opendialogaddpengeluaran() {
         </div>
 
         <div class="page-heading">
+<<<<<<< HEAD
 
             <h1 class="page-title">Detail Quotation</h1>
 
+=======
+          <div>
+            <h1 class="page-title">Detail Quotation</h1>
+          </div>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         </div>
       </div>
     </header>
@@ -166,6 +181,7 @@ async function opendialogaddpengeluaran() {
                   {{ detailpenawaran.nama_perusahaan || "-" }}
                 </div>
               </div>
+<<<<<<< HEAD
             </div>
 
             <div class="info-card-footer text-center">
@@ -229,6 +245,72 @@ async function opendialogaddpengeluaran() {
                   Lihat Catatan Pengeluaran
                 </v-btn>
               </div>
+=======
+
+              <div class="info-field">
+                <div class="field-label">PIC</div>
+                <div class="contact-row">
+                  <div class="contact-icon">
+                    <v-icon size="16"> mdi-account-outline </v-icon>
+                  </div>
+                  <span>{{ detailpenawaran.pic || "-" }}</span>
+
+                  <div class="contact-icon">
+                    <v-icon size="16"> mdi-phone-outline </v-icon>
+                  </div>
+                  <span>{{ detailpenawaran.no_telp || "-" }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-card-footer text-center">
+              <v-btn
+                :disabled="detailpenawaran.status == 'INVOICE'"
+                block
+                color="orange"
+                variant="flat"
+                size="small"
+                prepend-icon="mdi-file-document-plus-outline"
+                class="invoice-button"
+                @click="opendialogaddinv"
+              >
+                Buat Invoice
+              </v-btn>
+
+              <div
+                v-if="detailpenawaran.status == 'INVOICE'"
+                class="d-flex align-center justify-center mt-2"
+              >
+                <v-icon size="15" color="red">mdi-information-outline</v-icon>
+                <span class="text-red text-caption ml-1"
+                  >Invoice telah dibuat</span
+                >
+              </div>
+
+              <v-btn
+                block
+                color="primary"
+                variant="flat"
+                size="small"
+                prepend-icon="mdi-export"
+                class="invoice-button mb-3 mt-3"
+                @click="opendialogaddpengeluaran"
+              >
+                Buat Catatan Pengeluaran
+              </v-btn>
+
+              <v-btn
+                :to="`/admin/penawaran/${encodeURIComponent(String(route.params.id))}/pengeluaran`"
+                block
+                color="primary"
+                variant="outlined"
+                size="small"
+                class="mb-3"
+                append-icon="mdi-open-in-new"
+              >
+                Lihat Catatan Pengeluaran
+              </v-btn>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             </div>
           </section>
         </aside>
@@ -275,11 +357,14 @@ async function opendialogaddpengeluaran() {
           </div>
 
           <canvas-penawaran :detailpenawaran="detailpenawaran" />
+<<<<<<< HEAD
           <v-divider opacity="100" thickness="2" class="mb-5"></v-divider>
           <canvas-purchaseorder
             :key="purchaseorderPreviewKey"
             :detailpenawaran="detailpenawaran"
           />
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         </main>
       </div>
     </div>
@@ -333,7 +418,11 @@ async function opendialogaddpengeluaran() {
 
 .page-title {
   margin: 0;
+<<<<<<< HEAD
   font-size: 18px;
+=======
+  font-size: 24px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   line-height: 1.2;
   font-weight: 800;
   color: #172033;
@@ -745,6 +834,7 @@ async function opendialogaddpengeluaran() {
     font-size: 12px !important;
   }
 }
+<<<<<<< HEAD
 
 .action-buttons {
   display: flex;
@@ -825,4 +915,6 @@ async function opendialogaddpengeluaran() {
 .invoice-status .v-icon {
   color: #16a34a !important;
 }
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 </style>

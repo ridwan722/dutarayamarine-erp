@@ -367,7 +367,11 @@ const handleSavePdf = async () => {
     // invoiceDetail adalah props, JANGAN pakai .value
     const invoiceId = props.invoiceDetail?.id || "DO";
 
+<<<<<<< HEAD
     pdf.save(`Delivery-Order-DRM-${year}.pdf`);
+=======
+    pdf.save(`Delivery-Order-SNS-${year}.pdf`);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   } catch (error) {
     console.error("Gagal menyimpan PDF Delivery Order:", error);
 
@@ -389,12 +393,20 @@ const handleSavePdf = async () => {
         <div class="header-section text-center mb-6">
           <div class="d-flex align-center justify-center mb-2">
             <img
+<<<<<<< HEAD
               src="/Logo-DRM.png"
+=======
+              src="/Logo-SNS.png"
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               class="logo-header mr-3"
               alt="Logo Perusahaan"
             />
 
+<<<<<<< HEAD
             <h1 class="company-name">PT. DUTA RAYA MARINE</h1>
+=======
+            <h1 class="company-name">CV. SOLUSI NUSA SEGARA</h1>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
 
           <div class="company-address">
@@ -403,7 +415,11 @@ const handleSavePdf = async () => {
 
             <br />
 
+<<<<<<< HEAD
             Hp. +62853 6201 8099
+=======
+            Hp. +62821 9998 8670
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
           </div>
 
           <div class="document-title mt-4">DELIVERY ORDER</div>
@@ -457,7 +473,11 @@ const handleSavePdf = async () => {
 
                 <td>:</td>
 
+<<<<<<< HEAD
                 <td>INV/DRM/2026/{{ invoiceDetail.no_inv }}</td>
+=======
+                <td>INV/SNS/2026/{{ invoiceDetail.no_inv }}</td>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
               </tr>
 
               <tr>

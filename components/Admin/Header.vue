@@ -1,5 +1,9 @@
 <script setup>
+<<<<<<< HEAD
 import { computed, ref } from "vue";
+=======
+import { computed } from "vue";
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 import { useDisplay } from "vuetify";
 import { useUserStore } from "@/stores/userStore";
 import { getAuth, signOut } from "firebase/auth";
@@ -15,6 +19,7 @@ const displayname = computed(() => useuser.getDisplayName || "Admin");
 const role = computed(() => useuser.getRole || "Administrator");
 
 /* =========================
+<<<<<<< HEAD
    QUOTATION FLOW DIALOG
 ========================= */
 const dialogQuotationFlow = ref(false);
@@ -98,6 +103,8 @@ const nextInvoiceSlide = () => {
 };
 
 /* =========================
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
    LOGOUT
 ========================= */
 const logout = async () => {
@@ -114,6 +121,7 @@ const logout = async () => {
 </script>
 
 <template>
+<<<<<<< HEAD
   <!-- DIALOG QUOTATION FLOW -->
   <v-dialog
     v-model="dialogQuotationFlow"
@@ -301,6 +309,9 @@ const logout = async () => {
   </v-dialog>
 
   <!-- SIDE NAVIGATION DRAWER -->
+=======
+  <!-- SIDE NAVIGATION DRAWER (Corporate Minimalist Rail) -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   <v-navigation-drawer
     v-if="mdAndUp"
     permanent
@@ -309,15 +320,32 @@ const logout = async () => {
     rail-width="72"
     class="desktop-side-menu"
   >
+<<<<<<< HEAD
     <div class="side-brand-header">
       <div class="mini-logo-box">
         <img src="/Logo-DRM.png" alt="DRM Logo" class="mini-logo-img" />
+=======
+    <!-- BRAND / MINI LOGO HEADER -->
+    <div class="side-brand-header">
+      <div class="mini-logo-box">
+        <img
+          src="/public/Logo-SNS.png"
+          alt="SNS Logo"
+          class="mini-logo-img"
+        />
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       </div>
     </div>
 
     <v-divider class="mx-3 my-2 border-opacity-25" />
 
+<<<<<<< HEAD
     <v-list nav density="compact" class="side-nav-list px-2">
+=======
+    <!-- NAVIGATION ITEMS -->
+    <v-list nav density="compact" class="side-nav-list px-2">
+      <!-- Dashboard -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/"
         class="side-nav-item"
@@ -330,6 +358,10 @@ const logout = async () => {
         <span class="nav-title-flyout">Dashboard</span>
       </v-list-item>
 
+<<<<<<< HEAD
+=======
+      <!-- Quotation -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/penawaran"
         class="side-nav-item"
@@ -341,6 +373,10 @@ const logout = async () => {
         <span class="nav-title-flyout">Quotation</span>
       </v-list-item>
 
+<<<<<<< HEAD
+=======
+      <!-- Invoice -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/invoice"
         class="side-nav-item"
@@ -353,6 +389,10 @@ const logout = async () => {
         <span class="nav-title-flyout">Invoice</span>
       </v-list-item>
 
+<<<<<<< HEAD
+=======
+      <!-- Invoice Success -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/invoice/selesai"
         class="side-nav-item"
@@ -364,7 +404,12 @@ const logout = async () => {
         <span class="nav-title-flyout">Invoice Success</span>
       </v-list-item>
 
+<<<<<<< HEAD
       <!-- <v-list-item
+=======
+      <!-- Berita Acara -->
+      <v-list-item
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         to="/admin/berita-acara"
         class="side-nav-item"
         active-class="side-nav-item--active"
@@ -373,8 +418,26 @@ const logout = async () => {
           <v-icon size="20">mdi-file-certificate-outline</v-icon>
         </div>
         <span class="nav-title-flyout">Berita Acara</span>
+<<<<<<< HEAD
       </v-list-item> -->
 
+=======
+      </v-list-item>
+
+      <!-- Master User -->
+      <!-- <v-list-item
+        to="/admin/master/users"
+        class="side-nav-item"
+        active-class="side-nav-item--active"
+      >
+        <div class="nav-icon-wrapper">
+          <v-icon size="20">mdi-account-group-outline</v-icon>
+        </div>
+        <span class="nav-title-flyout">User Management</span>
+      </v-list-item> -->
+
+      <!-- Master Client -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/master/client"
         class="side-nav-item"
@@ -386,6 +449,7 @@ const logout = async () => {
         <span class="nav-title-flyout">Master Client</span>
       </v-list-item>
 
+<<<<<<< HEAD
       <v-list-item
         to="/admin/master/vendor"
         class="side-nav-item"
@@ -397,6 +461,9 @@ const logout = async () => {
         <span class="nav-title-flyout">Master Vendor</span>
       </v-list-item>
 
+=======
+      <!-- Master Barang / Service -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/master/barang"
         class="side-nav-item"
@@ -408,6 +475,10 @@ const logout = async () => {
         <span class="nav-title-flyout">Master Barang / Service</span>
       </v-list-item>
 
+<<<<<<< HEAD
+=======
+      <!-- Master T&C -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/master/termcondition"
         class="side-nav-item"
@@ -419,6 +490,10 @@ const logout = async () => {
         <span class="nav-title-flyout">Master T&C</span>
       </v-list-item>
 
+<<<<<<< HEAD
+=======
+      <!-- Kas -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/petty-cash"
         class="side-nav-item"
@@ -430,6 +505,10 @@ const logout = async () => {
         <span class="nav-title-flyout">Kas</span>
       </v-list-item>
 
+<<<<<<< HEAD
+=======
+      <!-- Report Order -->
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       <v-list-item
         to="/admin/report-order"
         class="side-nav-item"
@@ -440,6 +519,7 @@ const logout = async () => {
         </div>
         <span class="nav-title-flyout">Report Order</span>
       </v-list-item>
+<<<<<<< HEAD
 
        <v-list-item
         to="/admin/legalitas"
@@ -452,6 +532,8 @@ const logout = async () => {
         <span class="nav-title-flyout">Legalitas</span>
       </v-list-item>
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     </v-list>
   </v-navigation-drawer>
 
@@ -459,22 +541,40 @@ const logout = async () => {
   <v-app-bar flat color="white" height="68" class="app-bar-border">
     <template #prepend>
       <div class="header-left">
+<<<<<<< HEAD
         <div v-if="!mdAndUp" class="logo-box">
           <img
             src="/Logo-DRM.png"
             alt="PT. DUTA RAYA MARINE"
+=======
+        <div class="logo-box" v-if="!mdAndUp">
+          <img
+            src="/public/Logo-SNS.png"
+            alt="CV. SOLUSI NUSA SEGARA"
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
             class="logo-img"
           />
         </div>
 
         <div class="company-info">
           <span class="company-name desktop-company">
+<<<<<<< HEAD
             PT. DUTA RAYA MARINE
           </span>
 
           <span class="company-name mobile-company"> PT. DUTA RAYA MARINE </span>
 
           <span class="company-subtitle"> Enterprise Management </span>
+=======
+            CV. SOLUSI NUSA SEGARA
+          </span>
+
+          <span class="company-name mobile-company">
+            CV. SOLUSI NUSA SEGARA
+          </span>
+
+          <span class="company-subtitle"> Enterprise Management System </span>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         </div>
 
         <v-chip
@@ -483,16 +583,23 @@ const logout = async () => {
           variant="outlined"
           class="version-chip"
         >
+<<<<<<< HEAD
           V 1.2
         </v-chip>
 
         <!-- Home Button (Desktop) -->
+=======
+          v1.1
+        </v-chip>
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         <v-btn
           variant="outlined"
           color="primary"
           size="small"
           prepend-icon="mdi-home-outline"
           to="/admin"
+<<<<<<< HEAD
           class="text-capitalize font-weight-bold ml-2 d-none d-md-flex"
         >
           Home
@@ -531,6 +638,12 @@ const logout = async () => {
             </v-btn>
           </template>
         </v-tooltip>
+=======
+          class="text-capitalize font-weight-bold ml-2"
+        >
+          Home
+        </v-btn>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
       </div>
     </template>
 
@@ -538,6 +651,7 @@ const logout = async () => {
 
     <template #append>
       <div class="header-right">
+<<<<<<< HEAD
         <!-- Flow Buttons for Mobile Only -->
         <v-btn
           icon="mdi-file-document-outline"
@@ -559,19 +673,29 @@ const logout = async () => {
           @click="openInvoiceFlow"
         />
 
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         <v-btn
           icon
           variant="text"
           size="small"
           color="slate-600"
+<<<<<<< HEAD
           class="notification-btn d-none d-sm-flex"
+=======
+          class="notification-btn"
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
         >
           <v-badge dot color="error" offset-x="-2" offset-y="-2">
             <v-icon size="20"> mdi-bell-outline </v-icon>
           </v-badge>
         </v-btn>
 
+<<<<<<< HEAD
         <v-divider vertical inset class="header-divider d-none d-sm-flex" />
+=======
+        <v-divider vertical inset class="header-divider" />
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 
         <v-menu
           rounded="xl"
@@ -586,13 +710,21 @@ const logout = async () => {
               class="user-profile-btn"
               height="48"
             >
+<<<<<<< HEAD
               <v-avatar size="32" class="avatar-shadow">
+=======
+              <v-avatar size="36" class="avatar-shadow">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 <div class="avatar-placeholder text-uppercase font-weight-bold">
                   {{ displayname[0] }}
                 </div>
               </v-avatar>
 
+<<<<<<< HEAD
               <div class="user-info d-none d-md-block">
+=======
+              <div class="user-info">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 <p class="user-name">
                   {{ displayname }}
                 </p>
@@ -602,7 +734,11 @@ const logout = async () => {
                 </p>
               </div>
 
+<<<<<<< HEAD
               <v-icon size="18" class="profile-chevron d-none d-md-block">
+=======
+              <v-icon size="18" class="profile-chevron">
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
                 mdi-chevron-down
               </v-icon>
             </v-btn>
@@ -679,6 +815,7 @@ const logout = async () => {
 
 <style scoped>
 /* =========================================================
+<<<<<<< HEAD
    OVERLAY Z-INDEX FIX
 ========================================================= */
 :deep(.v-overlay-container) {
@@ -815,12 +952,18 @@ const logout = async () => {
 }
 
 /* =========================================================
+=======
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
    CORPORATE MINIMALIST SIDE NAVIGATION DRAWER
 ========================================================= */
 
 .desktop-side-menu {
   border-right: 1px solid #e2e8f0 !important;
+<<<<<<< HEAD
   background-color: #0f172a !important;
+=======
+  background-color: #0f172a !important; /* Corporate Slate Dark Theme */
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   overflow: visible !important;
 }
 
@@ -830,6 +973,10 @@ const logout = async () => {
   flex-direction: column;
 }
 
+<<<<<<< HEAD
+=======
+/* BRAND LOGO HEADER */
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .side-brand-header {
   display: flex;
   align-items: center;
@@ -861,6 +1008,10 @@ const logout = async () => {
   object-fit: contain;
 }
 
+<<<<<<< HEAD
+=======
+/* NAVIGATION LIST & ITEMS */
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .side-nav-list {
   display: flex;
   flex-direction: column;
@@ -880,6 +1031,10 @@ const logout = async () => {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
+<<<<<<< HEAD
+=======
+/* Reset Inner Elements Vuetify agar Rata Tengah Presisi */
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .side-nav-item :deep(.v-list-item__content) {
   width: 100% !important;
   height: 100% !important;
@@ -895,6 +1050,10 @@ const logout = async () => {
   border-radius: 10px !important;
 }
 
+<<<<<<< HEAD
+=======
+/* Wrapper Ikon Center */
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .nav-icon-wrapper {
   width: 100%;
   height: 100%;
@@ -905,17 +1064,28 @@ const logout = async () => {
 
 .nav-icon-wrapper .v-icon {
   color: #94a3b8;
+<<<<<<< HEAD
   transition:
     color 0.2s ease,
     transform 0.2s ease;
 }
 
+=======
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+/* TOOLTIP / FLYOUT TEXT HOVER */
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .nav-title-flyout {
   position: absolute;
   left: 56px;
   top: 50%;
   transform: translateY(-50%);
+<<<<<<< HEAD
   background-color: #0f172a;
+=======
+  background-color: #144e84;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   color: #f8fafc;
   padding: 6px 14px;
   border-radius: 6px;
@@ -923,9 +1093,14 @@ const logout = async () => {
   font-weight: 600;
   letter-spacing: 0.2px;
   white-space: nowrap;
+<<<<<<< HEAD
   box-shadow:
     0 10px 15px -3px rgba(0, 0, 0, 0.3),
     0 4px 6px -4px rgba(0, 0, 0, 0.2);
+=======
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3),
+              0 4px 6px -4px rgba(0, 0, 0, 0.2);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   border: 1px solid rgba(255, 255, 255, 0.12);
   opacity: 0;
   visibility: hidden;
@@ -934,6 +1109,10 @@ const logout = async () => {
   z-index: 999;
 }
 
+<<<<<<< HEAD
+=======
+/* Hover States */
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .side-nav-item:hover {
   background-color: rgba(255, 255, 255, 0.06) !important;
   color: #ffffff !important;
@@ -950,6 +1129,10 @@ const logout = async () => {
   left: 62px;
 }
 
+<<<<<<< HEAD
+=======
+/* Active State (Red SNS Accent) */
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 .side-nav-item--active {
   background-color: rgba(220, 38, 38, 0.12) !important;
 }
@@ -961,12 +1144,20 @@ const logout = async () => {
   top: 15%;
   height: 70%;
   width: 3px;
+<<<<<<< HEAD
   background-color: #ef4444;
+=======
+  background-color: #4480ef;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   border-radius: 0 4px 4px 0;
 }
 
 .side-nav-item--active .nav-icon-wrapper .v-icon {
+<<<<<<< HEAD
   color: #ef4444 !important;
+=======
+  color: #447aef !important;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 /* =========================================================
@@ -983,13 +1174,22 @@ const logout = async () => {
 .header-left {
   display: flex;
   align-items: center;
+<<<<<<< HEAD
   gap: 8px;
+=======
+  gap: 12px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   min-width: 0;
 }
 
 .logo-box {
+<<<<<<< HEAD
   width: 32px;
   height: 32px;
+=======
+  width: 38px;
+  height: 38px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -997,8 +1197,13 @@ const logout = async () => {
 }
 
 .logo-img {
+<<<<<<< HEAD
   width: 30px;
   height: 30px;
+=======
+  width: 36px;
+  height: 36px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   object-fit: contain;
 }
 
@@ -1010,16 +1215,27 @@ const logout = async () => {
 }
 
 .company-name {
+<<<<<<< HEAD
   font-size: 13px;
   font-weight: 700;
   color: #0f172a;
   letter-spacing: 0.2px;
+=======
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.3px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   white-space: nowrap;
 }
 
 .company-subtitle {
   margin-top: 1px;
+<<<<<<< HEAD
   font-size: 10px;
+=======
+  font-size: 11px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   color: #64748b;
   white-space: nowrap;
 }
@@ -1047,7 +1263,11 @@ const logout = async () => {
 .user-profile-btn {
   text-transform: none !important;
   border-radius: 12px !important;
+<<<<<<< HEAD
   padding: 4px 6px !important;
+=======
+  padding: 4px 8px !important;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   min-width: auto !important;
   transition: background-color 0.2s ease;
 }
@@ -1058,7 +1278,11 @@ const logout = async () => {
 
 .user-info {
   text-align: left;
+<<<<<<< HEAD
   margin-left: 8px;
+=======
+  margin-left: 10px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   min-width: 0;
 }
 
@@ -1067,7 +1291,11 @@ const logout = async () => {
   font-size: 13px;
   font-weight: 700;
   color: #0f172a;
+<<<<<<< HEAD
   max-width: 120px;
+=======
+  max-width: 140px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1077,19 +1305,31 @@ const logout = async () => {
   margin: 1px 0 0;
   font-size: 11px;
   color: #64748b;
+<<<<<<< HEAD
   max-width: 120px;
+=======
+  max-width: 140px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .profile-chevron {
+<<<<<<< HEAD
   margin-left: 4px;
+=======
+  margin-left: 6px;
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   color: #94a3b8;
 }
 
 .avatar-placeholder {
+<<<<<<< HEAD
   background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+=======
+  background: linear-gradient(135deg, #2669dc 0%, #1b4f99 100%);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
   color: white;
   width: 100%;
   height: 100%;
@@ -1099,7 +1339,11 @@ const logout = async () => {
 }
 
 .avatar-shadow {
+<<<<<<< HEAD
   box-shadow: 0 2px 6px rgba(220, 38, 38, 0.2);
+=======
+  box-shadow: 0 2px 6px rgba(38, 108, 220, 0.2);
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 }
 
 .profile-card {
@@ -1145,6 +1389,28 @@ const logout = async () => {
   display: none;
 }
 
+<<<<<<< HEAD
+=======
+@media (max-width: 800px) {
+  .header-left {
+    gap: 8px;
+  }
+
+  .company-name {
+    font-size: 12.5px;
+  }
+
+  .version-chip {
+    display: none;
+  }
+
+  .user-name,
+  .user-role {
+    max-width: 100px;
+  }
+}
+
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
 @media (max-width: 600px) {
   .desktop-company {
     display: none;
@@ -1154,18 +1420,35 @@ const logout = async () => {
     display: inline;
   }
 
+<<<<<<< HEAD
   .company-subtitle {
     display: none;
   }
 
   .version-chip {
+=======
+  .version-chip,
+  .notification-btn,
+  .header-divider,
+  .user-info,
+  .profile-chevron {
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
     display: none;
   }
 
   .user-profile-btn {
+<<<<<<< HEAD
     padding: 2px !important;
     min-width: 36px !important;
     width: 36px !important;
   }
 }
 </style>
+=======
+    padding: 4px !important;
+    min-width: 42px !important;
+    width: 42px !important;
+  }
+}
+</style>
+>>>>>>> 717d304032bc7ebad99f749429671328a324848a
