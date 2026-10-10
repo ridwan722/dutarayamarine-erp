@@ -672,12 +672,20 @@ const currencyCode = computed(() => {
   return currency === "USD" || currency === "SGD" ? currency : "IDR";
 });
 const currencyLabel = computed(() => ({ IDR: "IDR", USD: "USD", SGD: "SGD" }[currencyCode.value]));
-const formatCurrency = (value: number | null | undefined) =>
-  new Intl.NumberFormat(lang.value === "id" ? "id-ID" : "en-SG", {
+const formatCurrency = (value: number | null | undefined) => {
+  const amount = Number(value) || 0;
+  const locale = lang.value === "id" ? "id-ID" : "en-SG";
+
+  if (currencyCode.value === "IDR") {
+    return `Rp ${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(amount)}`;
+  }
+
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: currencyCode.value,
-    maximumFractionDigits: currencyCode.value === "IDR" ? 0 : 2,
-  }).format(Number(value) || 0);
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
 
 const loadWatermarkImage = (): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {

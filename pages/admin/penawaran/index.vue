@@ -21,7 +21,7 @@
   >
     <v-card class="rounded-xl-md overflow-hidden elevation-3 border-0">
       <v-card-item class="pa-2 bg-primary text-center">
-        <h4 class="font-weight-bold  text-h6 text-sm-h5">
+        <h4 class="font-weight-bold text-h6 text-sm-h5">
           {{ data.penawaranAddEdit === "add" ? "Create" : "Edit" }} Quotation
         </h4>
         <!-- <p class="text-caption text-grey-darken-1 m-0">
@@ -53,7 +53,6 @@
           v-model="newPenawaran.alamat_perusahaan"
           placeholder="Address"
           disabled
-          
         />
         <v-row no-gutters>
           <v-col cols="6" md="3" class="pa-1">
@@ -61,7 +60,6 @@
               v-model="newPenawaran.pic"
               placeholder="PIC"
               disabled
-              
             />
           </v-col>
           <v-col cols="6" md="3" class="pa-1">
@@ -69,7 +67,6 @@
               v-model="newPenawaran.no_telp"
               placeholder="Phone Number"
               disabled
-              
             />
           </v-col>
           <v-col cols="6" md="3" class="pa-1">
@@ -84,7 +81,6 @@
               v-model="newPenawaran.vessel"
               placeholder="Vessel"
               disabled
-              
             />
           </v-col>
         </v-row>
@@ -145,10 +141,9 @@
               Suggestion (Hpp):
             </span>
             <v-chip
-              v-for="(barang, idxBarang) in
-                activeSuggestionIndex === index
-                  ? barangSesuaiNama(item.nama)
-                  : []"
+              v-for="(barang, idxBarang) in activeSuggestionIndex === index
+                ? barangSesuaiNama(item.nama)
+                : []"
               :key="barang.id ?? idxBarang"
               size="x-small"
               class="mr-1 mb-1 text-grey"
@@ -172,10 +167,11 @@
                 label="Barang & Jasa"
                 class="ml-2"
                 :model-value="item.kategori_item === 'Barang & Jasa'"
-                @update:model-value="setKategoriItem(item, 'Barang & Jasa', $event)"
+                @update:model-value="
+                  setKategoriItem(item, 'Barang & Jasa', $event)
+                "
               />
             </div>
-
 
             <v-row density="compact" no-gutters>
               <v-col cols="6" sm="2" class="pa-1">
@@ -208,9 +204,22 @@
               <v-col cols="12" sm="2" class="pa-1">
                 <a-field-number-new
                   v-model="item.harga_hpp"
-                  label="Hpp (Ops.)"
+                  label="Hpp (Opsional)"
                   placeholder="0"
                 />
+                <v-chip
+                  v-for="persentase in [10, 20, 30]"
+                  :key="persentase"
+                  size="x-small"
+                  class="mr-1 mt-1"
+                  :disabled="!Number(item.harga_hpp)"
+                  @click="terapkanMarkup(item, persentase)"
+                >
+                  <v-icon start size="small"
+                    >mdi-arrow-up-drop-circle-outline</v-icon
+                  >
+                  {{ persentase }}%
+                </v-chip>
               </v-col>
               <v-col cols="12" sm="3" class="pa-1">
                 <a-field-number-new
@@ -221,10 +230,12 @@
               </v-col>
               <v-col cols="12" sm="3" class="pa-1">
                 <a-text-field-new
-                  :model-value="formatCurrency(
-                    Number(item.qty || 0) * Number(item.amount || 0),
-                    newPenawaran.currency,
-                  )"
+                  :model-value="
+                    formatCurrency(
+                      Number(item.qty || 0) * Number(item.amount || 0),
+                      newPenawaran.currency,
+                    )
+                  "
                   label="Subtotal"
                   placeholder="0"
                   disabled
@@ -264,7 +275,6 @@
         </div>
 
         <v-divider class="my-4 border-opacity-50" />
-
 
         <v-card variant="flat" class="bg-blue-grey-lighten-5 rounded-xl pa-4">
           <div class="d-flex justify-space-between align-center">
@@ -467,7 +477,7 @@
   <v-card class="border rounded-lg" flat>
     <v-card-title class="pa-3 pa-sm-4">
       <div class="d-flex align-center gap-2">
-        <div class="flex-grow-1" style="display: flex; align-items: center;">
+        <div class="flex-grow-1" style="display: flex; align-items: center">
           <a-text-field-new
             v-model="data.searchPenawaran"
             placeholder="Cari semua kolom penawaran"
@@ -485,7 +495,7 @@
             <v-icon size="20">mdi-close-circle-outline</v-icon>
           </v-btn>
         </div>
-         <v-btn
+        <v-btn
           size="x-small"
           class="border mb-2"
           @click="tariksemua"
@@ -548,7 +558,9 @@
       </template>
 
       <template v-slot:item.grand_total="{ item }">
-        <strong>{{ formatCurrency(item.grand_total_penawaran, item.currency) }}</strong>
+        <strong>{{
+          formatCurrency(item.grand_total_penawaran, item.currency)
+        }}</strong>
       </template>
 
       <template v-slot:item.status="{ item }">
@@ -914,8 +926,12 @@ function openDialogEditPenawaran(item: penawaranM) {
   const customers = customerStore.getDataCustomer;
   const customer =
     customers.find((dataCustomer) => dataCustomer.id === item.id_perusahaan) ??
-    customers.find((dataCustomer) => dataCustomer.nama === item.id_perusahaan) ??
-    customers.find((dataCustomer) => dataCustomer.nama === item.nama_perusahaan);
+    customers.find(
+      (dataCustomer) => dataCustomer.nama === item.id_perusahaan,
+    ) ??
+    customers.find(
+      (dataCustomer) => dataCustomer.nama === item.nama_perusahaan,
+    );
 
   const penawaran = JSON.parse(JSON.stringify(item)) as penawaranM;
   penawaran.termCondition ??= [];
@@ -950,6 +966,16 @@ function setKategoriItem(
   if (checked) item.kategori_item = kategori;
 }
 
+function terapkanMarkup(
+  item: { harga_hpp: number; amount: number },
+  persentase: number,
+) {
+  const hargaHpp = Number(item.harga_hpp) || 0;
+  if (hargaHpp <= 0) return;
+
+  item.amount = hargaHpp * (1 + persentase / 100);
+}
+
 async function hapusBarisPenawaran(index: number) {
   if (newPenawaran.value.penawaran_item.length === 1) {
     return notificationStore.showError("Minimal harus ada 1 baris item");
@@ -979,7 +1005,10 @@ async function sinkronkanBarangDariPenawaran() {
 
     if (barangLama) {
       if (Number(barangLama.harga_hpp) !== hargaHpp) {
-        await barangStore.updateBarangAct({ ...barangLama, harga_hpp: hargaHpp });
+        await barangStore.updateBarangAct({
+          ...barangLama,
+          harga_hpp: hargaHpp,
+        });
       }
       continue;
     }

@@ -25,19 +25,19 @@ const pengeluaranFileChunksRef = computed(() =>
 );
 
 const { data: penawaran, pending, error } = useDocument(penawaranRef);
-const { data: pengeluaranFileChunks } = useCollection(
-  pengeluaranFileChunksRef,
-);
+const { data: pengeluaranFileChunks } = useCollection(pengeluaranFileChunksRef);
 
 const detailPenawaran = computed(
   () => penawaran.value as penawaranM | undefined,
 );
 
+const getTanggalPengeluaranTimestamp = (tanggal: string) => {
+  const timestamp = new Date(tanggal).getTime();
+  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+};
+
 const fileDataUrls = computed(() => {
-  const groupedChunks = new Map<
-    string,
-    { index: number; data: string }[]
-  >();
+  const groupedChunks = new Map<string, { index: number; data: string }[]>();
   for (const chunk of pengeluaranFileChunks.value ?? []) {
     const fileId = chunk.fileId as string | undefined;
     if (!fileId) continue;
@@ -75,10 +75,16 @@ const pengeluaran = computed(() => {
       })),
     }))
     .sort((a, b) => {
-      return (
-        new Date(b.tanggal_pengeluaran).getTime() -
-        new Date(a.tanggal_pengeluaran).getTime()
-      );
+      const timestampA = getTanggalPengeluaranTimestamp(a.tanggal_pengeluaran);
+      const timestampB = getTanggalPengeluaranTimestamp(b.tanggal_pengeluaran);
+      const invalidTimestamp = Number.NEGATIVE_INFINITY;
+
+      if (timestampA === invalidTimestamp) {
+        return timestampB === invalidTimestamp ? 0 : 1;
+      }
+      if (timestampB === invalidTimestamp) return -1;
+
+      return timestampA - timestampB;
     });
 });
 
@@ -105,7 +111,7 @@ const editForm = reactive<pengeluaranM>({
   lokasi_vendor: "",
   dikeluarkan_oleh: "",
   doc_pengeluaran: [],
-  status_pengeluaran: ""
+  status_pengeluaran: "",
 });
 
 /* =====================================================
@@ -132,7 +138,7 @@ const headers = [
   {
     title: "Dikeluarkan oleh",
     key: "dikeluarkan_oleh",
-    maxWidth: "100px"
+    maxWidth: "100px",
   },
   {
     title: "NOMINAL",
@@ -188,6 +194,125 @@ const totalPengeluaran = computed(() => {
   );
 });
 
+const savingPdf = ref(false);
+
+const savePengeluaranPdf = async () => {
+  if (savingPdf.value) return;
+  savingPdf.value = true;
+
+  try {
+    const { jsPDF } = await import("jspdf");
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 15;
+    const tableWidth = pageWidth - margin * 2;
+    const columns = [
+      { title: "No.", width: 13 },
+      { title: "Tanggal", width: 28 },
+      { title: "Keterangan", width: tableWidth - 13 - 28 - 40 },
+      { title: "Nominal", width: 40 },
+    ];
+    const columnStarts = columns.map((_, index) =>
+      margin + columns.slice(0, index).reduce((width, column) => width + column.width, 0),
+    );
+    let y = 20;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text("Daftar Pengeluaran", margin, y);
+    y += 8;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(String(detailPenawaran.value?.perihal || "Project"), margin, y);
+    y += 5;
+    pdf.text(`No. Penawaran: ${detailPenawaran.value?.no_penawaran || idPenawaran.value}`, margin, y);
+    y += 9;
+
+    const drawHeader = () => {
+      pdf.setFillColor(245, 247, 250);
+      pdf.setDrawColor(210, 215, 222);
+      pdf.rect(margin, y, tableWidth, 9, "FD");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.text(columns[0].title, columnStarts[0] + 2, y + 6);
+      pdf.text(columns[1].title, columnStarts[1] + 2, y + 6);
+      pdf.text(columns[2].title, columnStarts[2] + 2, y + 6);
+      pdf.text(columns[3].title, columnStarts[3] + columns[3].width - 2, y + 6, {
+        align: "right",
+      });
+      let dividerX = margin;
+      for (const column of columns.slice(0, -1)) {
+        dividerX += column.width;
+        pdf.line(dividerX, y, dividerX, y + 9);
+      }
+      y += 9;
+    };
+
+    drawHeader();
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+
+    pengeluaran.value.forEach((item, index) => {
+      const descriptionLines = pdf.splitTextToSize(
+        String(item.keterangan || "-"),
+        columns[2].width - 4,
+      ) as string[];
+      const rowHeight = Math.max(8, descriptionLines.length * 4.5 + 3);
+
+      if (y + rowHeight > 275) {
+        pdf.addPage();
+        y = 15;
+        drawHeader();
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+      }
+
+      pdf.setDrawColor(220, 224, 230);
+      pdf.rect(margin, y, tableWidth, rowHeight);
+      let dividerX = margin;
+      for (const column of columns.slice(0, -1)) {
+        dividerX += column.width;
+        pdf.line(dividerX, y, dividerX, y + rowHeight);
+      }
+      pdf.text(String(index + 1), margin + 2, y + 5.5);
+      pdf.text(formatTanggal(item.tanggal_pengeluaran), margin + columns[0].width + 2, y + 5.5);
+      pdf.text(
+        descriptionLines,
+        margin + columns[0].width + columns[1].width + 2,
+        y + 5.5,
+      );
+      pdf.text(
+        rupiah.format(Number(item.nominal || 0)),
+        columnStarts[3] + columns[3].width - 2,
+        y + 5.5,
+        { align: "right" },
+      );
+      y += rowHeight;
+    });
+
+    if (y + 10 > 285) {
+      pdf.addPage();
+      y = 20;
+    }
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("Total Pengeluaran", margin + tableWidth - 70, y + 7);
+    pdf.text(rupiah.format(totalPengeluaran.value), margin + tableWidth, y + 7, {
+      align: "right",
+    });
+
+    const safeName = String(detailPenawaran.value?.perihal || idPenawaran.value)
+      // .replace(/[^a-z0-9-_]/gi, "-")
+      // .replace(/-+/g, "-");
+    pdf.save(`Pengeluaran - ${safeName}.pdf`);
+  } catch (error) {
+    console.error("Gagal membuat PDF pengeluaran:", error);
+    notificationStore.showError("Gagal membuat PDF pengeluaran.");
+  } finally {
+    savingPdf.value = false;
+  }
+};
+
 const formatTanggal = (tanggal: string) => {
   if (!tanggal) return "-";
 
@@ -208,8 +333,13 @@ const formatTanggal = (tanggal: string) => {
    OPEN EDIT
 ===================================================== */
 
-const openEdit = (item: any, index: number) => {
-  editIndex.value = index;
+const openEdit = (item: any) => {
+  const originalIndex = (detailPenawaran.value?.pengeluaran ?? []).findIndex(
+    (expense) => expense.id_pengeluaran === item.id_pengeluaran,
+  );
+  if (originalIndex < 0) return;
+
+  editIndex.value = originalIndex;
 
   editForm.id_pengeluaran = item.id_pengeluaran || "";
   editForm.tanggal_pengeluaran = item.tanggal_pengeluaran || "";
@@ -437,7 +567,8 @@ const previewImage = (dataUrl: string) => {
     ================================================== -->
 
     <div class="page-header mb-4">
-      <div class="d-flex align-center mb-3">
+      <div class="d-flex align-center justify-space-between mb-3">
+        <div class="d-flex align-center">
         <v-btn
           icon="mdi-arrow-left"
           variant="tonal"
@@ -448,9 +579,20 @@ const previewImage = (dataUrl: string) => {
         />
 
         <div>
-
           <h1 class="page-title">Pengeluaran Project</h1>
         </div>
+        </div>
+        <v-btn
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-file-pdf-box"
+          size="small"
+          :loading="savingPdf"
+          :disabled="pending || !detailPenawaran"
+          @click="savePengeluaranPdf"
+        >
+          Save PDF
+        </v-btn>
       </div>
 
       <!-- PROJECT INFORMATION -->
@@ -676,17 +818,15 @@ const previewImage = (dataUrl: string) => {
               <span>
                 {{ item.nama_vendor || "-" }}
               </span>
-              
             </div>
-             <div class="vendor-cell mt-2 ml-1">
-              <div >
+            <div class="vendor-cell mt-2 ml-1">
+              <div>
                 <v-icon icon="mdi-phone-outline" size="15" />
               </div>
 
               <span>
                 {{ item.no_telp_vendor || "-" }}
               </span>
-              
             </div>
 
             <div class="vendor-cell mt-2 mb-4 ml-1">
@@ -697,7 +837,6 @@ const previewImage = (dataUrl: string) => {
               <span>
                 {{ item.lokasi_vendor || "-" }}
               </span>
-              
             </div>
           </template>
 
@@ -725,34 +864,36 @@ const previewImage = (dataUrl: string) => {
           <!-- DIKELUARKAN OLEH -->
 
           <template #item.dikeluarkan_oleh="{ item }">
-            <div >
+            <div>
               {{ item.dikeluarkan_oleh || "-" }}
             </div>
           </template>
-          
+
           <template #item.status_pengeluaran="{ item }">
-  <div
-    class="issued-by-cell"
-    :style="{
-      color: item.status_pengeluaran === 'Hutang'
-        ? '#f44336'
-        : item.status_pengeluaran === 'Lunas'
-          ? '#4caf50'
-          : '',
-      backgroundColor: item.status_pengeluaran === 'Hutang'
-        ? '#ffebee'
-        : item.status_pengeluaran === 'Lunas'
-          ? '#e8f5e9'
-          : '',
-      padding: '4px 10px',
-      borderRadius: '6px',
-      display: 'inline-block',
-      fontWeight: '500'
-    }"
-  >
-    {{ item.status_pengeluaran || "-" }}
-  </div>
-</template>
+            <div
+              class="issued-by-cell"
+              :style="{
+                color:
+                  item.status_pengeluaran === 'Hutang'
+                    ? '#f44336'
+                    : item.status_pengeluaran === 'Lunas'
+                      ? '#4caf50'
+                      : '',
+                backgroundColor:
+                  item.status_pengeluaran === 'Hutang'
+                    ? '#ffebee'
+                    : item.status_pengeluaran === 'Lunas'
+                      ? '#e8f5e9'
+                      : '',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                display: 'inline-block',
+                fontWeight: '500',
+              }"
+            >
+              {{ item.status_pengeluaran || "-" }}
+            </div>
+          </template>
 
           <!-- AKSI -->
 
@@ -764,7 +905,7 @@ const previewImage = (dataUrl: string) => {
                 size="small"
                 color="grey-darken-1"
                 :disabled="deletingPengeluaranId !== null"
-                @click="openEdit(item, index)"
+                @click="openEdit(item)"
               >
                 <v-icon size="18">mdi-pencil-outline</v-icon>
                 <v-tooltip activator="parent" location="top">
@@ -944,7 +1085,7 @@ const previewImage = (dataUrl: string) => {
               </div>
             </div>
           </div>
-           <a-select-new
+          <a-select-new
             v-model="editForm.status_pengeluaran"
             :items="['Hutang', 'Lunas']"
             label="Status"
