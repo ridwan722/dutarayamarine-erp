@@ -76,7 +76,6 @@ onErrorCaptured((err: unknown) => {
               </div>
             </div>
 
-
             <div>
               <div class="group-header">
                 <span class="group-title">INVOICE</span>
@@ -107,7 +106,7 @@ onErrorCaptured((err: unknown) => {
               </div>
             </div>
             <v-divider class="my-1"></v-divider>
-             <!-- Sub Group: Berita Acara -->
+            <!-- Sub Group: Berita Acara -->
             <div class="action-grid-2">
               <NuxtLink to="/admin/delivery-order" class="compact-action-card">
                 <div class="action-icon">
@@ -148,13 +147,10 @@ onErrorCaptured((err: unknown) => {
               </div>
 
               <div class="action-grid-1">
-                <NuxtLink
-                  to="/admin/master/users"
-                  class="compact-action-card"
-                >
-                 <div class="action-icon">
-                  <v-icon icon="mdi-account-group-outline" size="18" />
-                </div>
+                <NuxtLink to="/admin/master/users" class="compact-action-card">
+                  <div class="action-icon">
+                    <v-icon icon="mdi-account-group-outline" size="18" />
+                  </div>
                   <div class="action-text">
                     <span class="title">User</span>
                     <span class="sub"
@@ -180,31 +176,33 @@ onErrorCaptured((err: unknown) => {
                 </NuxtLink>
               </div>
 
-               <div class="action-grid-1 mt-2">
+              <div class="action-grid-1 mt-2">
                 <NuxtLink to="/admin/master/vendor" class="compact-action-card">
                   <div class="action-icon">
                     <v-icon icon="mdi-human-dolly" size="18" />
                   </div>
                   <div class="action-text">
                     <span class="title">Master Vendor</span>
-                    <span class="sub"
-                      >Master Vendor / Supplyer</span
-                    >
+                    <span class="sub">Master Vendor / Supplyer</span>
                   </div>
                   <v-icon icon="mdi-arrow-top-right" size="16" class="arrow" />
                 </NuxtLink>
               </div>
 
               <div class="action-grid-1 mt-2">
-                <NuxtLink to="/admin/master/termcondition" class="compact-action-card">
+                <NuxtLink
+                  to="/admin/master/termcondition"
+                  class="compact-action-card"
+                >
                   <div class="action-icon">
-                    <v-icon icon="mdi-information-variant-circle-outline" size="18" />
+                    <v-icon
+                      icon="mdi-information-variant-circle-outline"
+                      size="18"
+                    />
                   </div>
                   <div class="action-text">
                     <span class="title">Master T&C</span>
-                    <span class="sub"
-                      >Master Term & Condition</span
-                    >
+                    <span class="sub">Master Term & Condition</span>
                   </div>
                   <v-icon icon="mdi-arrow-top-right" size="16" class="arrow" />
                 </NuxtLink>
@@ -217,9 +215,7 @@ onErrorCaptured((err: unknown) => {
                   </div>
                   <div class="action-text">
                     <span class="title">Master Barang / Service</span>
-                    <span class="sub"
-                      >Master Barang dan Harga Modal</span
-                    >
+                    <span class="sub">Master Barang dan Harga Modal</span>
                   </div>
                   <v-icon icon="mdi-arrow-top-right" size="16" class="arrow" />
                 </NuxtLink>
@@ -232,9 +228,7 @@ onErrorCaptured((err: unknown) => {
                   </div>
                   <div class="action-text">
                     <span class="title">Kas</span>
-                    <span class="sub"
-                      >Pengeluaran kantor</span
-                    >
+                    <span class="sub">Pengeluaran kantor</span>
                   </div>
                   <v-icon icon="mdi-arrow-top-right" size="16" class="arrow" />
                 </NuxtLink>
@@ -257,7 +251,10 @@ onErrorCaptured((err: unknown) => {
 
           <div class="card-body">
             <div class="action-grid-1">
-              <NuxtLink to="/admin/report-order" class="compact-action-card highlight2">
+              <NuxtLink
+                to="/admin/report-order"
+                class="compact-action-card highlight2"
+              >
                 <div class="action-icon">
                   <v-icon icon="mdi-account-group-outline" size="18" />
                 </div>
@@ -292,9 +289,7 @@ onErrorCaptured((err: unknown) => {
                 </div>
                 <div class="action-text">
                   <span class="title">-</span>
-                  <span class="sub"
-                    >---</span
-                  >
+                  <span class="sub">---</span>
                 </div>
                 <v-icon icon="mdi-chevron-right" size="16" class="arrow" />
               </NuxtLink>
@@ -305,9 +300,7 @@ onErrorCaptured((err: unknown) => {
                 </div>
                 <div class="action-text">
                   <span class="title">-</span>
-                  <span class="sub"
-                    >---</span
-                  >
+                  <span class="sub">---</span>
                 </div>
                 <v-icon icon="mdi-chevron-right" size="16" class="arrow" />
               </NuxtLink>

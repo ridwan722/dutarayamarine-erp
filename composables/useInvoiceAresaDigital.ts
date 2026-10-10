@@ -30,6 +30,12 @@ export const createInvoicePenawaran = async (data: invoiceM) => {
       throw new Error("Dokumen penomoran/nomor tidak ditemukan");
     }
 
+    const penawaranRef = doc(db, "penawaran", data.id_penawaran!);
+    const penawaranSnapshot = await transaction.get(penawaranRef);
+    if (!penawaranSnapshot.exists()) {
+      throw new Error("Penawaran untuk invoice tidak ditemukan");
+    }
+
     const datanomor = getnomor.data();
     const newnumber = datanomor!.no_inv + 1;
     const stringnewnumber = _.toString(newnumber).padStart(5, "0");
@@ -37,6 +43,11 @@ export const createInvoicePenawaran = async (data: invoiceM) => {
     const id_invoice = `${stringnewnumber}`;
     const setdata: invoiceM = {
       ...data,
+      pengeluaran: Array.isArray(penawaranSnapshot.data().pengeluaran)
+        ? penawaranSnapshot.data().pengeluaran
+        : [],
+      grandtotal_pengeluaran:
+        Number(penawaranSnapshot.data().grandtotal_pengeluaran) || 0,
       no_inv,
       id_invoice,
       createdAt: now,
@@ -50,6 +61,7 @@ export const createInvoicePenawaran = async (data: invoiceM) => {
     // Simpan dokumen utama laporan
     transaction.set(invoiceRef, setdata, { merge: true });
     transaction.set(penawaraninvoiceRef, setdata, { merge: true });
+    transaction.update(penawaranRef, { id_invoice });
     transaction.update(nomorInvRef, { no_inv: newnumber });
 
     return { ...setdata, id: id_invoice };
@@ -176,6 +188,20 @@ export const createPengeluaran = async (
     }
 
     const existingData = snapshot.data();
+    let invoiceId = existingData.id_invoice as string | undefined;
+    if (!invoiceId) {
+      const invoiceQuery = query(
+        collection(db, "invoice"),
+        where("id_penawaran", "==", id_penawaran),
+      );
+      const matchingInvoices = await transaction.get(invoiceQuery);
+      invoiceId = matchingInvoices.docs[0]?.id;
+    }
+    const invoiceRef = invoiceId ? doc(db, "invoice", invoiceId) : null;
+    const invoiceSnapshot = invoiceRef ? await transaction.get(invoiceRef) : null;
+    if (invoiceRef && !invoiceSnapshot?.exists()) {
+      throw new Error(`Invoice ${invoiceId} tidak ditemukan`);
+    }
 
     const pengeluaran: pengeluaranM[] = Array.isArray(
       existingData.pengeluaran,
@@ -199,7 +225,14 @@ export const createPengeluaran = async (
     transaction.update(penawaranRef, {
       pengeluaran,
       grandtotal_pengeluaran: total_pengeluaran,
+      ...(invoiceId ? { id_invoice: invoiceId } : {}),
     });
+    if (invoiceRef) {
+      transaction.update(invoiceRef, {
+        pengeluaran,
+        grandtotal_pengeluaran: total_pengeluaran,
+      });
+    }
   });
 
   sessionStorage.removeItem("penawaran");

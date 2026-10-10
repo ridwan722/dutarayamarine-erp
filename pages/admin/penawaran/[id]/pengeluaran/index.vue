@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { collection, doc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDocs, limit, query, where, writeBatch } from "firebase/firestore";
 import { useCollection, useDocument, useFirestore } from "vuefire";
 import { persistPengeluaranDocuments } from "~/composables/useInvoiceAresaDigital";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
@@ -193,6 +193,60 @@ const totalPengeluaran = computed(() => {
     0,
   );
 });
+
+const simpanPengeluaranKeKeduaDokumen = async (
+  pengeluaranBaru: pengeluaranM[],
+) => {
+  const total = pengeluaranBaru.reduce(
+    (sum, expense) => sum + (Number(expense.nominal) || 0),
+    0,
+  );
+  let idInvoice = detailPenawaran.value?.id_invoice;
+  if (!idInvoice) {
+    const invoices = await getDocs(
+      query(
+        collection(db, "invoice"),
+        where("id_penawaran", "==", idPenawaran.value),
+        limit(1),
+      ),
+    );
+    idInvoice = invoices.docs[0]?.id;
+  }
+
+  const batch = writeBatch(db);
+  const values = { pengeluaran: pengeluaranBaru, grandtotal_pengeluaran: total };
+  batch.update(doc(db, "penawaran", idPenawaran.value), {
+    ...values,
+    ...(idInvoice ? { id_invoice: idInvoice } : {}),
+  });
+  if (idInvoice) {
+    batch.update(doc(db, "invoice", idInvoice), values);
+  }
+  await batch.commit();
+};
+
+let syncedExistingExpenses = false;
+watch(
+  [pending, detailPenawaran],
+  async ([isPending, currentPenawaran]) => {
+    if (
+      isPending ||
+      syncedExistingExpenses ||
+      !currentPenawaran?.pengeluaran?.length
+    ) {
+      return;
+    }
+    syncedExistingExpenses = true;
+    try {
+      await simpanPengeluaranKeKeduaDokumen(currentPenawaran.pengeluaran);
+    } catch (syncError) {
+      syncedExistingExpenses = false;
+      console.error("Gagal menyinkronkan pengeluaran ke invoice:", syncError);
+      notificationStore.showError("Gagal menyinkronkan pengeluaran ke invoice");
+    }
+  },
+  { immediate: true },
+);
 
 const savingPdf = ref(false);
 
@@ -467,9 +521,7 @@ const saveEdit = async () => {
       doc_pengeluaran,
     };
 
-    await updateDoc(doc(db, "penawaran", idPenawaran.value), {
-      pengeluaran: pengeluaranBaru,
-    });
+    await simpanPengeluaranKeKeduaDokumen(pengeluaranBaru);
 
     editDialog.value = false;
     editIndex.value = null;
@@ -496,15 +548,7 @@ const deletePengeluaran = async (item: any) => {
     const pengeluaranBaru = (detailPenawaran.value.pengeluaran ?? []).filter(
       (expense) => expense.id_pengeluaran !== idPengeluaran,
     );
-    const grandtotalPengeluaran = pengeluaranBaru.reduce(
-      (total, expense) => total + (Number(expense.nominal) || 0),
-      0,
-    );
-
-    await updateDoc(doc(db, "penawaran", idPenawaran.value), {
-      pengeluaran: pengeluaranBaru,
-      grandtotal_pengeluaran: grandtotalPengeluaran,
-    });
+    await simpanPengeluaranKeKeduaDokumen(pengeluaranBaru);
     try {
       await persistPengeluaranDocuments(idPenawaran.value, idPengeluaran, []);
     } catch (cleanupError) {
@@ -816,26 +860,7 @@ const previewImage = (dataUrl: string) => {
               </div>
 
               <span>
-                {{ item.nama_vendor || "-" }}
-              </span>
-            </div>
-            <div class="vendor-cell mt-2 ml-1">
-              <div>
-                <v-icon icon="mdi-phone-outline" size="15" />
-              </div>
-
-              <span>
-                {{ item.no_telp_vendor || "-" }}
-              </span>
-            </div>
-
-            <div class="vendor-cell mt-2 mb-4 ml-1">
-              <div>
-                <v-icon icon="mdi-store-outline" size="15" />
-              </div>
-
-              <span>
-                {{ item.lokasi_vendor || "-" }}
+                {{ item.nama_vendor || "-" }} {{ item.no_telp_vendor || "-" }} {{ item.lokasi_vendor || "-" }}
               </span>
             </div>
           </template>
@@ -996,7 +1021,7 @@ const previewImage = (dataUrl: string) => {
               v-model="editForm.satuan"
               label="Satuan"
               :disabled="savingEdit"
-              :items="['Unit', 'Pcs', 'Kg']"
+              :items="['Unit', 'Pcs', 'Kg', 'Lot']"
             />
             <a-field-number-new
               v-model="editForm.nominal"

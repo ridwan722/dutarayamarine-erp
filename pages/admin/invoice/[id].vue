@@ -377,6 +377,37 @@
       </v-card>
     </div>
 
+    <div class="preview-container d-flex justify-center">
+      <v-card
+        flat
+        class="invoice-reference-card border rounded-lg mb-3 elevation-1"
+        width="850"
+      >
+        <div class="preview-container justify-center text-center">
+          <span>Invoice : {{ rupiah(invoiceDetail.grandtotal_invoice) }}</span>
+          <br />
+          <span
+            >pengeluaran pada Project ini :
+            {{ rupiah(invoiceDetail.grandtotal_pengeluaran) }}</span
+          >
+          <br />
+
+          <h2>
+            {{
+              (
+                invoiceDetail.grandtotal_invoice -
+                invoiceDetail.grandtotal_pengeluaran
+              ).toLocaleString("id-ID", {
+                style: "currency",
+                currency: "IDR",
+                maximumFractionDigits: 0,
+              })
+            }}
+          </h2>
+        </div>
+      </v-card>
+    </div>
+
     <!-- ========================================================= -->
     <!-- INVOICE PAPER - TIDAK DIUBAH -->
     <!-- ========================================================= -->
@@ -699,9 +730,7 @@
 
           <div class="terbilang-strip">
             <span v-if="invoiceLanguage === 'id'">
-              Terbilang: #{{
-                jadirupiah(invoiceDetail.grandtotal_invoice)
-              }}
+              Terbilang: #{{ jadirupiah(invoiceDetail.grandtotal_invoice) }}
               Rupiah.
             </span>
             <span v-else>
@@ -885,13 +914,13 @@
               class="ml-3"
             />
 
-             <div
+            <div
               v-if="invoiceDetail.sign_by == 'Lilis Trisnawati'"
               width="150"
               class="ml-3 font-italic text-grey-lighten-1 text-caption"
             >
-            No Signature Required
-          </div>
+              No Signature Required
+            </div>
 
             <strong v-if="invoiceDetail.sign_by == 'Muhammad Ridwan'"
               >Muhammad Ridwan</strong
@@ -937,6 +966,9 @@
 
     <div class="preview-container d-flex justify-center mt-8">
       <DeliveryOrder :invoice-detail="invoiceDetail" />
+    </div>
+    <div class="preview-container d-flex justify-center mt-8">
+      <work-complete-report :invoice-detail="invoiceDetail" />
     </div>
   </div>
 </template>

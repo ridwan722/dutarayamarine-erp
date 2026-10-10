@@ -50,7 +50,6 @@ interface Transaction {
 
 const pettyCashStore = usepettyCashStore();
 const userStore = useUserStore();
-const MAX_PETTY_CASH_BYTES = 900_000;
 
 const filterCategory = ref<string>("all");
 
@@ -189,14 +188,13 @@ const handleImageUpload = async (event: Event) => {
   try {
     form.value.images.push(...(await Promise.all(files.map(readImageFile))));
   } catch (error) {
+    console.error("Gagal membaca bukti petty cash", error);
     useNotificationStore().showError("Gambar bukti tidak dapat dibaca");
   } finally {
     isUploadingImages.value = false;
     target.value = "";
   }
 };
-
-const removeImage = (index: number) => form.value.images.splice(index, 1);
 
 function readImageFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -211,6 +209,8 @@ function readImageFile(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+const removeImage = (index: number) => form.value.images.splice(index, 1);
 
 const openModal = (type: "topup" | "expense") => {
   isEditMode.value = false;
@@ -283,33 +283,24 @@ const handleSubmit = async () => {
     kategori: form.value.category,
   };
 
-  if (
-    new TextEncoder().encode(JSON.stringify(payload)).byteLength >
-    MAX_PETTY_CASH_BYTES
-  ) {
-    useNotificationStore().showError(
-      "Total ukuran gambar bukti terlalu besar. Kurangi ukuran atau jumlah gambar (maksimal sekitar 650 KB total).",
-    );
-    return;
-  }
-
   isSaving.value = true;
   try {
+    let saved = false;
     if (isEditMode.value && editingId.value) {
-      await pettyCashStore.updatePettyCashAct({
+      saved = await pettyCashStore.updatePettyCashAct({
         id: editingId.value,
         ...payload,
         updatedAt: moment().unix(),
         updatedBy: useUserStore().getEmail || "",
       });
     } else {
-      await pettyCashStore.addPettyCashAct({
+      saved = await pettyCashStore.addPettyCashAct({
         ...payload,
         createdAt: moment().unix(),
         createdBy: userStore.getEmail || "",
       });
     }
-    closeModal();
+    if (saved) closeModal();
   } finally {
     isSaving.value = false;
   }

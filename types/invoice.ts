@@ -1,4 +1,5 @@
 import type { termconditionM } from "./termconditionModel";
+import type { pengeluaranM } from "./penawaranModel";
 
 export interface invoiceItemM {
   nama: string;
@@ -67,4 +68,6 @@ sign_by: string,
   doc_bukti_bayar: invoiceBuktiBayarM[]
   down_payment: false,
   dp_persen: 0,
+  pengeluaran?: pengeluaranM[];
+  grandtotal_pengeluaran?: number;
 }

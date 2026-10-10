@@ -1,6 +1,7 @@
 export interface penawaranM {
   id?: string;
   id_penawaran?: string;
+  id_invoice?: string;
   no_penawaran?: string;
 
   id_perusahaan: string;
