@@ -377,36 +377,89 @@
       </v-card>
     </div>
 
-    <div class="preview-container d-flex justify-center">
-      <v-card
-        flat
-        class="invoice-reference-card border rounded-lg mb-3 elevation-1"
-        width="850"
-      >
-        <div class="preview-container justify-center text-center">
-          <span>Invoice : {{ rupiah(invoiceDetail.grandtotal_invoice) }}</span>
-          <br />
-          <span
-            >pengeluaran pada Project ini :
-            {{ rupiah(invoiceDetail.grandtotal_pengeluaran) }}</span
+   <div class="preview-container d-flex justify-center">
+  <v-card
+    flat
+    width="850"
+    rounded="lg"
+    class="mb-3"
+    style="border: 1px solid #dfe4ea; background: #ffffff;"
+  >
+    <div class="pa-4">
+      <div class="d-flex align-center justify-space-between flex-wrap ga-3">
+        <div>
+          <div
+            class="text-caption font-weight-medium mb-1"
+            style="color: #64748b; letter-spacing: 0.8px;"
           >
-          <br />
+            TOTAL INVOICE
+          </div>
 
-          <h2>
+          <div
+            class="text-subtitle-1 font-weight-bold"
+            style="color: #1e293b;"
+          >
+            {{ rupiah(invoiceDetail.grandtotal_invoice) }}
+          </div>
+        </div>
+
+        <v-btn
+          variant="outlined"
+          color="blue-grey-darken-3"
+          rounded="md"
+          size="small"
+          prepend-icon="mdi-file-document-outline"
+          append-icon="mdi-chevron-right"
+          style="text-transform: none; letter-spacing: 0;"
+          :to="`/admin/penawaran/${invoiceDetail.id_penawaran}/pengeluaran`"
+        >
+          Pengeluaran Project
+        </v-btn>
+      </div>
+
+      <v-divider class="my-4" color="#e2e8f0" />
+
+      <div
+        class="d-flex align-center justify-space-between flex-wrap ga-3 pa-3 rounded-lg"
+        style="background: #f8fafc; border: 1px solid #edf0f4;"
+      >
+        <div>
+          <div
+            class="text-caption font-weight-medium mb-1"
+            style="color: #64748b; letter-spacing: 0.6px;"
+          >
+            SISA SALDO INVOICE
+          </div>
+
+          <div
+            class="text-h6 font-weight-bold"
+            style="color: #243b53;"
+          >
             {{
-              (
+              rupiah(
                 invoiceDetail.grandtotal_invoice -
                 invoiceDetail.grandtotal_pengeluaran
-              ).toLocaleString("id-ID", {
-                style: "currency",
-                currency: "IDR",
-                maximumFractionDigits: 0,
-              })
+              )
             }}
-          </h2>
+          </div>
         </div>
-      </v-card>
+
+        <div class="text-right">
+          <div class="text-caption mb-1" style="color: #64748b;">
+            Total Pengeluaran
+          </div>
+
+          <div
+            class="text-body-2 font-weight-semibold"
+            style="color: #334155;"
+          >
+            {{ rupiah(invoiceDetail.grandtotal_pengeluaran) }}
+          </div>
+        </div>
+      </div>
     </div>
+  </v-card>
+</div>
 
     <!-- ========================================================= -->
     <!-- INVOICE PAPER - TIDAK DIUBAH -->
