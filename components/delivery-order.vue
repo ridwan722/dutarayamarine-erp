@@ -367,7 +367,7 @@ const handleSavePdf = async () => {
     // invoiceDetail adalah props, JANGAN pakai .value
     const invoiceId = props.invoiceDetail?.id || "DO";
 
-    pdf.save(`Delivery-Order-DRM-${year}.pdf`);
+    pdf.save(`Delivery-Order-DRM-${props.invoiceDetail.perihal}.pdf`);
   } catch (error) {
     console.error("Gagal menyimpan PDF Delivery Order:", error);
 
@@ -389,7 +389,7 @@ const handleSavePdf = async () => {
         <div class="header-section text-center mb-6">
           <div class="d-flex align-center justify-center mb-2">
             <img
-              src="/Logo-DRM.png"
+              src="/logokopsurat.png"
               class="logo-header mr-3"
               alt="Logo Perusahaan"
             />
