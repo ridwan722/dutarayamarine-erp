@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
 import type { customerM } from "~/types/customerModel";
+import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
+import { useFirestore } from "vuefire";
 
 const COLLECTION = "customer";
 
@@ -16,8 +18,33 @@ export const usecustomerStore = defineStore("customerStore", {
 
   actions: {
     async tarikDataCustomerAct() {
-      const datatarik = await queryambilid(COLLECTION);
-      this.dataCustomer = datatarik as unknown as customerM[];
+      const db = useFirestore();
+      const snapshot = await getDocs(collection(db, COLLECTION));
+      this.dataCustomer = await Promise.all(
+        snapshot.docs.map(async (customerDoc) => {
+          const data = customerDoc.data() as customerM;
+          const idCustomer = data.id_customer || customerDoc.id;
+
+          if (!data.id_customer) {
+            try {
+              await updateDoc(doc(db, COLLECTION, customerDoc.id), {
+                id_customer: idCustomer,
+              });
+            } catch (error) {
+              console.error(
+                `Gagal menambahkan id_customer pada client ${customerDoc.id}:`,
+                error,
+              );
+            }
+          }
+
+          return {
+            ...data,
+            id: customerDoc.id,
+            id_customer: idCustomer,
+          };
+        }),
+      );
     },
 
     async addCustomerAct(data: customerM) {
@@ -25,8 +52,11 @@ export const usecustomerStore = defineStore("customerStore", {
       try {
         useloadingStore().setLoading(true);
         const customerRef = await tambahdatabase(COLLECTION, data);
-        // Simpan ID dokumen Firestore di dalam data customer juga.
-        await updatedatabase(COLLECTION, customerRef.id, { id: customerRef.id });
+        // Simpan ID dokumen Firestore di dalam data customer.
+        await updatedatabase(COLLECTION, customerRef.id, {
+          id: customerRef.id,
+          id_customer: customerRef.id,
+        });
         // sessionStorage.removeItem(COLLECTION);
         await this.tarikDataCustomerAct();
         notificationStore.showSuccess("Customer berhasil ditambahkan");

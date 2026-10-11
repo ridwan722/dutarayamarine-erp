@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
 import type { vendorM } from "~/types/vendorModel";
+import { collection, doc, setDoc } from "firebase/firestore";
+import { useFirestore } from "vuefire";
 
 const COLLECTION = "vendor";
 
@@ -17,14 +19,29 @@ export const usevendorStore = defineStore("vendorStore", {
   actions: {
     async tarikDataVendorAct() {
       const datatarik = await queryambilid(COLLECTION);
-      this.dataVendor = datatarik as unknown as vendorM[];
+      const vendors = datatarik as (vendorM & { id?: string })[];
+      this.dataVendor = await Promise.all(
+        vendors.map(async (vendor) => {
+          const id_vendor = vendor.id_vendor || vendor.id;
+          if (!vendor.id_vendor && id_vendor) {
+            try {
+              await updatedatabase(COLLECTION, id_vendor, { id_vendor });
+            } catch (error) {
+              console.error(`Gagal menyimpan ID vendor ${id_vendor}:`, error);
+            }
+          }
+          return { ...vendor, id_vendor };
+        }),
+      );
     },
 
     async addVendorAct(data: vendorM) {
       const notificationStore = useNotificationStore();
       try {
         useloadingStore().setLoading(true);
-        await tambahdatabase(COLLECTION, data);
+        const db = useFirestore();
+        const vendorRef = doc(collection(db, COLLECTION));
+        await setDoc(vendorRef, { ...data, id_vendor: vendorRef.id });
         // sessionStorage.removeItem(COLLECTION);
         await this.tarikDataVendorAct();
         notificationStore.showSuccess("Vendor berhasil ditambahkan");
@@ -52,6 +69,11 @@ export const usevendorStore = defineStore("vendorStore", {
 
     async deleteVendorAct(id: string) {
       const notificationStore = useNotificationStore();
+      if (!id) {
+        notificationStore.showError("ID Vendor tidak ditemukan");
+        return;
+      }
+
       try {
         useloadingStore().setLoading(true);
         await hapusdatabase(COLLECTION, id);
@@ -59,6 +81,7 @@ export const usevendorStore = defineStore("vendorStore", {
         await this.tarikDataVendorAct();
         notificationStore.showSuccess("Vendor berhasil dihapus");
       } catch (error) {
+        console.error("Gagal menghapus Vendor:", error);
         notificationStore.showError("Gagal menghapus Vendor");
       } finally {
         useloadingStore().setLoading(false);

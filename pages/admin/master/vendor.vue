@@ -254,11 +254,11 @@ async function simpanVendor() {
 
 async function hapusVendor(id: string) {
   const confirmed = await confirmationDialog.value?.show(
-    "Konfirmasi Hapus",
-    "Anda yakin ingin menghapus Vendor ini?",
+    "Konfirmasi Hapus Vendor",
+    "Anda yakin ingin menghapus Vendor ini? Tindakan ini tidak dapat dipulihkan",
     { variant: "danger" },
   );
-  if (!confirmed) return notificationStore.showError("Penghapusan dibatalkan");
+  if (!confirmed) return notificationStore.showInfo("Penghapusan dibatalkan");
   await vendorStore.deleteVendorAct(id);
 }
 </script>

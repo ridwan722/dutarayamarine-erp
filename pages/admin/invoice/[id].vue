@@ -222,11 +222,7 @@
             </div>
 
             <div class="invoice-heading">
-              <div class="invoice-eyebrow">INVOICE</div>
-
-              <div class="invoice-number">
-                #INV/DRM/2026/{{ invoiceDetail.id }}
-              </div>
+              <div class="invoice-number">INVOICE - {{ invoiceDetail.id }}</div>
 
               <NuxtLink
                 :to="'/admin/penawaran/' + invoiceDetail.id_penawaran"
@@ -238,12 +234,13 @@
               </NuxtLink>
               <v-divider class="my-2"></v-divider>
 
-              <div class="text-caption">
-                {{ invoiceDetail.perihal }}
-              </div>
-              <div class="text-caption font-weight-bold" style="display: flex">
+              <div class="text-caption mt-2" style="display: flex">
                 <v-icon color="#1e3a5f" class="mr-1">mdi-domain</v-icon
                 >{{ invoiceDetail.nama_customer }}
+              </div>
+              <v-divider class="my-2"></v-divider>
+              <div class="text-caption">
+                {{ invoiceDetail.perihal }}
               </div>
             </div>
           </div>
@@ -377,89 +374,86 @@
       </v-card>
     </div>
 
-   <div class="preview-container d-flex justify-center">
-  <v-card
-    flat
-    width="850"
-    rounded="lg"
-    class="mb-3"
-    style="border: 1px solid #dfe4ea; background: #ffffff;"
-  >
-    <div class="pa-4">
-      <div class="d-flex align-center justify-space-between flex-wrap ga-3">
-        <div>
-          <div
-            class="text-caption font-weight-medium mb-1"
-            style="color: #64748b; letter-spacing: 0.8px;"
-          >
-            TOTAL INVOICE
-          </div>
-
-          <div
-            class="text-subtitle-1 font-weight-bold"
-            style="color: #1e293b;"
-          >
-            {{ rupiah(invoiceDetail.grandtotal_invoice) }}
-          </div>
-        </div>
-
-        <v-btn
-          variant="outlined"
-          color="blue-grey-darken-3"
-          rounded="md"
-          size="small"
-          prepend-icon="mdi-file-document-outline"
-          append-icon="mdi-chevron-right"
-          style="text-transform: none; letter-spacing: 0;"
-          :to="`/admin/penawaran/${invoiceDetail.id_penawaran}/pengeluaran`"
-        >
-          Pengeluaran Project
-        </v-btn>
-      </div>
-
-      <v-divider class="my-1" color="#e2e8f0" />
-
-      <div
-        class="d-flex align-center justify-space-between flex-wrap ga-3 pa-3 rounded-lg"
-        style="background: #f8fafc; border: 1px solid #edf0f4;"
+    <div class="preview-container d-flex justify-center">
+      <v-card
+        flat
+        width="850"
+        rounded="lg"
+        class="mb-3"
+        style="border: 1px solid #dfe4ea; background: #ffffff"
       >
-        <div>
-          <div
-            class="text-caption font-weight-medium mb-1"
-            style="color: #64748b; letter-spacing: 0.6px;"
-          >
-            SISA SALDO INVOICE
+        <div class="pa-4">
+          <div class="d-flex align-center justify-space-between flex-wrap ga-3">
+            <div>
+              <div
+                class="text-caption font-weight-medium mb-1"
+                style="color: #64748b; letter-spacing: 0.8px"
+              >
+                TOTAL INVOICE
+              </div>
+
+              <div
+                class="text-subtitle-1 font-weight-bold"
+                style="color: #1e293b"
+              >
+                {{ rupiah(invoiceDetail.grandtotal_invoice) }}
+              </div>
+            </div>
+
+            <v-btn
+              variant="outlined"
+              color="blue-grey-darken-3"
+              rounded="md"
+              size="small"
+              prepend-icon="mdi-file-document-outline"
+              append-icon="mdi-chevron-right"
+              style="text-transform: none; letter-spacing: 0"
+              :to="`/admin/penawaran/${invoiceDetail.id_penawaran}/pengeluaran`"
+            >
+              Pengeluaran Project
+            </v-btn>
           </div>
 
+          <v-divider class="my-1" color="#e2e8f0" />
+
           <div
-            class="text-h6 font-weight-bold"
-            style="color: #243b53;"
+            class="d-flex align-center justify-space-between flex-wrap ga-3 pa-3 rounded-lg"
+            style="background: #f8fafc; border: 1px solid #edf0f4"
           >
-            {{
-              rupiah(
-                invoiceDetail.grandtotal_invoice -
-                invoiceDetail.grandtotal_pengeluaran
-              )
-            }}
+            <div>
+              <div
+                class="text-caption font-weight-medium mb-1"
+                style="color: #64748b; letter-spacing: 0.6px"
+              >
+                SISA SALDO INVOICE
+              </div>
+
+              <div class="text-h6 font-weight-bold" style="color: #243b53">
+                {{
+                  rupiah(
+                    invoiceDetail.grandtotal_invoice -
+                      invoiceDetail.grandtotal_pengeluaran,
+                  )
+                }}
+              </div>
+            </div>
+
+            <div class="text-right">
+              <div class="text-caption mb-1" style="color: #64748b">
+                Total Pengeluaran
+              </div>
+
+              <div
+                class="text-body-2 font-weight-semibold"
+                style="color: #334155"
+              >
+                {{ rupiah(invoiceDetail.grandtotal_pengeluaran) }}
+              </div>
+            </div>
           </div>
         </div>
-
-        <div class="text-right">
-          <div class="text-caption mb-1" style="color: #64748b;">
-            Total Pengeluaran
-          </div>
-
-          <div
-            class="text-body-2 font-weight-semibold"
-            style="color: #334155;"
-          >
-            {{ rupiah(invoiceDetail.grandtotal_pengeluaran) }}
-          </div>
-        </div>
-      </div>
+      </v-card>
     </div>
-  </v-card>
-</div>
 
     <!-- ========================================================= -->
     <!-- INVOICE PAPER - TIDAK DIUBAH -->
@@ -755,18 +749,20 @@
                 </td>
               </tr>
 
-              <tr v-if="invoiceDetail.dp_persen > 0">
+              <tr
+                v-if="invoiceDetail.dp_persen > 0 || invoiceAmountLabel !== 'Down Payment'"
+              >
                 <td></td>
                 <td></td>
                 <td></td>
 
                 <td class="footer-label">
-                  <strong
-                    >{{
-                      invoiceLanguage === "id" ? "Uang Muka" : "Down Payment"
-                    }}
-                    {{ invoiceDetail.dp_persen }} %</strong
-                  >
+                  <strong>
+                    {{ invoiceAmountLabel }}
+                    <template v-if="invoiceAmountLabel === 'Down Payment'">
+                      {{ invoiceDetail.dp_persen }} %
+                    </template>
+                  </strong>
                 </td>
 
                 <td class="footer-value">
@@ -1003,7 +999,7 @@
         Print Invoice
       </v-btn>
 
-       <v-btn
+      <v-btn
         prepend-icon="mdi-file-pdf-box"
         color="red-darken-1"
         variant="elevated"
@@ -1013,7 +1009,6 @@
       >
         Save PDF Invoice
       </v-btn>
-
     </div>
 
     <v-divider class="my-1 mt-10" opacity="100" color="primary"></v-divider>
@@ -1032,6 +1027,8 @@ import moment from "moment";
 import type { ConfirmationDialog } from "#components";
 import type { invoiceM, invoiceBuktiBayarM } from "~/types/invoice";
 import { uploadStore } from "~/stores/uploadStore";
+import { queryambilid } from "~/composables/useFirestoreQuery";
+import { tarikdetaildatabase2 } from "~/composables/useFirestore";
 
 definePageMeta({
   layout: "admin",
@@ -1051,6 +1048,8 @@ const dialogDikirim = ref(false);
 const isSavingPdf = ref(false);
 const readingBuktiBayar = ref(false);
 const invoiceLanguage = ref<"id" | "en">("en");
+const quotationGrandTotal = ref(0);
+const relatedInvoices = ref<invoiceM[]>([]);
 
 function numberToWordsEnglish(value: number): string {
   const number = Math.floor(Math.abs(value || 0));
@@ -1112,8 +1111,21 @@ function numberToWordsEnglish(value: number): string {
 
 onMounted(async () => {
   useloadingStore().setLoading(true);
-  await invoiceStore.tarikDetailInvoiceAct(route.params.id as string);
-  useloadingStore().setLoading(false);
+  try {
+    await invoiceStore.tarikDetailInvoiceAct(route.params.id as string);
+
+    const penawaranId = invoiceStore.getDetailInvoice.id_penawaran;
+    if (penawaranId) {
+      const [penawaran, invoices] = await Promise.all([
+        tarikdetaildatabase2("penawaran", penawaranId),
+        queryambilid(`penawaran/${penawaranId}/invoice`),
+      ]);
+      quotationGrandTotal.value = Number(penawaran?.grand_total_penawaran || 0);
+      relatedInvoices.value = invoices as invoiceM[];
+    }
+  } finally {
+    useloadingStore().setLoading(false);
+  }
 });
 
 const data = reactive({
@@ -1139,6 +1151,50 @@ function openDialogSelesai() {
 }
 
 const invoiceDetail = computed(() => invoiceStore.getDetailInvoice);
+const billedSubtotal = (invoice: invoiceM) => {
+  const subtotal = Number(invoice.subtotal_invoice || 0);
+  return invoice.down_payment
+    ? subtotal * (Number(invoice.dp_persen || 0) / 100)
+    : subtotal;
+};
+const invoiceAmountLabel = computed(() => {
+  const quotationTotal = quotationGrandTotal.value;
+  const currentAmount = billedSubtotal(invoiceDetail.value);
+  const invoicesInOrder = [...relatedInvoices.value].sort(
+    (a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0),
+  );
+  let billedThroughCurrentInvoice = 0;
+  let foundCurrentInvoice = false;
+  for (const invoice of invoicesInOrder) {
+    billedThroughCurrentInvoice += billedSubtotal(invoice);
+    if (invoice.id === invoiceDetail.value.id) {
+      foundCurrentInvoice = true;
+      break;
+    }
+  }
+  if (!foundCurrentInvoice) {
+    billedThroughCurrentInvoice = invoicesInOrder.reduce(
+      (total, invoice) => total + billedSubtotal(invoice),
+      0,
+    );
+  }
+  const isSingleFullInvoice =
+    relatedInvoices.value.length === 1 &&
+    quotationTotal > 0 &&
+    Math.abs(currentAmount - quotationTotal) < 1;
+
+  if (isSingleFullInvoice) return "Grand Total";
+  if (
+    invoiceDetail.value.status === "Selesai" ||
+    (relatedInvoices.value.length > 1 &&
+      quotationTotal > 0 &&
+      billedThroughCurrentInvoice >= quotationTotal - 1)
+  ) {
+    return "Final Payment";
+  }
+
+  return "Down Payment";
+});
 
 const poObjectUrls = new Map<string, string>();
 

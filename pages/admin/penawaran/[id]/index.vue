@@ -8,9 +8,11 @@ import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import dialogBuatInvoice from "~/components/Admin/Penawaran/dialog-buat-invoice.vue";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
 import { ref } from "vue";
+import { queryambilid } from "~/composables/useFirestoreQuery";
 
 const activeTab = ref(0);
 const purchaseorderPreviewKey = ref(0);
+const invoiceLinks = ref<{ id: string; no_inv?: string }[]>([]);
 
 definePageMeta({ layout: "admin" });
 
@@ -19,10 +21,15 @@ const penawaranstore = usePenawaranStore();
 
 onMounted(async () => {
   useloadingStore().setLoading(true);
-
-  await penawaranstore.tarikDetailPenawaranAct(String(route.params.id));
-
-  useloadingStore().setLoading(false);
+  try {
+    await penawaranstore.tarikDetailPenawaranAct(String(route.params.id));
+    const penawaranId = String(route.params.id);
+    invoiceLinks.value = (await queryambilid(
+      `penawaran/${penawaranId}/invoice`,
+    )) as { id: string; no_inv?: string }[];
+  } finally {
+    useloadingStore().setLoading(false);
+  }
 });
 
 const detailpenawaran = computed(() => penawaranstore.getDetailPenawaran);
@@ -109,9 +116,7 @@ async function opendialogaddpengeluaran() {
         </div>
 
         <div class="page-heading">
-
-            <h1 class="page-title">Detail Quotation</h1>
-
+          <h1 class="page-title">Detail Quotation</h1>
         </div>
       </div>
     </header>
@@ -174,7 +179,16 @@ async function opendialogaddpengeluaran() {
                 class="invoice-status"
               >
                 <v-icon size="15">mdi-check-circle-outline</v-icon>
-                <span>Invoice telah dibuat</span>
+                <p>Invoice telah dibuat</p>
+
+                <div v-for="invoice in invoiceLinks" :key="invoice.id">
+                  <NuxtLink
+                    class="text-primary"
+                    :to="`/admin/invoice/${invoice.id}`"
+                  >
+                    #{{ invoice.no_inv || invoice.id }}
+                  </NuxtLink>
+                </div>
               </div>
 
               <div class="action-buttons">
@@ -809,7 +823,7 @@ async function opendialogaddpengeluaran() {
 
 /* Status invoice */
 .invoice-status {
-  display: flex;
+  /* display: flex; */
   align-items: center;
   gap: 6px;
   margin-bottom: 9px;

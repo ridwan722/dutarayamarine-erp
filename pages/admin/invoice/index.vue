@@ -33,13 +33,10 @@
         </div>
         <v-row density="comfortable">
           <v-col cols="12" sm="6">
-            <a-select-new
-              v-model="newInvoice.id_customer"
+            <a-text-field-new
+              v-model="newInvoice.nama_customer"
               label="Customer"
-              placeholder="Select"
-              item-title="nama"
-              item-value="id"
-              :items="customerStore.getDataCustomer"
+              disabled
             />
           </v-col>
           <v-col cols="12" sm="6">
@@ -52,9 +49,7 @@
         <a-textarea-new
           v-model="newInvoice.alamat_customer"
           class="mt-2"
-          label="Address"
           disabled
-          placeholder="*Auto"
         />
 
         <v-row>
@@ -62,36 +57,28 @@
             <a-text-field-new
               v-model="newInvoice.pic"
               class="mt-2"
-              label="PIC"
               disabled
-              placeholder="*Auto"
             />
           </v-col>
           <v-col>
             <a-text-field-new
               v-model="newInvoice.no_telp"
               class="mt-2"
-              label="No Telp"
               disabled
-              placeholder="*Auto"
             />
           </v-col>
           <v-col>
             <a-text-field-new
               v-model="newInvoice.email"
               class="mt-2"
-              label="Email"
               disabled
-              placeholder="@gmail.com"
             />
           </v-col>
           <v-col>
             <a-text-field-new
               v-model="newInvoice.vessel"
               class="mt-2"
-              label="Vessel"
               disabled
-              placeholder="*Auto"
             />
           </v-col>
         </v-row>
@@ -433,7 +420,7 @@
     <v-col cols="12">
       <v-breadcrumbs>
         <v-breadcrumbs-item>
-          <span class="font-weight-medium text-h5">Invoice</span>
+          <span class="font-weight-medium text-h5 font-weight-bold">Invoice</span>
         </v-breadcrumbs-item>
       </v-breadcrumbs>
     </v-col>
@@ -1010,11 +997,11 @@ async function simpanInvoiceDialog() {
 
 async function hapusInvoice(id_penawaran: string, id: string) {
   const confirmed = await confirmationDialog.value?.show(
-    "Konfirmasi Hapus",
-    "Anda yakin ingin menghapus invoice ini?",
+    "Konfirmasi Hapus Invoice",
+    "Anda yakin ingin menghapus invoice ini? Tindakan ini tidak bisa dipulihkan",
     { variant: "danger" },
   );
-  if (!confirmed) return notificationStore.showError("Penghapusan dibatalkan");
+  if (!confirmed) return notificationStore.showInfo("Penghapusan dibatalkan");
   await invoiceStore.deleteInvoiceAct(id_penawaran, id);
 }
 

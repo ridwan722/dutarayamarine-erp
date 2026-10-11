@@ -1,5 +1,5 @@
 export interface customerM {
-  id?: string;
+  id_customer?: string;
   nama: string;
   pic: string;
   alamat: string;

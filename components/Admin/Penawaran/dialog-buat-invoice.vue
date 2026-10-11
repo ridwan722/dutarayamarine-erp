@@ -230,7 +230,19 @@
           </v-card>
 
           <div class="summary-wrapper">
+            
             <div class="summary-box">
+               <div
+                style="display: flex;"
+              >
+                <v-icon size="15">mdi-check-circle-outline</v-icon>
+                <p class="ml-1">
+                  Sudah ditagih: Rp {{ rupiah(billedSubtotal) }} · Sisa:
+                  Rp {{ rupiah(remainingSubtotal) }}
+                </p>
+
+              </div>
+              <v-divider class="my-1" />
               <div class="summary-row">
                 <span class="text-muted">Subtotal</span>
                 <span class="font-medium">Rp {{ rupiah(subtotal) }}</span>
@@ -254,7 +266,7 @@
                     v-model="form.down_payment"
                     style="cursor: pointer"
                   />
-                  <span style="cursor: pointer">DP</span>
+                  <span style="cursor: pointer">Termin</span>
                 </label>
 
                 <div
@@ -374,8 +386,16 @@
         >
           Batal
         </button>
-        <button class="btn btn-primary" :disabled="saving" @click="save">
+        <button
+          class="btn btn-primary"
+          :disabled="saving || loadingPreviousInvoices || previousInvoicesLoadFailed"
+          @click="save"
+        >
           <span v-if="saving">Memproses...</span>
+          <span v-else-if="loadingPreviousInvoices">Memuat invoice sebelumnya...</span>
+          <span v-else-if="previousInvoicesLoadFailed"
+            >Gagal memuat invoice sebelumnya</span
+          >
           <span v-else>Simpan Invoice</span>
         </button>
       </div>
@@ -391,6 +411,7 @@ import type {
   invoicePoDocumentM,
 } from "~/types/invoice";
 import type { penawaranM } from "~/types/penawaranModel";
+import { queryambilid } from "~/composables/useFirestoreQuery";
 
 const props = defineProps<{ modelValue: boolean; penawaran: penawaranM }>();
 const emit = defineEmits<{
@@ -406,6 +427,9 @@ const penawaranStore = usePenawaranStore();
 const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 const saving = ref(false);
+const loadingPreviousInvoices = ref(false);
+const previousInvoicesLoadFailed = ref(false);
+const previousInvoices = ref<invoiceM[]>([]);
 
 const sameTermCondition = (a: any, b: any) => {
   if (!a || !b) return false;
@@ -452,6 +476,25 @@ const itemSubtotal = (item: invoiceItemM) =>
 const subtotal = computed(() =>
   form.value.item_pekerjaan.reduce((sum, item) => sum + itemSubtotal(item), 0),
 );
+const quotationSubtotal = computed(() =>
+  (props.penawaran.penawaran_item || []).reduce(
+    (sum, item) =>
+      sum + Number(item.subtotal_item || item.qty * item.amount || 0),
+    0,
+  ),
+);
+const billedSubtotal = computed(() =>
+  previousInvoices.value.reduce((sum, invoice) => {
+    const invoiceSubtotal = Number(invoice.subtotal_invoice || 0);
+    const billed = invoice.down_payment
+      ? invoiceSubtotal * (Number(invoice.dp_persen || 0) / 100)
+      : invoiceSubtotal;
+    return sum + billed;
+  }, 0),
+);
+const remainingSubtotal = computed(() =>
+  Math.max(0, quotationSubtotal.value - billedSubtotal.value),
+);
 const ppn = computed(() =>
   form.value.pakai_ppn ? Math.round(subtotal.value * 0.11) : 0,
 );
@@ -464,10 +507,13 @@ const grandTotal = computed(() => {
 });
 watch(
   () => props.modelValue,
-  (open) => {
+  async (open) => {
     if (!open) return;
 
     poFiles.value = [];
+    previousInvoices.value = [];
+    previousInvoicesLoadFailed.value = false;
+    loadingPreviousInvoices.value = true;
 
     form.value = {
       ...emptyForm(),
@@ -498,6 +544,28 @@ watch(
       //   createdBy: item.createdBy ?? "",
       // })),
     };
+
+    try {
+      const penawaranId = props.penawaran.id || props.penawaran.id_penawaran;
+      if (penawaranId) {
+        previousInvoices.value = (await queryambilid(
+          `penawaran/${penawaranId}/invoice`,
+        )) as invoiceM[];
+      }
+
+      if (billedSubtotal.value > 0 && remainingSubtotal.value > 0) {
+        form.value.down_payment = true;
+        form.value.dp_persen = Number(
+          ((remainingSubtotal.value / subtotal.value) * 100).toFixed(6),
+        );
+      }
+    } catch (error) {
+      console.error("Gagal memuat invoice sebelumnya:", error);
+      previousInvoicesLoadFailed.value = true;
+      notificationStore.showError("Gagal memuat total invoice sebelumnya");
+    } finally {
+      loadingPreviousInvoices.value = false;
+    }
   },
 );
 
@@ -536,7 +604,13 @@ const sortedTermConditions = computed(() => {
 });
 
 async function save() {
-  if (saving.value) return;
+  if (
+    saving.value ||
+    loadingPreviousInvoices.value ||
+    previousInvoicesLoadFailed.value
+  ) {
+    return;
+  }
   if (
     !form.value.tanggal ||
     !form.value.id_customer ||
@@ -545,6 +619,20 @@ async function save() {
   ) {
     return notificationStore.showError(
       "Data customer, PIC, dan tanggal wajib diisi",
+    );
+  }
+
+  const currentBilledSubtotal = form.value.down_payment
+    ? dpNominal.value
+    : subtotal.value;
+  if (currentBilledSubtotal > remainingSubtotal.value + 0.5) {
+    return notificationStore.showError(
+      `Nilai invoice melebihi sisa penawaran Rp ${rupiah(remainingSubtotal.value)}`,
+    );
+  }
+  if (remainingSubtotal.value <= 0) {
+    return notificationStore.showError(
+      "Seluruh nilai penawaran sudah ditagihkan",
     );
   }
   if (

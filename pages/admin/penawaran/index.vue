@@ -18,6 +18,7 @@
     max-width="800"
     scrollable
     :fullscreen="display.mdAndDown.value"
+    persistent
   >
     <v-card class="rounded-xl-md overflow-hidden elevation-3 border-0">
       <v-card-item class="pa-2 bg-primary text-center">
@@ -37,7 +38,7 @@
               label="Client"
               placeholder="Select"
               item-title="nama"
-              item-value="id"
+              item-value="id_customer"
               :items="customerStore.getDataCustomer"
             />
           </v-col>
@@ -208,9 +209,11 @@
                   placeholder="0"
                 />
                 <v-chip
+                v-if="item.harga_hpp > 0"
                   v-for="persentase in [10, 20, 30]"
                   :key="persentase"
                   size="x-small"
+                  color="green"
                   class="mr-1 mt-1"
                   :disabled="!Number(item.harga_hpp)"
                   @click="terapkanMarkup(item, persentase)"
@@ -366,6 +369,22 @@
           <span class="text-caption">
             <strong>TERMS &amp; CONDITIONS:</strong>
           </span>
+
+         <div class="d-flex align-center">
+           <a-text-field-new
+             v-model="termConditionSearch"
+             placeholder="Cari term&condition"
+           />
+           <v-chip
+             class="ml-3"
+             color="red"
+             size="x-small"
+             aria-label="Hapus pencarian term dan condition"
+             @click="termConditionSearch = ''"
+           >
+             <v-icon>mdi-close</v-icon>
+           </v-chip>
+         </div>
 
           <table
             style="
@@ -523,6 +542,7 @@
     <v-data-table
       :headers="data.headPenawaran"
       :items="penawaranTampilTersaring"
+      :items-per-page="-1"
       density="compact"
       :sort-by="[{ key: 'created_at', order: 'desc' }]"
       :hover="true"
@@ -673,6 +693,7 @@ import moment from "moment";
 import type { ConfirmationDialog } from "#components";
 import type { penawaranM } from "~/types/penawaranModel";
 import type { barangM } from "~/types/barangModel";
+import type { customerM } from "~/types/customerModel";
 
 definePageMeta({
   layout: "admin",
@@ -714,7 +735,6 @@ const data = reactive({
 
   dialogTambahPenawaran: false,
   penawaranAddEdit: "add" as "add" | "edit",
-  editOriginalCustomerId: "",
   editOriginalTermconditionId: "",
   editOriginalBarangId: "",
   headPenawaran: [
@@ -824,7 +844,10 @@ function currencyLabel(currency?: string) {
 }
 
 const sortedTermConditions = computed(() => {
-  const terms = [...termconditionStore.getDataTermcondition];
+  const search = termConditionSearch.value.trim().toLocaleLowerCase();
+  const terms = termconditionStore.getDataTermcondition.filter((term) =>
+    term.nama_term.toLocaleLowerCase().includes(search),
+  );
   const selected = newPenawaran.value.termCondition || [];
 
   // Yang dipilih mengikuti urutan saat dipilih
@@ -866,6 +889,7 @@ function generateNoPenawaran(): string {
 }
 
 const newPenawaran = ref<penawaranM>(emptyPenawaran());
+const termConditionSearch = ref("");
 
 function sameTermCondition(
   left: NonNullable<penawaranM["termCondition"]>[number],
@@ -884,26 +908,24 @@ const subtotalPenawaran = computed(() =>
   ),
 );
 
+function applyCustomer(customer: customerM) {
+  newPenawaran.value.id_perusahaan = customer.id_customer || "";
+  newPenawaran.value.nama_perusahaan = customer.nama;
+  newPenawaran.value.alamat_perusahaan = customer.alamat;
+  newPenawaran.value.pic = customer.pic;
+  newPenawaran.value.no_telp = customer.no_telp;
+  newPenawaran.value.vessel = customer.vessel;
+  newPenawaran.value.email = customer.email;
+}
+
 watch(
   () => newPenawaran.value.id_perusahaan,
   (idCustomer) => {
-    if (
-      data.penawaranAddEdit === "edit" &&
-      idCustomer === data.editOriginalCustomerId
-    ) {
-      return;
-    }
     const customer = customerStore.getDataCustomer.find(
-      (item: any) => item.id === idCustomer,
+        (item) => (item.id_customer || item.id) === idCustomer,
     );
     if (!customer) return;
-    newPenawaran.value.id_perusahaan = customer.id ?? "";
-    newPenawaran.value.nama_perusahaan = customer.nama;
-    newPenawaran.value.alamat_perusahaan = customer.alamat;
-    newPenawaran.value.pic = customer.pic;
-    newPenawaran.value.no_telp = customer.no_telp;
-    newPenawaran.value.vessel = customer.vessel;
-    newPenawaran.value.email = customer.email;
+    applyCustomer(customer);
   },
 );
 
@@ -916,8 +938,8 @@ function statusColor(status: string) {
 
 function openDialogTambahPenawaran() {
   data.penawaranAddEdit = "add";
-  data.editOriginalCustomerId = "";
   data.editOriginalTermconditionId = "";
+  termConditionSearch.value = "";
   newPenawaran.value = emptyPenawaran();
   data.dialogTambahPenawaran = true;
 }
@@ -925,7 +947,10 @@ function openDialogTambahPenawaran() {
 function openDialogEditPenawaran(item: penawaranM) {
   const customers = customerStore.getDataCustomer;
   const customer =
-    customers.find((dataCustomer) => dataCustomer.id === item.id_perusahaan) ??
+    customers.find(
+      (dataCustomer) =>
+        (dataCustomer.id_customer || dataCustomer.id_customer) === item.id_perusahaan,
+    ) ??
     customers.find(
       (dataCustomer) => dataCustomer.nama === item.id_perusahaan,
     ) ??
@@ -935,14 +960,11 @@ function openDialogEditPenawaran(item: penawaranM) {
 
   const penawaran = JSON.parse(JSON.stringify(item)) as penawaranM;
   penawaran.termCondition ??= [];
-  if (customer?.id) {
-    penawaran.id_perusahaan = customer.id;
-    penawaran.nama_perusahaan = customer.nama;
-  }
+  newPenawaran.value = penawaran;
+  if (customer) applyCustomer(customer);
 
   data.penawaranAddEdit = "edit";
-  data.editOriginalCustomerId = penawaran.id_perusahaan;
-  newPenawaran.value = penawaran;
+  termConditionSearch.value = "";
   data.dialogTambahPenawaran = true;
 }
 
@@ -1070,7 +1092,7 @@ async function simpanPenawaranDialog() {
     data.dialogTambahPenawaran = false;
     newPenawaran.value = emptyPenawaran();
     useloadingStore().setLoading(false);
-    await penawaranStore.tarikDataPenawaranAct();
+    await penawaranStore.tarikdatapenawaranbystatusarray(["Draft", "INVOICE"]);
     return;
   }
 
@@ -1082,17 +1104,17 @@ async function simpanPenawaranDialog() {
 
 async function hapusPenawaran(item: penawaranM) {
   const confirmed = await confirmationDialog.value?.show(
-    "Konfirmasi Hapus",
-    "Anda yakin ingin menghapus penawaran ini?",
+    "Konfirmasi Hapus Penawaran",
+    "Anda yakin ingin menghapus penawaran ini? Tindakan ini tidak bisa dipulihkan",
     { variant: "danger" },
   );
-  if (!confirmed) return notificationStore.showError("Penghapusan dibatalkan");
+  if (!confirmed) return notificationStore.showInfo("Penghapusan dibatalkan");
   await penawaranStore.deletePenawaranAct(item);
 }
 
 function ubahstatuscancel(item: penawaranM) {
   confirmationDialog.value
-    ?.show("Konfirmasi Cancel", "Anda yakin ingin Cancel penawaran ini?", {
+    ?.show("Konfirmasi Cancel", "Anda yakin ingin Cancel penawaran ini? Tindakan ini hanya merubah status penawaran menjadi 'CANCEL', dan dapat di kembalikan", {
       variant: "danger",
     })
 

@@ -66,8 +66,8 @@ sign_by: string,
   // BUKTI BAYAR
   tanggal_bayar: string,
   doc_bukti_bayar: invoiceBuktiBayarM[]
-  down_payment: false,
-  dp_persen: 0,
+  down_payment: boolean;
+  dp_persen: number;
   pengeluaran?: pengeluaranM[];
   grandtotal_pengeluaran?: number;
 }
