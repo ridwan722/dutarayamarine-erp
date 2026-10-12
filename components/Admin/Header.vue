@@ -398,6 +398,17 @@ const logout = async () => {
       </v-list-item>
 
       <v-list-item
+        to="/admin/master/leads-web"
+        class="side-nav-item"
+        active-class="side-nav-item--active"
+      >
+        <div class="nav-icon-wrapper">
+          <v-icon size="20">mdi-human-queue</v-icon>
+        </div>
+        <span class="nav-title-flyout">Leads Web</span>
+      </v-list-item>
+
+      <v-list-item
         to="/admin/master/barang"
         class="side-nav-item"
         active-class="side-nav-item--active"

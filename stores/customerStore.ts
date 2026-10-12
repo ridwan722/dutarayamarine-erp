@@ -71,7 +71,7 @@ export const usecustomerStore = defineStore("customerStore", {
       const notificationStore = useNotificationStore();
       try {
         useloadingStore().setLoading(true);
-        await updatedatabase(COLLECTION, data.id!, data);
+        await updatedatabase(COLLECTION, data.id_customer!, data);
         // sessionStorage.removeItem(COLLECTION);
         await this.tarikDataCustomerAct();
         notificationStore.showSuccess("Perubahan berhasil disimpan");

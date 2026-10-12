@@ -233,6 +233,20 @@ onErrorCaptured((err: unknown) => {
                   <v-icon icon="mdi-arrow-top-right" size="16" class="arrow" />
                 </NuxtLink>
               </div>
+
+              <div class="action-grid-1 mt-2">
+                <NuxtLink to="/admin/master/leads-web" class="compact-action-card">
+                  <div class="action-icon">
+                    <v-icon icon="mdi-human-queue" size="18" />
+                  </div>
+                  <div class="action-text">
+                    <span class="title">Leads Web</span>
+                    <span class="sub">Leads from website www.dutarayamarine.com</span>
+                  </div>
+                  <v-icon icon="mdi-arrow-top-right" size="16" class="arrow" />
+                </NuxtLink>
+              </div>
+
             </div>
           </div>
         </section>
