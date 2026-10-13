@@ -218,7 +218,7 @@
                     width="130"
                     height="65"
                     contain
-                    src="/ttd_ridwan.png"
+
                   />
 
                   <div class="signature-line"></div>

@@ -485,7 +485,7 @@
                   Kepulauan Riau 29425
                 </p>
                 <p class="phone-line">
-                  E-mail: sales@dutarayamarine.com, HP : (+62) 853 6201 8099
+                  E-mail: sales@dutarayamarine.com, HP : +62 821 9998 8670
                   <br />
                   Website: www.dutarayamarine.com
                 </p>
@@ -966,7 +966,7 @@
             <div
               v-if="invoiceDetail.sign_by == 'Lilis Trisnawati'"
               width="150"
-              class="ml-3 font-italic text-grey-lighten-1 text-caption"
+              class="ml-3 mt-5 mb-8 font-italic text-grey-lighten-1 text-caption"
             >
               No Signature Required
             </div>

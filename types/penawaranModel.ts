@@ -31,6 +31,7 @@ export interface penawaranM {
   pengeluaran?: pengeluaranM[];
   penawaran_item: penawaranItemM[]; 
   subtotal_penawaran: number;
+  discount_penawaran: number;
   grand_total_penawaran: number;
   terbilang: string;
 

@@ -494,7 +494,7 @@ const logout = async () => {
           variant="outlined"
           class="version-chip"
         >
-          V 1.2
+          V 1.3
         </v-chip>
 
         <!-- Home Button (Desktop) -->

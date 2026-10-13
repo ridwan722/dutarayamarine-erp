@@ -80,10 +80,14 @@
             <h1 class="company-name">PT. DUTA RAYA MARINE</h1>
             <p class="address-line">
               Cipta Grand City G-8, Sagulung, Kota Batam, <br />
-              Kepulauan Riau 29425
+              Kepulauan Riau 29425. 
+              <br>
+              <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
+             Jl. Raya Pasar Minggu No. 15A, Jakarta Selatan.
+              <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
             </p>
             <p class="phone-line">
-              E-mail: sales@dutarayamarine.com, HP : (+62) 853 6201 8099 <br />
+              E-mail: sales@dutarayamarine.com, HP : +62 821 9998 8670 <br />
               Website: www.dutarayamarine.com
             </p>
           </div>
@@ -313,6 +317,28 @@
             </tbody>
 
             <tfoot v-if="showTotal">
+
+              <tr class="summary-row grand-total-row" v-if="Number(props.detailpenawaran.discount_penawaran) > 0">
+                <td colspan="5" class="text-right font-weight-bold text-navy">
+                  Subtotal
+                </td>
+                <td class="text-right font-weight-bold text-navy">
+                  {{ formatCurrency(props.detailpenawaran.subtotal_penawaran) }}
+                </td>
+              </tr>
+
+              <tr
+                v-if="Number(props.detailpenawaran.discount_penawaran) > 0"
+                class="summary-row discount-row"
+              >
+                <td colspan="5" class="text-right font-weight-bold text-navy">
+                  Discount {{ Number(props.detailpenawaran.discount_penawaran) }}%
+                </td>
+                <td class="text-right font-italic text-navy">
+                  - {{ formatCurrency(Math.max(0, Number(props.detailpenawaran.subtotal_penawaran || 0) - Number(props.detailpenawaran.grand_total_penawaran || 0))) }}
+                </td>
+              </tr>
+
               <tr class="summary-row grand-total-row">
                 <td colspan="5" class="text-right font-weight-bold text-navy">
                   {{ t.grandTotal }}
@@ -708,11 +734,15 @@ const createPaginatedQuotationPdf = async () => {
     import("jspdf"),
   ]);
   const preparePrintClone = (clonedDocument: Document) => {
-    clonedDocument
-      .querySelectorAll(".no-print, .no-print-cell, .drag-icon")
-      .forEach((element) => {
-        (element as HTMLElement).style.display = "none";
-      });
+    // Keep non-print controls in the layout while hiding them. Page break
+    // positions are measured from the live document, so removing these nodes
+    // would shift the rendered signature block away from its measured position.
+    clonedDocument.querySelectorAll(".no-print, .drag-icon").forEach((element) => {
+      (element as HTMLElement).style.visibility = "hidden";
+    });
+    clonedDocument.querySelectorAll(".no-print-cell").forEach((element) => {
+      (element as HTMLElement).style.display = "none";
+    });
     clonedDocument
       .querySelectorAll(".print-only-cell")
       .forEach((element) => {
@@ -761,31 +791,58 @@ const createPaginatedQuotationPdf = async () => {
   const pixelsPerMm = contentCanvas.width / contentWidth;
   const pageSliceHeight = Math.floor(printableContentHeight * pixelsPerMm);
 
-  // Keep each rendered text line intact while allowing long items to continue on
-  // the next page instead of leaving the rest of the current page empty.
+  // Keep quotation items together. When a row does not fit in the remaining
+  // printable area, end the page before the row and place it on the next page.
   const contentRect = contentElement.getBoundingClientRect();
   const canvasScale = contentCanvas.width / contentRect.width;
   const safeBoundaries = new Set<number>();
-  contentElement
-    .querySelectorAll<HTMLElement>(".description-line")
-    .forEach((line) => {
-      const range = document.createRange();
-      range.selectNodeContents(line);
-      Array.from(range.getClientRects()).forEach((rect) => {
-        safeBoundaries.add(
-          Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
-        );
-      });
-      range.detach();
-    });
+  const keepTogetherRanges: Array<{ top: number; bottom: number }> = [];
   contentElement
     .querySelectorAll(".modern-table tbody tr")
     .forEach((row) => {
       const rect = row.getBoundingClientRect();
       safeBoundaries.add(
+        Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
+      );
+      safeBoundaries.add(
         Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
       );
     });
+  // Keep the grand total and its amount-in-words note on the same page.
+  // Otherwise the total can be stranded at the foot of one page while its
+  // explanation starts the next page (as in the reported PDF).
+  const totalBlock = contentElement.querySelector(
+    ".modern-table tfoot .grand-total-row",
+  );
+  const amountInWordsBlock = contentElement.querySelector(
+    ".modern-table tfoot .terbilang-row",
+  );
+  if (totalBlock && amountInWordsBlock) {
+    const totalRect = totalBlock.getBoundingClientRect();
+    const wordsRect = amountInWordsBlock.getBoundingClientRect();
+    const range = {
+      top: Math.floor((totalRect.top - contentRect.top) * canvasScale) - 2,
+      bottom: Math.ceil((wordsRect.bottom - contentRect.top) * canvasScale) + 2,
+    };
+    keepTogetherRanges.push(range);
+    safeBoundaries.add(range.top);
+    safeBoundaries.add(range.bottom);
+  }
+  // Terms and signatures are short document sections. Keep each section intact
+  // so a page boundary cannot cut a heading or leave only part of the block at
+  // the bottom of a page.
+  [".closing-paragraph", ".signatures-wrapper"].forEach((selector) => {
+    contentElement.querySelectorAll<HTMLElement>(selector).forEach((block) => {
+      const rect = block.getBoundingClientRect();
+      const range = {
+        top: Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
+        bottom: Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
+      };
+      keepTogetherRanges.push(range);
+      safeBoundaries.add(range.top);
+      safeBoundaries.add(range.bottom);
+    });
+  });
   const pageBreakBoundaries = Array.from(safeBoundaries)
     .filter((boundary) => boundary > 0 && boundary < contentCanvas.height)
     .sort((a, b) => a - b);
@@ -824,6 +881,16 @@ const createPaginatedQuotationPdf = async () => {
         .slice(-1)[0];
       if (safeBoundary) targetY = safeBoundary;
     }
+    // If the selected cut still crosses a section that must stay together,
+    // move the cut to that section's start. This is more reliable than relying
+    // on a nearby safe boundary, which may belong to content inside the block.
+    const crossingRange = keepTogetherRanges.find(
+      (range) =>
+        range.top > sourceY &&
+        range.top < targetY &&
+        range.bottom > targetY,
+    );
+    if (crossingRange) targetY = crossingRange.top;
     if (pageIndex > 0) pdf.addPage();
 
     const sliceHeight = targetY - sourceY;

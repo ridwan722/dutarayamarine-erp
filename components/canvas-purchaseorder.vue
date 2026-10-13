@@ -83,7 +83,7 @@
               Kepulauan Riau 29425
             </p>
             <p class="phone-line">
-              E-mail: sales@dutarayamarine.com, HP : (+62) 853 6201 8099 <br />
+              E-mail: sales@dutarayamarine.com, HP : +62 821 9998 8670 <br />
               Website: www.dutarayamarine.com
             </p>
           </div>

@@ -279,13 +279,52 @@
 
         <v-divider class="my-4 border-opacity-50" />
 
-        <v-card variant="flat" class="bg-blue-grey-lighten-5 rounded-xl pa-4">
-          <div class="d-flex justify-space-between align-center">
-            <span class="text-subtitle-1 font-weight-bold text-grey-darken-4"
-              >Total Quotation :</span
-            >
-            <span class="text-h6 text-sm-h5 font-weight-black text-primary">
+        <v-card variant="flat" class="quotation-total-card rounded-large pa-4">
+          <div class="d-flex flex-wrap justify-space-between align-center ga-3 mb-3">
+            <div>
+              <div class="text-subtitle-1 font-weight-bold text-grey-darken-4">
+                Ringkasan Harga
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                Diskon dihitung dari subtotal penawaran.
+              </div>
+            </div>
+            <v-text-field
+              v-model.number="discountPercentPenawaran"
+              label="Diskon"
+              type="number"
+              suffix="%"
+              min="0"
+              max="100"
+              step="0.01"
+              density="compact"
+              variant="outlined"
+              hide-details
+              class="discount-input"
+            />
+          </div>
+          <v-divider class="mb-3" />
+          <div class="d-flex justify-space-between align-center text-body-2 mb-2">
+            <span class="text-medium-emphasis">Subtotal</span>
+            <span class="font-weight-medium">
               {{ formatCurrency(subtotalPenawaran, newPenawaran.currency) }}
+            </span>
+          </div>
+          <div class="d-flex justify-space-between align-center text-body-2 mb-3">
+            <span class="text-medium-emphasis">
+              Potongan diskon ({{ discountPercentPenawaran }}%)
+            </span>
+            <span class="font-weight-medium text-error">
+              - {{ formatCurrency(discountAmountPenawaran, newPenawaran.currency) }}
+            </span>
+          </div>
+          <v-divider class="mb-3" />
+          <div class="d-flex justify-space-between align-center">
+            <span class="text-subtitle-1 font-weight-bold text-grey-darken-4">
+              Total Quotation
+            </span>
+            <span class="text-h6 text-sm-h5 font-weight-black text-primary">
+              {{ formatCurrency(grandTotalPenawaran, newPenawaran.currency) }}
             </span>
           </div>
         </v-card>
@@ -817,6 +856,7 @@ function emptyPenawaran(): penawaranM {
       },
     ],
     subtotal_penawaran: 0,
+    discount_penawaran: 0,
     grand_total_penawaran: 0,
     terbilang: "",
     termCondition: [],
@@ -906,6 +946,26 @@ const subtotalPenawaran = computed(() =>
       total + (Number(item.qty) || 0) * (Number(item.amount) || 0),
     0,
   ),
+);
+const discountPercentPenawaran = computed({
+  get: () =>
+    Math.min(100, Math.max(0, Number(newPenawaran.value.discount_penawaran) || 0)),
+  set: (value: number) => {
+    newPenawaran.value.discount_penawaran = Math.min(
+      100,
+      Math.max(0, Number(value) || 0),
+    );
+  },
+});
+const discountAmountPenawaran = computed(() => {
+  const amount =
+    (subtotalPenawaran.value * discountPercentPenawaran.value) / 100;
+  return newPenawaran.value.currency === "IDR"
+    ? Math.round(amount)
+    : Math.round(amount * 100) / 100;
+});
+const grandTotalPenawaran = computed(() =>
+  Math.max(0, subtotalPenawaran.value - discountAmountPenawaran.value),
 );
 
 function applyCustomer(customer: customerM) {
@@ -1069,9 +1129,10 @@ async function simpanPenawaranDialog() {
     item.harga_hpp = Number(item.harga_hpp) || 0;
     item.subtotal_item = Number(item.qty) * Number(item.amount);
   });
+  newPenawaran.value.discount_penawaran = discountPercentPenawaran.value;
   newPenawaran.value.subtotal_penawaran = subtotalPenawaran.value;
-  newPenawaran.value.grand_total_penawaran = subtotalPenawaran.value;
-  newPenawaran.value.terbilang = terbilang(subtotalPenawaran.value);
+  newPenawaran.value.grand_total_penawaran = grandTotalPenawaran.value;
+  newPenawaran.value.terbilang = terbilang(grandTotalPenawaran.value);
 
   await sinkronkanBarangDariPenawaran();
 
@@ -1197,6 +1258,16 @@ async function refreshData() {
   box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
   transform: translateY(-1px);
 }
+
+.quotation-total-card {
+  background: linear-gradient(135deg, #f4f8ff 0%, #f8fafc 100%);
+  border: 1px solid #dbe5f2;
+}
+
+.discount-input {
+  flex: 0 0 128px;
+}
+
 .gap-2 {
   gap: 8px;
 }
