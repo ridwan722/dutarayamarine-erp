@@ -60,8 +60,10 @@ export const usecustomerStore = defineStore("customerStore", {
         // sessionStorage.removeItem(COLLECTION);
         await this.tarikDataCustomerAct();
         notificationStore.showSuccess("Customer berhasil ditambahkan");
+        return true;
       } catch (error) {
         notificationStore.showError("Gagal menyimpan customer");
+        return false;
       } finally {
         useloadingStore().setLoading(false);
       }

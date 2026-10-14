@@ -1,6 +1,26 @@
 <template>
   <ConfirmationDialog ref="confirmationDialog" />
 
+  <v-dialog v-model="data.dialogTambahMasterPerusahaan" max-width="520" persistent>
+    <v-card class="rounded-xl overflow-hidden">
+      <v-card-title class="bg-primary text-white font-weight-bold">
+        Tambah Master Client
+      </v-card-title>
+      <v-card-text class="pt-4">
+        <a-text-field-new v-model="newCustomer.nama" label="Client" placeholder="Nama perusahaan" />
+        <a-text-field-new v-model="newCustomer.vessel" label="Vessel" placeholder="Nama vessel" />
+        <a-textarea-new v-model="newCustomer.alamat" label="Address" placeholder="Alamat perusahaan" />
+        <a-text-field-new v-model="newCustomer.pic" label="PIC" placeholder="Nama PIC" />
+        <a-text-field-new v-model="newCustomer.no_telp" label="Phone Number" placeholder="Nomor telepon" />
+        <a-text-field-new v-model="newCustomer.email" label="Email" placeholder="Email" />
+      </v-card-text>
+      <v-card-actions class="justify-end bg-grey-lighten-4">
+        <v-btn variant="text" @click="data.dialogTambahMasterPerusahaan = false">Batal</v-btn>
+        <v-btn color="primary" variant="flat" :loading="savingCustomer" @click="simpanMasterPerusahaan">Simpan</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
   <!-- Tombol Kembali -->
   <v-btn
     variant="text"
@@ -32,15 +52,30 @@
 
       <v-card-text class="pa-4 pa-sm-6">
         <v-row>
-          <v-col>
+          <v-col class="d-flex align-end ga-2">
             <a-select-new
+              class="flex-grow-1"
               v-model="newPenawaran.id_perusahaan"
               label="Client"
               placeholder="Select"
-              item-title="nama"
+              item-title="label"
               item-value="id_customer"
-              :items="customerStore.getDataCustomer"
+              :items="customerStore.getDataCustomer.map((customer) => ({
+                ...customer,
+                label: [customer.nama, customer.vessel].filter(Boolean).join(' - '),
+              }))"
             />
+            <v-btn
+              class="mb-1 flex-shrink-0"
+              color="primary"
+              variant="text"
+              size="small"
+              aria-label="Tambah client"
+              @click="opendialogTambahMasterPerusahaan"
+            >
+              <v-icon icon="mdi-plus" />
+              <v-tooltip activator="parent" location="top">Tambah client</v-tooltip>
+            </v-btn>
           </v-col>
           <v-col>
             <a-date-picker-new
@@ -751,6 +786,7 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
   null,
 );
 const activeSuggestionIndex = ref<number | null>(null);
+const savingCustomer = ref(false);
 
 onMounted(async () => {
   useloadingStore().setLoading(true);
@@ -773,6 +809,7 @@ const data = reactive({
   searchPenawaran: "",
 
   dialogTambahPenawaran: false,
+  dialogTambahMasterPerusahaan: false,
   penawaranAddEdit: "add" as "add" | "edit",
   editOriginalTermconditionId: "",
   editOriginalBarangId: "",
@@ -787,6 +824,51 @@ const data = reactive({
     { title: "Aksi", align: "center" as const, value: "aksi", width: "120px" },
   ],
 });
+
+const newCustomer = ref<customerM>(emptyCustomer());
+
+function emptyCustomer(): customerM {
+  return {
+    nama: "",
+    pic: "",
+    alamat: "",
+    no_telp: "",
+    email: "",
+    vessel: "",
+    createdAt: 0,
+    createdBy: "",
+  };
+}
+
+function opendialogTambahMasterPerusahaan() {
+  newCustomer.value = emptyCustomer();
+  data.dialogTambahMasterPerusahaan = true;
+}
+
+async function simpanMasterPerusahaan() {
+  const customer = newCustomer.value;
+  if (!customer.nama.trim()) return notificationStore.showError("Nama Client tidak boleh kosong");
+  if (!customer.alamat.trim()) return notificationStore.showError("Address tidak boleh kosong");
+  if (!customer.pic.trim()) return notificationStore.showError("PIC tidak boleh kosong");
+  if (!customer.no_telp.trim()) return notificationStore.showError("Phone Number tidak boleh kosong");
+  if (!customer.email.trim()) return notificationStore.showError("Email tidak boleh kosong");
+  if (!customer.vessel.trim()) return notificationStore.showError("Vessel tidak boleh kosong");
+
+  customer.createdAt = moment().unix();
+  customer.createdBy = userStore.getEmail || "";
+  savingCustomer.value = true;
+  try {
+    const saved = await customerStore.addCustomerAct({ ...customer });
+    if (!saved) return;
+    const savedCustomer = customerStore.getDataCustomer.find(
+      (item) => item.nama === customer.nama && item.vessel === customer.vessel,
+    );
+    if (savedCustomer) applyCustomer(savedCustomer);
+    data.dialogTambahMasterPerusahaan = false;
+  } finally {
+    savingCustomer.value = false;
+  }
+}
 
 const penawaranTampilTersaring = computed(() => {
   const query = data.searchPenawaran.trim().toLocaleLowerCase("id-ID");
