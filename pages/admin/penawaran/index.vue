@@ -189,7 +189,7 @@
   >
     <v-card class="rounded-xl-md overflow-hidden elevation-3 border-0">
       <v-card-item class="pa-2 bg-primary text-center">
-        <h4 class="font-weight-bold text-h6 text-sm-h5">
+        <h4 class="font-weight-bold text-body-1">
           {{ data.penawaranAddEdit === "add" ? "Create" : "Edit" }} Quotation
         </h4>
         <!-- <p class="text-caption text-grey-darken-1 m-0">
@@ -1172,33 +1172,11 @@ function currencyLabel(currency?: string) {
 
 const sortedTermConditions = computed(() => {
   const search = termConditionSearch.value.trim().toLocaleLowerCase();
-  const terms = termconditionStore.getDataTermcondition.filter((term) =>
-    term.nama_term.toLocaleLowerCase().includes(search),
-  );
-  const selected = newPenawaran.value.termCondition || [];
-
-  // Yang dipilih mengikuti urutan saat dipilih
-  const selectedTerms = selected
-    .map((selectedItem: any) => {
-      return terms.find((term: any) =>
-        term.id
-          ? term.id === selectedItem.id
-          : term.nama_term === selectedItem.nama_term,
-      );
-    })
-    .filter(Boolean);
-
-  // Yang belum dipilih tetap mengikuti urutan asli
-  const unselectedTerms = terms.filter(
-    (term: any) =>
-      !selected.some((selectedItem: any) =>
-        term.id
-          ? term.id === selectedItem.id
-          : term.nama_term === selectedItem.nama_term,
-      ),
-  );
-
-  return [...selectedTerms, ...unselectedTerms];
+  return termconditionStore.getDataTermcondition
+    .filter((term) =>
+      term.nama_term.toLocaleLowerCase().includes(search),
+    )
+    .sort((a, b) => a.nama_term.localeCompare(b.nama_term, "id-ID"));
 });
 
 function generateNoPenawaran(): string {
