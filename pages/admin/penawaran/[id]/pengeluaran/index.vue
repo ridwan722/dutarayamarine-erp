@@ -866,22 +866,25 @@ const previewImage = (dataUrl: string) => {
           </template>
 
           <template #item.bukti="{ item }">
-            <v-tooltip
-              v-if="item.doc_pengeluaran?.length"
-              text="Pratinjau Gambar"
-              location="top"
-            >
-              <template #activator="{ props }">
-                <button
-                  v-bind="props"
-                  type="button"
-                  class="btn-image-preview"
-                  @click="previewImage(item.doc_pengeluaran[0].dataUrl)"
-                >
-                  <v-icon size="20">mdi-image-outline</v-icon>
-                </button>
-              </template>
-            </v-tooltip>
+            <div v-if="item.doc_pengeluaran?.length" class="d-flex ga-1">
+              <v-tooltip
+                v-for="(document, index) in item.doc_pengeluaran"
+                :key="document.fileId || index"
+                text="Pratinjau Gambar"
+                location="top"
+              >
+                <template #activator="{ props }">
+                  <button
+                    v-bind="props"
+                    type="button"
+                    class="btn-image-preview"
+                    @click="previewImage(document.dataUrl)"
+                  >
+                    <v-icon size="20">mdi-image-outline</v-icon>
+                  </button>
+                </template>
+              </v-tooltip>
+            </div>
 
             <span v-else class="text-disabled">-</span>
           </template>

@@ -1,25 +1,172 @@
 <template>
   <ConfirmationDialog ref="confirmationDialog" />
 
-  <v-dialog v-model="data.dialogTambahMasterPerusahaan" max-width="520" persistent>
-    <v-card class="rounded-xl overflow-hidden">
-      <v-card-title class="bg-primary text-white font-weight-bold">
-        Tambah Master Client
-      </v-card-title>
-      <v-card-text class="pt-4">
-        <a-text-field-new v-model="newCustomer.nama" label="Client" placeholder="Nama perusahaan" />
-        <a-text-field-new v-model="newCustomer.vessel" label="Vessel" placeholder="Nama vessel" />
-        <a-textarea-new v-model="newCustomer.alamat" label="Address" placeholder="Alamat perusahaan" />
-        <a-text-field-new v-model="newCustomer.pic" label="PIC" placeholder="Nama PIC" />
-        <a-text-field-new v-model="newCustomer.no_telp" label="Phone Number" placeholder="Nomor telepon" />
-        <a-text-field-new v-model="newCustomer.email" label="Email" placeholder="Email" />
-      </v-card-text>
-      <v-card-actions class="justify-end bg-grey-lighten-4">
-        <v-btn variant="text" @click="data.dialogTambahMasterPerusahaan = false">Batal</v-btn>
-        <v-btn color="primary" variant="flat" :loading="savingCustomer" @click="simpanMasterPerusahaan">Simpan</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+ <v-dialog
+  v-model="data.dialogTambahMasterPerusahaan"
+  max-width="320"
+  persistent
+>
+  <v-card class="rounded border elevation-1 bg-white">
+    <!-- Header Padat -->
+    <div class="px-4 py-2-5 pa-3 d-flex align-center justify-space-between border-b">
+      <span class="text-caption font-weight-bold text-grey-darken-3">Tambah Master Client</span>
+      <v-btn
+        icon="mdi-close"
+        variant="text"
+        density="compact"
+        size="x-small"
+        color="grey-darken-1"
+        @click="data.dialogTambahMasterPerusahaan = false"
+      />
+    </div>
+
+    <!-- Form Body High-Density -->
+    <v-card-text class="pa-3">
+
+        <!-- Nama Perusahaan -->
+
+          <a-text-field-new
+            v-model="newCustomer.nama"
+            placeholder="Nama perusahaan"
+            variant="outlined"
+            density="compact"
+            hide-details
+          />
+          <div v-if="saranFieldCustomer('nama', newCustomer.nama).length" >
+            <v-chip
+              v-for="nama in saranFieldCustomer('nama', newCustomer.nama)"
+              :key="nama"
+              size="x-small"
+              class="mr-1 mb-1 text-grey"
+              @mousedown.prevent
+              @click="newCustomer.nama = nama"
+            >
+              {{ nama }}
+            </v-chip>
+          </div>
+
+
+
+          <a-text-field-new
+            v-model="newCustomer.vessel"
+            placeholder="vessel"
+            variant="outlined"
+            density="compact"
+            hide-details
+          />
+          <div v-if="saranFieldCustomer('vessel', newCustomer.vessel).length">
+            <v-chip
+              v-for="value in saranFieldCustomer('vessel', newCustomer.vessel)"
+              :key="value"
+              size="x-small"
+              class="mr-1 mb-1 text-grey"
+              @mousedown.prevent
+              @click="newCustomer.vessel = value"
+            >{{ value }}</v-chip>
+          </div>
+
+          <a-text-field-new
+            v-model="newCustomer.pic"
+            placeholder="PIC name"
+            variant="outlined"
+            density="compact"
+            hide-details
+          />
+          <div v-if="saranFieldCustomer('pic', newCustomer.pic).length">
+            <v-chip
+              v-for="value in saranFieldCustomer('pic', newCustomer.pic)"
+              :key="value"
+              size="x-small"
+              class="mr-1 mb-1 text-grey"
+              @mousedown.prevent
+              @click="newCustomer.pic = value"
+            >{{ value }}</v-chip>
+          </div>
+
+          <a-text-field-new
+            v-model="newCustomer.no_telp"
+            placeholder="Phone Number"
+            variant="outlined"
+            density="compact"
+            hide-details
+          />
+          <div v-if="saranFieldCustomer('no_telp', newCustomer.no_telp).length">
+            <v-chip
+              v-for="value in saranFieldCustomer('no_telp', newCustomer.no_telp)"
+              :key="value"
+              size="x-small"
+              class="mr-1 mb-1 text-grey"
+              @mousedown.prevent
+              @click="newCustomer.no_telp = value"
+            >{{ value }}</v-chip>
+          </div>
+       
+          <a-text-field-new
+            v-model="newCustomer.email"
+            placeholder="Email"
+            variant="outlined"
+            density="compact"
+            hide-details
+          />
+          <div v-if="saranFieldCustomer('email', newCustomer.email).length">
+            <v-chip
+              v-for="value in saranFieldCustomer('email', newCustomer.email)"
+              :key="value"
+              size="x-small"
+              class="mr-1 mb-1 text-grey"
+              @mousedown.prevent
+              @click="newCustomer.email = value"
+            >{{ value }}</v-chip>
+          </div>
+
+          <a-textarea-new
+            v-model="newCustomer.alamat"
+            placeholder="Address"
+            rows="2"
+            variant="outlined"
+            density="compact"
+            hide-details
+            auto-grow
+          />
+          <div v-if="saranFieldCustomer('alamat', newCustomer.alamat).length">
+            <v-chip
+              v-for="value in saranFieldCustomer('alamat', newCustomer.alamat)"
+              :key="value"
+              size="x-small"
+              class="mr-1 mb-1 text-grey"
+              @mousedown.prevent
+              @click="newCustomer.alamat = value"
+            >{{ value }}</v-chip>
+          </div>
+
+
+    </v-card-text>
+
+    <!-- Footer Padat -->
+    <div class="px-3 py-2 border-t d-flex justify-end gap-1 bg-grey-lighten-5">
+      <v-btn
+        variant="text"
+        color="grey-darken-1"
+        size="x-small"
+        class="text-none px-3"
+        :disabled="savingCustomer"
+        @click="data.dialogTambahMasterPerusahaan = false"
+      >
+        Batal
+      </v-btn>
+      <v-btn
+        color="grey-darken-4"
+        size="x-small"
+        variant="flat"
+        class="text-none px-3 text-white"
+        :loading="savingCustomer"
+        @click="simpanMasterPerusahaan"
+      >
+        Simpan
+      </v-btn>
+    </div>
+  </v-card>
+</v-dialog>
 
   <!-- Tombol Kembali -->
   <v-btn
@@ -50,8 +197,12 @@
         </p> -->
       </v-card-item>
 
-      <v-card-text class="pa-4 pa-sm-6">
-        <v-row>
+      <v-card-text class="pa-4">
+        <a-date-picker-new
+          v-model="newPenawaran.tanggal_penawaran"
+          label="Quotation Date"
+        />
+        <v-row class="mt-2">
           <v-col class="d-flex align-end ga-2">
             <a-select-new
               class="flex-grow-1"
@@ -60,28 +211,32 @@
               placeholder="Select"
               item-title="label"
               item-value="id_customer"
-              :items="customerStore.getDataCustomer.map((customer) => ({
-                ...customer,
-                label: [customer.nama, customer.vessel].filter(Boolean).join(' - '),
-              }))"
+              :items="
+                customerStore.getDataCustomer.map((customer) => ({
+                  ...customer,
+                  label: [customer.nama, customer.vessel]
+                    .filter(Boolean)
+                    .join(' - '),
+                }))
+              "
             />
             <v-btn
-              class="mb-1 flex-shrink-0"
-              color="primary"
-              variant="text"
-              size="small"
+              class="mb-1 flex-shrink-0 text-none"
+              variant="outlined"
+              color="grey-darken-2"
+              width="28"
+              height="28"
+              min-width="28"
+              rounded="1"
               aria-label="Tambah client"
               @click="opendialogTambahMasterPerusahaan"
             >
-              <v-icon icon="mdi-plus" />
-              <v-tooltip activator="parent" location="top">Tambah client</v-tooltip>
+              <v-icon icon="mdi-plus-circle" color="primary" size="15" />
+
+              <v-tooltip activator="parent" location="top">
+                Add New Client
+              </v-tooltip>
             </v-btn>
-          </v-col>
-          <v-col>
-            <a-date-picker-new
-              v-model="newPenawaran.tanggal_penawaran"
-              label="Quotation Date"
-            />
           </v-col>
         </v-row>
         <a-textarea-new
@@ -150,7 +305,7 @@
         <v-row
           v-for="(item, index) in newPenawaran.penawaran_item"
           :key="index"
-          class="bg-grey-lighten-5 rounded-lg pa-1 pa-sm-1 mb-4 border border-dashed position-relative"
+          class="bg-grey-lighten-5 rounded-lg mx-0 mt-0 mb-4 border border-dashed position-relative"
           @focusin="activeSuggestionIndex = index"
           @focusout="activeSuggestionIndex = null"
         >
@@ -244,7 +399,7 @@
                   placeholder="0"
                 />
                 <v-chip
-                v-if="item.harga_hpp > 0"
+                  v-if="item.harga_hpp > 0"
                   v-for="persentase in [10, 20, 30]"
                   :key="persentase"
                   size="x-small"
@@ -315,13 +470,12 @@
         <v-divider class="my-4 border-opacity-50" />
 
         <v-card variant="flat" class="quotation-total-card rounded-large pa-4">
-          <div class="d-flex flex-wrap justify-space-between align-center ga-3 mb-3">
+          <div
+            class="d-flex flex-wrap justify-space-between align-center ga-3 mb-3"
+          >
             <div>
               <div class="text-subtitle-1 font-weight-bold text-grey-darken-4">
-                Ringkasan Harga
-              </div>
-              <div class="text-caption text-medium-emphasis">
-                Diskon dihitung dari subtotal penawaran.
+                Summary
               </div>
             </div>
             <v-text-field
@@ -338,27 +492,32 @@
               class="discount-input"
             />
           </div>
-          <v-divider class="mb-3" />
-          <div class="d-flex justify-space-between align-center text-body-2 mb-2">
+          <v-divider class="mb-1" />
+          <div class="d-flex justify-space-between align-center text-caption">
             <span class="text-medium-emphasis">Subtotal</span>
             <span class="font-weight-medium">
               {{ formatCurrency(subtotalPenawaran, newPenawaran.currency) }}
             </span>
           </div>
-          <div class="d-flex justify-space-between align-center text-body-2 mb-3">
+          <div
+            class="d-flex justify-space-between align-center text-caption mb-1"
+          >
             <span class="text-medium-emphasis">
-              Potongan diskon ({{ discountPercentPenawaran }}%)
+              Discount ({{ discountPercentPenawaran }}%)
             </span>
-            <span class="font-weight-medium text-error">
-              - {{ formatCurrency(discountAmountPenawaran, newPenawaran.currency) }}
+            <span class="font-weight-medium text-red font-italic">
+              -
+              {{
+                formatCurrency(discountAmountPenawaran, newPenawaran.currency)
+              }}
             </span>
           </div>
-          <v-divider class="mb-3" />
+          <v-divider class="mb-1" />
           <div class="d-flex justify-space-between align-center">
-            <span class="text-subtitle-1 font-weight-bold text-grey-darken-4">
+            <span class="text-subtitle-1 text-grey-darken-4">
               Total Quotation
             </span>
-            <span class="text-h6 text-sm-h5 font-weight-black text-primary">
+            <span class="text-h6 font-weight-black">
               {{ formatCurrency(grandTotalPenawaran, newPenawaran.currency) }}
             </span>
           </div>
@@ -444,21 +603,23 @@
             <strong>TERMS &amp; CONDITIONS:</strong>
           </span>
 
-         <div class="d-flex align-center">
-           <a-text-field-new
-             v-model="termConditionSearch"
-             placeholder="Cari term&condition"
-           />
-           <v-chip
-             class="ml-3"
-             color="red"
-             size="x-small"
-             aria-label="Hapus pencarian term dan condition"
-             @click="termConditionSearch = ''"
-           >
-             <v-icon>mdi-close</v-icon>
-           </v-chip>
-         </div>
+          <div class="d-flex align-center">
+            <a-text-field-new
+              v-model="termConditionSearch"
+              placeholder="Cari term&condition"
+            />
+            <v-btn
+              v-if="termConditionSearch"
+              class="ml-2 mb-2"
+              icon="mdi-close-circle"
+              size="24"
+              variant="text"
+              color="red"
+              density="compact"
+              aria-label="Hapus pencarian term dan condition"
+              @click="termConditionSearch = ''"
+            />
+          </div>
 
           <table
             style="
@@ -827,6 +988,44 @@ const data = reactive({
 
 const newCustomer = ref<customerM>(emptyCustomer());
 
+function saranFieldCustomer(
+  field: "nama" | "vessel" | "pic" | "no_telp" | "email" | "alamat",
+  value: string | null | undefined,
+) {
+  const query = value?.trim().toLocaleLowerCase("id-ID") ?? "";
+  if (!query) return [];
+
+  return [
+    ...new Set(
+      customerStore.getDataCustomer
+        .map((customer) => customer[field]?.trim())
+        .filter(
+          (suggestion): suggestion is string =>
+            Boolean(suggestion) &&
+            suggestion.toLocaleLowerCase("id-ID").includes(query) &&
+            suggestion.toLocaleLowerCase("id-ID") !== query,
+        ),
+    ),
+  ];
+}
+
+watch(
+  () => newCustomer.value.pic,
+  (pic) => {
+    const query = pic?.trim().toLocaleLowerCase("id-ID");
+    if (!query) return;
+
+    const customer = customerStore.getDataCustomer.find(
+      (item) => item.pic?.trim().toLocaleLowerCase("id-ID") === query,
+    );
+    if (!customer) return;
+
+    newCustomer.value.no_telp = customer.no_telp || "";
+    newCustomer.value.email = customer.email || "";
+    newCustomer.value.alamat = customer.alamat || "";
+  },
+);
+
 function emptyCustomer(): customerM {
   return {
     nama: "",
@@ -847,12 +1046,18 @@ function opendialogTambahMasterPerusahaan() {
 
 async function simpanMasterPerusahaan() {
   const customer = newCustomer.value;
-  if (!customer.nama.trim()) return notificationStore.showError("Nama Client tidak boleh kosong");
-  if (!customer.alamat.trim()) return notificationStore.showError("Address tidak boleh kosong");
-  if (!customer.pic.trim()) return notificationStore.showError("PIC tidak boleh kosong");
-  if (!customer.no_telp.trim()) return notificationStore.showError("Phone Number tidak boleh kosong");
-  if (!customer.email.trim()) return notificationStore.showError("Email tidak boleh kosong");
-  if (!customer.vessel.trim()) return notificationStore.showError("Vessel tidak boleh kosong");
+  if (!customer.nama.trim())
+    return notificationStore.showError("Nama Client tidak boleh kosong");
+  if (!customer.vessel.trim())
+    return notificationStore.showError("Vessel tidak boleh kosong");
+  if (!customer.alamat.trim())
+    return notificationStore.showError("Address tidak boleh kosong");
+  if (!customer.pic.trim())
+    return notificationStore.showError("PIC tidak boleh kosong");
+  if (!customer.no_telp.trim())
+    return notificationStore.showError("Phone Number tidak boleh kosong");
+  if (!customer.email.trim())
+    return notificationStore.showError("Email tidak boleh kosong");
 
   customer.createdAt = moment().unix();
   customer.createdBy = userStore.getEmail || "";
@@ -1031,7 +1236,10 @@ const subtotalPenawaran = computed(() =>
 );
 const discountPercentPenawaran = computed({
   get: () =>
-    Math.min(100, Math.max(0, Number(newPenawaran.value.discount_penawaran) || 0)),
+    Math.min(
+      100,
+      Math.max(0, Number(newPenawaran.value.discount_penawaran) || 0),
+    ),
   set: (value: number) => {
     newPenawaran.value.discount_penawaran = Math.min(
       100,
@@ -1064,7 +1272,7 @@ watch(
   () => newPenawaran.value.id_perusahaan,
   (idCustomer) => {
     const customer = customerStore.getDataCustomer.find(
-        (item) => (item.id_customer || item.id) === idCustomer,
+      (item) => (item.id_customer || item.id) === idCustomer,
     );
     if (!customer) return;
     applyCustomer(customer);
@@ -1091,7 +1299,8 @@ function openDialogEditPenawaran(item: penawaranM) {
   const customer =
     customers.find(
       (dataCustomer) =>
-        (dataCustomer.id_customer || dataCustomer.id_customer) === item.id_perusahaan,
+        (dataCustomer.id_customer || dataCustomer.id_customer) ===
+        item.id_perusahaan,
     ) ??
     customers.find(
       (dataCustomer) => dataCustomer.nama === item.id_perusahaan,
@@ -1257,9 +1466,13 @@ async function hapusPenawaran(item: penawaranM) {
 
 function ubahstatuscancel(item: penawaranM) {
   confirmationDialog.value
-    ?.show("Konfirmasi Cancel", "Anda yakin ingin Cancel penawaran ini? Tindakan ini hanya merubah status penawaran menjadi 'CANCEL', dan dapat di kembalikan", {
-      variant: "danger",
-    })
+    ?.show(
+      "Konfirmasi Cancel",
+      "Anda yakin ingin Cancel penawaran ini? Tindakan ini hanya merubah status penawaran menjadi 'CANCEL', dan dapat di kembalikan",
+      {
+        variant: "danger",
+      },
+    )
 
     .then(async (confirmed) => {
       if (!confirmed) return notificationStore.showInfo("Cancel dibatalkan");
@@ -1314,7 +1527,7 @@ async function refreshData() {
 .subject-cell {
   display: block;
   max-width: 220px;
-  min-width: 0;
+  min-width: 200px;
   white-space: normal;
   overflow-wrap: anywhere;
   line-height: 1.35;
