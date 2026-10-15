@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="success-container">
     <div class="modern-success-message">
@@ -181,4 +180,4 @@
   }
 }
 </style>
-```
+
