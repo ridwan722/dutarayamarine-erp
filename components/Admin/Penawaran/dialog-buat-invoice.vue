@@ -160,7 +160,7 @@
                   'Seilla Maryana',
                   'Leo Adiatmaja Sembiring',
                   'Muhammad Ridwan',
-                  'Lilis Trisnawati',
+                  'Lilis',
                 ]"
                 class="sign-select"
                 label="Sign By / Yang Bertanda Tangan ?"
@@ -211,7 +211,7 @@
                 </div>
 
                 <div
-                  v-if="form.sign_by == 'Lilis Trisnawati'"
+                  v-if="form.sign_by == 'Lilis'"
                   class="signature-content"
                 >
                   <v-img
@@ -223,7 +223,7 @@
 
                   <div class="signature-line"></div>
 
-                  <div class="signature-name">Lilis Trisnawati</div>
+                  <div class="signature-name">Lilis</div>
                 </div>
               </div>
             </v-card-text>

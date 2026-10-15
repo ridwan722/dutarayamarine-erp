@@ -175,7 +175,7 @@
             <div class="meta-row">
               <span class="lbl">{{ t.location }}</span>
               <span class="sep">:</span>
-              <span class="val bold-navy">Batam</span>
+              <span class="val bold-navy">Jakarta</span>
             </div>
 
             <div class="meta-row">
@@ -332,7 +332,8 @@
                 class="summary-row discount-row"
               >
                 <td colspan="5" class="text-right font-weight-bold text-navy">
-                  Discount {{ Number(props.detailpenawaran.discount_penawaran) }}%
+                  Discount 
+                  <!-- {{ Number(props.detailpenawaran.discount_penawaran) }}% -->
                 </td>
                 <td class="text-right font-italic text-navy">
                   - {{ formatCurrency(Math.max(0, Number(props.detailpenawaran.subtotal_penawaran || 0) - Number(props.detailpenawaran.grand_total_penawaran || 0))) }}
@@ -399,12 +400,12 @@
               <img src="/ttd_ridwan.png" v-if="detailpenawaran.sign_by == 'Muhammad Ridwan'" alt="Signature" class="sig-image" />
               <img src="/ttd_seilla.png" v-if="detailpenawaran.sign_by == 'Seilla Maryana'" alt="Signature" class="sig-image" />
               <img src="/ttd_leo.png" v-if="detailpenawaran.sign_by == 'Leo Adiatmaja Sembiring'" alt="Signature" class="sig-image" />
-              <div v-if="detailpenawaran.sign_by == 'Lilis Trisnawati'" class="sig-image font-italic text-grey-lighten-1 text-caption" >No Signature Required</div>
+              <div v-if="detailpenawaran.sign_by == 'Lilis'" class="sig-image font-italic text-grey-lighten-1 text-caption" >No Signature Required</div>
             </div>
             <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Muhammad Ridwan'">Muhammad Ridwan</p>
             <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Seilla Maryana'">Seilla Maryana</p>
              <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Leo Adiatmaja Sembiring'">Leo Adiatmaja Sembiring</p>
-              <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Lilis Trisnawati'">Lilis Trisnawati</p>
+              <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Lilis'">Lilis</p>
           </div>
 
           <div class="sig-block">
@@ -778,7 +779,10 @@ const createPaginatedQuotationPdf = async () => {
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const sideMargin = 12;
+  // Match the 18 mm horizontal padding of .offer-card. Using 12 mm here
+  // enlarged the captured content to 186 mm, causing content (including the
+  // signature block) to overflow onto an extra page while leaving gaps.
+  const sideMargin = 18;
   const topMargin = 8;
   const footerMargin = 8;
   const contentWidth = pageWidth - sideMargin * 2;
@@ -828,10 +832,10 @@ const createPaginatedQuotationPdf = async () => {
     safeBoundaries.add(range.top);
     safeBoundaries.add(range.bottom);
   }
-  // Terms and signatures are short document sections. Keep each section intact
-  // so a page boundary cannot cut a heading or leave only part of the block at
-  // the bottom of a page.
-  [".closing-paragraph", ".signatures-wrapper"].forEach((selector) => {
+  // Keep the terms section intact. Let the signature block flow into the
+  // remaining page space: keeping it together can move the whole block to the
+  // next page and leave a large blank area after the terms.
+  [".closing-paragraph"].forEach((selector) => {
     contentElement.querySelectorAll<HTMLElement>(selector).forEach((block) => {
       const rect = block.getBoundingClientRect();
       const range = {
@@ -1269,7 +1273,7 @@ const handleSavePdf = async () => {
   font-size: 10.5px;
   color: #475569;
   line-height: 1.4;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .signatures-wrapper {
@@ -1300,20 +1304,20 @@ const handleSavePdf = async () => {
 }
 
 .sig-img-container {
-  height: 95px;
+  height: 68px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .sig-image {
-  max-height: 95px;
+  max-height: 68px;
   max-width: 130px;
   object-fit: contain;
 }
 
 .sig-placeholder {
-  height: 95px;
+  height: 68px;
 }
 
 .sig-person-name {

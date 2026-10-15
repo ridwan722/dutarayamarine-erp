@@ -964,7 +964,7 @@
             />
 
             <div
-              v-if="invoiceDetail.sign_by == 'Lilis Trisnawati'"
+              v-if="invoiceDetail.sign_by == 'Lilis'"
               width="150"
               class="ml-3 mt-5 mb-8 font-italic text-grey-lighten-1 text-caption"
             >
@@ -980,8 +980,8 @@
             <strong v-if="invoiceDetail.sign_by == 'Leo Adiatmaja Sembiring'"
               >Leo Adiatmaja Sembiring</strong
             >
-            <strong v-if="invoiceDetail.sign_by == 'Lilis Trisnawati'"
-              >Lilis Trisnawati</strong
+            <strong v-if="invoiceDetail.sign_by == 'Lilis'"
+              >Lilis</strong
             >
           </div>
         </v-card>

@@ -478,19 +478,34 @@
                 Summary
               </div>
             </div>
-            <v-text-field
-              v-model.number="discountPercentPenawaran"
-              label="Diskon"
-              type="number"
-              suffix="%"
-              min="0"
-              max="100"
-              step="0.01"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="discount-input"
-            />
+            <div class="discount-inputs">
+              <v-text-field
+                v-model.number="discountPercentPenawaran"
+                label="Diskon (%)"
+                type="number"
+                suffix="%"
+                min="0"
+                max="100"
+                step="0.01"
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="discount-input"
+              />
+              <v-text-field
+                v-model="discountAmountInput"
+                label="Diskon Nominal"
+                type="text"
+                inputmode="decimal"
+                :prefix="currencyInputPrefix"
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="discount-input"
+                @focus="startEditingDiscountAmount"
+                @blur="finishEditingDiscountAmount"
+              />
+            </div>
           </div>
           <v-divider class="mb-1" />
           <div class="d-flex justify-space-between align-center text-caption">
@@ -544,7 +559,7 @@
                 'Seilla Maryana',
                 'Leo Adiatmaja Sembiring',
                 'Muhammad Ridwan',
-                'Lilis Trisnawati',
+                'Lilis',
               ]"
               class="sign-select"
             />
@@ -585,14 +600,14 @@
               </div>
 
               <div
-                v-if="newPenawaran.sign_by == 'Lilis Trisnawati'"
+                v-if="newPenawaran.sign_by == 'Lilis'"
                 class="signature-content"
               >
                 <v-img width="130" height="65" contain />
 
                 <div class="signature-line"></div>
 
-                <div class="signature-name">Lilis Trisnawati</div>
+                <div class="signature-name">Lilis</div>
               </div>
             </div>
           </v-card-text>
@@ -1172,11 +1187,28 @@ function currencyLabel(currency?: string) {
 
 const sortedTermConditions = computed(() => {
   const search = termConditionSearch.value.trim().toLocaleLowerCase();
+  const selectedTerms = newPenawaran.value.termCondition ?? [];
   return termconditionStore.getDataTermcondition
     .filter((term) =>
       term.nama_term.toLocaleLowerCase().includes(search),
     )
-    .sort((a, b) => a.nama_term.localeCompare(b.nama_term, "id-ID"));
+    .sort((a, b) => {
+      const aSelected = selectedTerms.some((selected) =>
+        sameTermCondition(selected, {
+          id: a.id ?? "",
+          nama_term: a.nama_term,
+        }),
+      );
+      const bSelected = selectedTerms.some((selected) =>
+        sameTermCondition(selected, {
+          id: b.id ?? "",
+          nama_term: b.nama_term,
+        }),
+      );
+
+      if (aSelected !== bSelected) return aSelected ? -1 : 1;
+      return a.nama_term.localeCompare(b.nama_term, "id-ID");
+    });
 });
 
 function generateNoPenawaran(): string {
@@ -1225,13 +1257,93 @@ const discountPercentPenawaran = computed({
     );
   },
 });
-const discountAmountPenawaran = computed(() => {
-  const amount =
-    (subtotalPenawaran.value * discountPercentPenawaran.value) / 100;
-  return newPenawaran.value.currency === "IDR"
-    ? Math.round(amount)
-    : Math.round(amount * 100) / 100;
+const discountAmountPenawaran = computed({
+  get: () => {
+    const amount =
+      (subtotalPenawaran.value * discountPercentPenawaran.value) / 100;
+    return newPenawaran.value.currency === "IDR"
+      ? Math.round(amount)
+      : Math.round(amount * 100) / 100;
+  },
+  set: (value: number) => {
+    const amount = Math.min(
+      subtotalPenawaran.value,
+      Math.max(0, Number(value) || 0),
+    );
+    discountPercentPenawaran.value =
+      subtotalPenawaran.value > 0
+        ? (amount / subtotalPenawaran.value) * 100
+        : 0;
+  },
 });
+const currencyInputPrefix = computed(() => {
+  switch (newPenawaran.value.currency) {
+    case "USD":
+      return "US$";
+    case "SGD":
+      return "S$";
+    default:
+      return "Rp";
+  }
+});
+const discountAmountInput = ref("");
+const isEditingDiscountAmount = ref(false);
+
+function formatDiscountAmount(value: number) {
+  const isIdr = newPenawaran.value.currency === "IDR";
+  const locale = isIdr
+    ? "id-ID"
+    : newPenawaran.value.currency === "SGD"
+      ? "en-SG"
+      : "en-US";
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: isIdr ? 0 : 2,
+    maximumFractionDigits: isIdr ? 0 : 2,
+  }).format(value);
+}
+
+function parseDiscountAmount(value: string) {
+  const numericValue =
+    newPenawaran.value.currency === "IDR"
+      ? value.replace(/\D/g, "")
+      : value.replace(/,/g, "").replace(/[^\d.]/g, "");
+  return Number(numericValue) || 0;
+}
+
+function startEditingDiscountAmount() {
+  isEditingDiscountAmount.value = true;
+  discountAmountInput.value =
+    newPenawaran.value.currency === "IDR"
+      ? formatDiscountAmount(discountAmountPenawaran.value)
+      : String(discountAmountPenawaran.value);
+}
+
+function finishEditingDiscountAmount() {
+  isEditingDiscountAmount.value = false;
+  discountAmountInput.value = formatDiscountAmount(
+    discountAmountPenawaran.value,
+  );
+}
+
+watch(discountAmountInput, (value) => {
+  if (isEditingDiscountAmount.value) {
+    discountAmountPenawaran.value = parseDiscountAmount(value);
+  }
+});
+
+watch(
+  [discountAmountPenawaran, () => newPenawaran.value.currency],
+  ([amount]) => {
+    if (
+      !isEditingDiscountAmount.value ||
+      newPenawaran.value.currency === "IDR"
+    ) {
+      discountAmountInput.value = formatDiscountAmount(amount);
+    }
+  },
+  { immediate: true },
+);
+
 const grandTotalPenawaran = computed(() =>
   Math.max(0, subtotalPenawaran.value - discountAmountPenawaran.value),
 );
@@ -1537,8 +1649,16 @@ async function refreshData() {
   border: 1px solid #dbe5f2;
 }
 
+.discount-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(100%, 360px);
+}
+
 .discount-input {
-  flex: 0 0 128px;
+  flex: 1 1 150px;
+  min-width: 0;
 }
 
 .gap-2 {
