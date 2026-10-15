@@ -247,6 +247,10 @@
                 <span class="text-muted">Subtotal</span>
                 <span class="font-medium">Rp {{ rupiah(subtotal) }}</span>
               </div>
+              <div v-if="discountAmount > 0" class="summary-row">
+                <span class="text-muted">Discount</span>
+                <span class="font-medium">- Rp {{ rupiah(discountAmount) }}</span>
+              </div>
 
               <div
                 class="summary-row align-center"
@@ -451,6 +455,7 @@ const emptyForm = (): invoiceM => ({
   item_pekerjaan: [],
   pakai_ppn: false,
   subtotal_invoice: 0,
+  discount_invoice: 0,
   ppn: 0,
   grandtotal_invoice: 0,
   status: "",
@@ -477,18 +482,39 @@ const subtotal = computed(() =>
   form.value.item_pekerjaan.reduce((sum, item) => sum + itemSubtotal(item), 0),
 );
 const quotationSubtotal = computed(() =>
+  Number(props.penawaran.grand_total_penawaran) ||
+  Number(props.penawaran.subtotal_penawaran) ||
   (props.penawaran.penawaran_item || []).reduce(
-    (sum, item) =>
-      sum + Number(item.subtotal_item || item.qty * item.amount || 0),
+    (sum, item) => sum + Number(item.subtotal_item || item.qty * item.amount || 0),
     0,
   ),
 );
+const quotationGrossSubtotal = computed(() =>
+  Number(props.penawaran.subtotal_penawaran) ||
+  (props.penawaran.penawaran_item || []).reduce(
+    (sum, item) => sum + Number(item.subtotal_item || item.qty * item.amount || 0),
+    0,
+  ),
+);
+const discountRate = computed(() =>
+  quotationGrossSubtotal.value > 0
+    ? Math.max(0, 1 - quotationSubtotal.value / quotationGrossSubtotal.value)
+    : 0,
+);
+const discountAmount = computed(() =>
+  Math.round(subtotal.value * discountRate.value),
+);
+const netSubtotal = computed(() => subtotal.value - discountAmount.value);
 const billedSubtotal = computed(() =>
   previousInvoices.value.reduce((sum, invoice) => {
     const invoiceSubtotal = Number(invoice.subtotal_invoice || 0);
+    const invoiceNetSubtotal = Math.max(
+      0,
+      invoiceSubtotal - Number(invoice.discount_invoice || 0),
+    );
     const billed = invoice.down_payment
-      ? invoiceSubtotal * (Number(invoice.dp_persen || 0) / 100)
-      : invoiceSubtotal;
+      ? invoiceNetSubtotal * (Number(invoice.dp_persen || 0) / 100)
+      : invoiceNetSubtotal;
     return sum + billed;
   }, 0),
 );
@@ -496,14 +522,14 @@ const remainingSubtotal = computed(() =>
   Math.max(0, quotationSubtotal.value - billedSubtotal.value),
 );
 const ppn = computed(() =>
-  form.value.pakai_ppn ? Math.round(subtotal.value * 0.11) : 0,
+  form.value.pakai_ppn ? Math.round(netSubtotal.value * 0.11) : 0,
 );
 const grandTotal = computed(() => {
   if (form.value.down_payment) {
     return dpNominal.value + ppn.value;
   }
 
-  return subtotal.value + ppn.value;
+  return netSubtotal.value + ppn.value;
 });
 watch(
   () => props.modelValue,
@@ -528,14 +554,7 @@ watch(
       sign_by: props.penawaran.sign_by || "",
       pic: props.penawaran.pic,
       tanggal: moment().format("YYYY-MM-DD"),
-      item_pekerjaan: (props.penawaran.penawaran_item || []).map((item) => ({
-        nama: item.nama,
-        qty: item.qty,
-        kategori_item: item.kategori_item,
-        uom: item.uom,
-        amount: item.amount,
-        subtotal_item: item.subtotal_item,
-      })),
+      item_pekerjaan: createInvoiceItems(props.penawaran),
 
       // termCondition: (props.penawaran.termCondition || []).map((item: any) => ({
       //   id: item.id ?? "",
@@ -556,7 +575,7 @@ watch(
       if (billedSubtotal.value > 0 && remainingSubtotal.value > 0) {
         form.value.down_payment = true;
         form.value.dp_persen = Number(
-          ((remainingSubtotal.value / subtotal.value) * 100).toFixed(6),
+          ((remainingSubtotal.value / netSubtotal.value) * 100).toFixed(6),
         );
       }
     } catch (error) {
@@ -574,8 +593,21 @@ const dpNominal = computed(() => {
 
   const persen = Number(form.value.dp_persen || 0);
 
-  return Math.round(subtotal.value * (persen / 100));
+  return Math.round(netSubtotal.value * (persen / 100));
 });
+
+function createInvoiceItems(penawaran: penawaranM): invoiceItemM[] {
+  return (penawaran.penawaran_item || []).map((item) => ({
+    nama: item.nama,
+    qty: Number(item.qty) || 0,
+    kategori_item: item.kategori_item,
+    uom: item.uom,
+    amount: Number(item.amount) || 0,
+    subtotal_item:
+      Number(item.subtotal_item) ||
+      (Number(item.qty) || 0) * (Number(item.amount) || 0),
+  }));
+}
 
 const sortedTermConditions = computed(() => {
   const terms = [...termconditionStore.getDataTermcondition];
@@ -624,7 +656,7 @@ async function save() {
 
   const currentBilledSubtotal = form.value.down_payment
     ? dpNominal.value
-    : subtotal.value;
+    : netSubtotal.value;
   if (currentBilledSubtotal > remainingSubtotal.value + 0.5) {
     return notificationStore.showError(
       `Nilai invoice melebihi sisa penawaran Rp ${rupiah(remainingSubtotal.value)}`,
@@ -652,6 +684,7 @@ async function save() {
   const payload: invoiceM = {
     ...form.value,
     subtotal_invoice: subtotal.value,
+    discount_invoice: discountAmount.value,
     ppn: ppn.value,
     status: "Draft",
     grandtotal_invoice: grandTotal.value,
