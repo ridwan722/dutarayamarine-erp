@@ -344,7 +344,7 @@ const savePengeluaranPdf = async () => {
       y += rowHeight;
     });
 
-    if (y + 10 > 285) {
+    if (y + 20 > 285) {
       pdf.addPage();
       y = 20;
     }
@@ -354,6 +354,19 @@ const savePengeluaranPdf = async () => {
     pdf.text(rupiah.format(totalPengeluaran.value), margin + tableWidth, y + 7, {
       align: "right",
     });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 128, 138);
+    const waktuUnduh = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date());
+    pdf.text(`Diunduh: ${waktuUnduh} WIB`, margin, y + 14);
 
     const safeName = String(detailPenawaran.value?.perihal || idPenawaran.value)
       // .replace(/[^a-z0-9-_]/gi, "-")
@@ -692,7 +705,7 @@ const previewImage = (dataUrl: string) => {
             <div class="summary-label">SISA</div>
 
             <div class="summary-value">
-              {{ rupiah.format(Math.abs(totalPengeluaran - (detailPenawaran?.grand_total_penawaran ?? 0 - 350000000))) }}
+              {{ rupiah.format(Math.abs(totalPengeluaran - detailPenawaran?.grand_total_penawaran || 0)) }}
                 <!-- {{ rupiah.format(
   Math.abs(
     totalPengeluaran -

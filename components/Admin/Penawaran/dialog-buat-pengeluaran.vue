@@ -35,9 +35,11 @@
       <div class="modal-body">
         <!-- Customer Info Section -->
         <a-date-picker-new
+          ref="tanggalPengeluaranPicker"
           v-model="form.tanggal_pengeluaran"
           label="Tanggal Pengeluaran"
           :disabled="saving"
+          :rules="tanggalPengeluaranRules"
           class="mb-2"
         ></a-date-picker-new>
         <a-text-field-new
@@ -157,7 +159,7 @@
           Batal
         </button>
         <button class="btn btn-primary" :disabled="saving" @click="save">
-          <span v-if="saving">Memproses...</span>
+          <span v-if="saving">{{ savingMessage }}</span>
           <span v-else>Simpan Pengeluaran</span>
         </button>
       </div>
@@ -166,7 +168,6 @@
 </template>
 
 <script setup lang="ts">
-import moment from "moment";
 import type {
   buktiPengeluaranM,
   penawaranM,
@@ -185,6 +186,11 @@ const emit = defineEmits<{
 
 const notificationStore = useNotificationStore();
 const saving = ref(false);
+const savingMessage = ref("Memproses...");
+const tanggalPengeluaranPicker = ref<{ validate: () => boolean } | null>(null);
+const tanggalPengeluaranRules = [
+  (value: string) => Boolean(value) || "Tanggal pengeluaran wajib diisi",
+];
 
 const emptyForm = (): pengeluaranM => ({
   id_pengeluaran: "",
@@ -198,14 +204,18 @@ const emptyForm = (): pengeluaranM => ({
   no_telp_vendor: "-",
   lokasi_vendor: "-",
   status_pengeluaran: "Hutang",
-  tanggal_pengeluaran: moment().format("YYYY-MM-DD"),
+  tanggal_pengeluaran: "",
 });
 const form = ref<pengeluaranM>(emptyForm());
 
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) form.value = emptyForm();
+    if (open) {
+      form.value = emptyForm();
+      billFiles.value = [];
+      savingMessage.value = "Memproses...";
+    }
   },
 );
 
@@ -223,9 +233,13 @@ async function save() {
     notificationStore.showError("ID penawaran tidak ditemukan");
     return;
   }
-  if (!form.value.keterangan.trim() || !form.value.tanggal_pengeluaran || !form.value.dikeluarkan_oleh ) {
+  if (!tanggalPengeluaranPicker.value?.validate()) {
+    notificationStore.showError("Tanggal pengeluaran wajib diisi");
+    return;
+  }
+  if (!form.value.keterangan.trim() || !form.value.dikeluarkan_oleh) {
     notificationStore.showError(
-      "Keterangan / tanggal / dikeluarkan oleh, wajib diisi",
+      "Keterangan dan dikeluarkan oleh wajib diisi",
     );
     return;
   }
@@ -241,6 +255,9 @@ async function save() {
 
   saving.value = true;
   try {
+    savingMessage.value = billFiles.value.length
+      ? "Membaca lampiran..."
+      : "Menyimpan pengeluaran...";
     const documents: buktiPengeluaranM[] = await Promise.all(
       billFiles.value.map(async (file) => ({
         name: file.name,
@@ -250,6 +267,7 @@ async function save() {
       })),
     );
     form.value.doc_pengeluaran = documents;
+    savingMessage.value = "Menyimpan pengeluaran...";
 
     await createPengeluaran(
       {
@@ -265,15 +283,16 @@ async function save() {
     emit("update:modelValue", false);
     emit("saved");
   } catch (error) {
-  console.error("ERROR CREATE PENGELUARAN:", error);
+    console.error("ERROR CREATE PENGELUARAN:", error);
 
-  notificationStore.showError(
-    error instanceof Error
-      ? error.message
-      : "Gagal menyimpan pengeluaran",
-  );
-} finally {
+    notificationStore.showError(
+      error instanceof Error
+        ? error.message
+        : "Gagal menyimpan pengeluaran",
+    );
+  } finally {
     saving.value = false;
+    savingMessage.value = "Memproses...";
   }
 }
 
