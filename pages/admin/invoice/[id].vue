@@ -848,8 +848,12 @@
 
                 <td class="desc-cell">
                   <div>
-                    <span style="white-space: pre-line">
-                      {{ item.nama }}
+                    <span
+                      v-for="(line, lineIndex) in item.nama.split(/\r?\n/)"
+                      :key="lineIndex"
+                      class="description-line"
+                    >
+                      {{ line }}
                     </span>
                   </div>
                 </td>
@@ -880,7 +884,7 @@
                 <td></td>
 
                 <td class="footer-label">
-                  <span>Sub Total</span>
+                  <span>Total</span>
                 </td>
 
                 <td class="footer-value">
@@ -919,7 +923,7 @@
 
                 <td class="footer-label">
                   <strong>
-                    {{ invoiceAmountLabel }}
+                    {{ invoiceAmountLabel }} <span  v-if="invoiceAmountLabel !== 'Down Payment'">{{ invoiceDetail.dp_persen }}%</span>
                     <template v-if="invoiceAmountLabel === 'Down Payment'">
                       {{ invoiceDetail.dp_persen }} %
                     </template>
@@ -983,6 +987,7 @@
               <div class="bank-details">
                 <div>
                   <table class="bank-table">
+
                     <tbody v-if="invoiceDetail.sign_by == 'Seilla Maryana'">
                       <tr>
                         <td>
@@ -1376,7 +1381,7 @@ const invoiceAmountLabel = computed(() => {
       quotationTotal > 0 &&
       billedThroughCurrentInvoice >= quotationTotal - 1)
   ) {
-    return "Final Payment";
+    return "Balance";
   }
 
   return "Down Payment";
@@ -1817,27 +1822,54 @@ const handleSavePdf = async () => {
 
     const scaleY = fullCanvas.height / containerRect.height;
 
-    const breakableElements = targetElement.querySelectorAll(
-      ".main-table tr, .terbilang-strip, .remark-border-box, .page-break-section, .info-grid",
-    );
-
     const avoidPositionsPx: {
       top: number;
       bottom: number;
+      keepLine: boolean;
     }[] = [];
 
-    breakableElements.forEach((el) => {
-      const rect = el.getBoundingClientRect();
-
+    const addAvoidPosition = (rect: DOMRect, keepLine = false) => {
       const topPx = (rect.top - containerRect.top) * scaleY;
-
       const bottomPx = (rect.bottom - containerRect.top) * scaleY;
 
-      avoidPositionsPx.push({
-        top: topPx,
-        bottom: bottomPx,
+      if (bottomPx > topPx) {
+        avoidPositionsPx.push({ top: topPx, bottom: bottomPx, keepLine });
+      }
+    };
+
+    targetElement
+      .querySelectorAll(
+        ".description-line, .terbilang-strip, .remark-border-box, .page-break-section, .info-grid",
+      )
+      .forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        addAvoidPosition(rect, el.classList.contains("description-line"));
       });
-    });
+
+    // Keep each rendered text line intact while allowing a table row to
+    // continue on the next page when it does not fit in the remaining space.
+    const textWalker = document.createTreeWalker(
+      targetElement,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) =>
+          node.textContent?.trim()
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT,
+      },
+    );
+
+    let textNode = textWalker.nextNode();
+    while (textNode) {
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      Array.from(range.getClientRects()).forEach((rect) =>
+        addAvoidPosition(rect, true),
+      );
+      textNode = textWalker.nextNode();
+    }
+
+    avoidPositionsPx.sort((a, b) => a.top - b.top);
 
     let currentCanvasY = 0;
     let pageCount = 0;
@@ -1863,12 +1895,19 @@ const handleSavePdf = async () => {
       if (remainingCanvasHeightPx > targetSliceHeightPx) {
         const theoreticalCutY = currentCanvasY + targetSliceHeightPx;
 
-        const conflictingElement = avoidPositionsPx.find(
+        const conflicts = avoidPositionsPx.filter(
           (pos) => theoreticalCutY > pos.top && theoreticalCutY < pos.bottom,
         );
+        const conflictingElement =
+          conflicts.find((pos) => pos.keepLine) || conflicts[0];
 
-        if (conflictingElement && conflictingElement.top > currentCanvasY) {
-          targetSliceHeightPx = conflictingElement.top - currentCanvasY;
+        if (conflictingElement) {
+          if (conflictingElement.top > currentCanvasY) {
+            targetSliceHeightPx = conflictingElement.top - currentCanvasY;
+          } else if (conflictingElement.keepLine) {
+            targetSliceHeightPx =
+              conflictingElement.bottom - currentCanvasY;
+          }
         }
       } else {
         targetSliceHeightPx = remainingCanvasHeightPx;
@@ -1899,14 +1938,16 @@ const handleSavePdf = async () => {
         );
       }
 
-      const imgData = pageCanvas.toDataURL("image/png");
+      // High-quality JPEG keeps the 2x render crisp while avoiding the much
+      // larger lossless PNG payload for each rasterized PDF page.
+      const imgData = pageCanvas.toDataURL("image/jpeg", 0.94);
 
       const slicePdfHeightMm =
         (targetSliceHeightPx * pdfWidth) / fullCanvas.width;
 
       pdf.addImage(
         imgData,
-        "PNG",
+        "JPEG",
         0,
         currentTopMarginMm,
         pdfWidth,
@@ -2250,6 +2291,12 @@ const handleSavePdf = async () => {
   padding: 8px !important;
 }
 
+.description-line {
+  display: block;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
 .qty-cell {
   vertical-align: top;
   width: 15%;
@@ -2302,10 +2349,14 @@ const handleSavePdf = async () => {
 }
 
 .remark-border-box,
-.main-table tr,
 .terbilang-strip {
   page-break-inside: avoid !important;
   break-inside: avoid !important;
+}
+
+.main-table tr {
+  page-break-inside: auto;
+  break-inside: auto;
 }
 
 @media print {
