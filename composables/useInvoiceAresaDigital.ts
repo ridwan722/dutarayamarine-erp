@@ -2,8 +2,8 @@ import { useFirestore } from "vuefire";
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
+  limit,
   query,
   runTransaction,
   where,
@@ -22,6 +22,24 @@ export const createInvoicePenawaran = async (data: invoiceM) => {
   const auth = getAuth();
   const now = moment().unix();
   const email = auth.currentUser?.email ?? "system";
+  const [existingMirroredInvoices, existingRootInvoices] = await Promise.all([
+    getDocs(
+      query(collection(db, "penawaran", data.id_penawaran!, "invoice"), limit(2)),
+    ),
+    getDocs(
+      query(
+        collection(db, "invoice"),
+        where("id_penawaran", "==", data.id_penawaran!),
+        limit(2),
+      ),
+    ),
+  ]);
+  const existingInvoiceIds = [
+    ...new Set([
+      ...existingMirroredInvoices.docs.map((invoice) => invoice.id),
+      ...existingRootInvoices.docs.map((invoice) => invoice.id),
+    ]),
+  ];
 
   return await runTransaction(db, async (transaction) => {
     const nomorInvRef = doc(db, "penomoran", "nomor");
@@ -42,13 +60,54 @@ export const createInvoicePenawaran = async (data: invoiceM) => {
     const stringnewnumber = _.toString(newnumber).padStart(5, "0");
     const no_inv = `${stringnewnumber}`;
     const id_invoice = `${stringnewnumber}`;
+    const existingExpenses: pengeluaranM[] = Array.isArray(
+      penawaranSnapshot.data().pengeluaran,
+    )
+      ? penawaranSnapshot.data().pengeluaran
+      : [];
+    const currentInvoiceId = String(penawaranSnapshot.data().id_invoice ?? "");
+    const isFirstInvoice =
+      existingInvoiceIds.length === 0 && !currentInvoiceId;
+    const soleExistingInvoiceId =
+      existingInvoiceIds.length === 1 &&
+      (!currentInvoiceId || currentInvoiceId === existingInvoiceIds[0])
+        ? existingInvoiceIds[0]
+        : "";
+    const legacyDestinationId = isFirstInvoice
+      ? id_invoice
+      : soleExistingInvoiceId;
+    const hasLegacyExpenses = existingExpenses.some((expense) => !expense.invoice_out);
+    const penawaranExpenses = legacyDestinationId && hasLegacyExpenses
+      ? existingExpenses.map((expense) =>
+          expense.invoice_out
+            ? expense
+            : { ...expense, invoice_out: legacyDestinationId },
+        )
+      : existingExpenses;
+    const previousInvoiceRef =
+      soleExistingInvoiceId && hasLegacyExpenses
+        ? doc(db, "invoice", soleExistingInvoiceId)
+        : null;
+    if (previousInvoiceRef) {
+      const previousInvoice = await transaction.get(previousInvoiceRef);
+      if (!previousInvoice.exists()) {
+        throw new Error(`Invoice ${soleExistingInvoiceId} tidak ditemukan`);
+      }
+      const previousPenawaranId = previousInvoice.data().id_penawaran;
+      if (previousPenawaranId && previousPenawaranId !== data.id_penawaran) {
+        throw new Error(`Invoice ${soleExistingInvoiceId} tidak terkait dengan penawaran ini`);
+      }
+    }
+    const invoiceExpenses = penawaranExpenses.filter(
+      (expense) => expense.invoice_out === id_invoice,
+    );
     const setdata: invoiceM = {
       ...data,
-      pengeluaran: Array.isArray(penawaranSnapshot.data().pengeluaran)
-        ? penawaranSnapshot.data().pengeluaran
-        : [],
-      grandtotal_pengeluaran:
-        Number(penawaranSnapshot.data().grandtotal_pengeluaran) || 0,
+      pengeluaran: invoiceExpenses,
+      grandtotal_pengeluaran: invoiceExpenses.reduce(
+        (total, expense) => total + (Number(expense.nominal) || 0),
+        0,
+      ),
       no_inv,
       id_invoice,
       createdAt: now,
@@ -62,7 +121,30 @@ export const createInvoicePenawaran = async (data: invoiceM) => {
     // Simpan dokumen utama laporan
     transaction.set(invoiceRef, setdata, { merge: true });
     transaction.set(penawaraninvoiceRef, setdata, { merge: true });
-    transaction.update(penawaranRef, { id_invoice });
+    if (previousInvoiceRef) {
+      const previousExpenses = penawaranExpenses.filter(
+        (expense) => expense.invoice_out === soleExistingInvoiceId,
+      );
+      const previousValues = {
+        pengeluaran: previousExpenses,
+        grandtotal_pengeluaran: previousExpenses.reduce(
+          (total, expense) => total + (Number(expense.nominal) || 0),
+          0,
+        ),
+      };
+      transaction.update(previousInvoiceRef, previousValues);
+      transaction.set(
+        doc(db, "penawaran", data.id_penawaran!, "invoice", soleExistingInvoiceId),
+        previousValues,
+        { merge: true },
+      );
+    }
+    transaction.update(penawaranRef, {
+      id_invoice,
+      ...(legacyDestinationId && hasLegacyExpenses
+        ? { pengeluaran: penawaranExpenses }
+        : {}),
+    });
     transaction.update(nomorInvRef, { no_inv: newnumber });
 
     return { ...setdata, id: id_invoice };
@@ -145,13 +227,36 @@ export const persistPengeluaranDocuments = async (
 export const createPengeluaran = async (
   data: pengeluaranM,
   id_penawaran: string,
-  knownInvoiceId?: string,
+  _knownInvoiceId?: string,
 ) => {
   if (!id_penawaran) {
     throw new Error("ID penawaran tidak ditemukan");
   }
 
   const db = useFirestore();
+
+  // A quotation can have several invoices; its id_invoice only points to the
+  // latest one and must not decide which invoice owns an expense.
+  const [mirroredInvoices, rootInvoices] = await Promise.all([
+    getDocs(collection(db, "penawaran", id_penawaran, "invoice")),
+    getDocs(
+      query(collection(db, "invoice"), where("id_penawaran", "==", id_penawaran)),
+    ),
+  ]);
+  const relatedInvoiceIds = [
+    ...new Set([
+      ...mirroredInvoices.docs.map((invoice) => invoice.id),
+      ...rootInvoices.docs.map((invoice) => invoice.id),
+    ]),
+  ];
+  const requestedInvoiceId = String(data.invoice_out ?? "").trim();
+  if (requestedInvoiceId && !relatedInvoiceIds.includes(requestedInvoiceId)) {
+    throw new Error("Invoice yang dipilih tidak terkait dengan penawaran ini");
+  }
+  if (!requestedInvoiceId && relatedInvoiceIds.length > 1) {
+    throw new Error("Pilih invoice untuk pengeluaran ini");
+  }
+  const invoiceId = requestedInvoiceId || relatedInvoiceIds[0] || "";
 
   const idPengeluaran =
     data.id_pengeluaran || doc(collection(db, "penawaran")).id;
@@ -181,29 +286,12 @@ export const createPengeluaran = async (
     tanggal_pengeluaran: data.tanggal_pengeluaran ?? "",
     doc_pengeluaran: storedDocuments,
   };
+  if (invoiceId) setdata.invoice_out = invoiceId;
+  else delete setdata.invoice_out;
 
   console.log("DATA PENGELUARAN:", setdata);
 
   const penawaranRef = doc(db, "penawaran", id_penawaran);
-
-  // Transaction.get accepts a DocumentReference, not a Query. Resolve the
-  // related invoice before opening the transaction, then read its document
-  // reference inside the transaction below.
-  let relatedInvoiceId = knownInvoiceId;
-  if (!relatedInvoiceId) {
-    const penawaranSnapshot = await getDoc(penawaranRef);
-    relatedInvoiceId = penawaranSnapshot.data()?.id_invoice as
-      | string
-      | undefined;
-  }
-  if (!relatedInvoiceId) {
-    const invoiceQuery = query(
-      collection(db, "invoice"),
-      where("id_penawaran", "==", id_penawaran),
-    );
-    const matchingInvoices = await getDocs(invoiceQuery);
-    relatedInvoiceId = matchingInvoices.docs[0]?.id;
-  }
 
   await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(penawaranRef);
@@ -213,18 +301,25 @@ export const createPengeluaran = async (
     }
 
     const existingData = snapshot.data();
-    const invoiceId =
-      (existingData.id_invoice as string | undefined) || relatedInvoiceId;
-    const invoiceRef = invoiceId ? doc(db, "invoice", invoiceId) : null;
-    const invoiceSnapshot = invoiceRef ? await transaction.get(invoiceRef) : null;
-    if (invoiceRef && !invoiceSnapshot?.exists()) {
-      throw new Error(`Invoice ${invoiceId} tidak ditemukan`);
+    const invoiceRefs = relatedInvoiceIds.map((id) => doc(db, "invoice", id));
+    for (const invoiceRef of invoiceRefs) {
+      const invoiceSnapshot = await transaction.get(invoiceRef);
+      if (!invoiceSnapshot.exists()) {
+        throw new Error(`Invoice ${invoiceRef.id} tidak ditemukan`);
+      }
+      const invoicePenawaranId = invoiceSnapshot.data().id_penawaran;
+      if (invoicePenawaranId && invoicePenawaranId !== id_penawaran) {
+        throw new Error(`Invoice ${invoiceRef.id} tidak terkait dengan penawaran ini`);
+      }
     }
 
-    const pengeluaran: pengeluaranM[] = Array.isArray(
-      existingData.pengeluaran,
-    )
-      ? existingData.pengeluaran
+    // An unassigned legacy expense is unambiguous only with a single invoice.
+    const pengeluaran: pengeluaranM[] = Array.isArray(existingData.pengeluaran)
+      ? existingData.pengeluaran.map((expense: pengeluaranM) =>
+          !expense.invoice_out && relatedInvoiceIds.length === 1
+            ? { ...expense, invoice_out: relatedInvoiceIds[0] }
+            : expense,
+        )
       : [];
 
     if (
@@ -243,13 +338,26 @@ export const createPengeluaran = async (
     transaction.update(penawaranRef, {
       pengeluaran,
       grandtotal_pengeluaran: total_pengeluaran,
-      ...(invoiceId ? { id_invoice: invoiceId } : {}),
     });
-    if (invoiceRef) {
+    for (const invoiceRef of invoiceRefs) {
+      const invoiceExpenses = pengeluaran.filter(
+        (expense) => expense.invoice_out === invoiceRef.id,
+      );
+      const invoiceValues = {
+        pengeluaran: invoiceExpenses,
+        grandtotal_pengeluaran: invoiceExpenses.reduce(
+          (total, expense) => total + (Number(expense.nominal) || 0),
+          0,
+        ),
+      };
       transaction.update(invoiceRef, {
-        pengeluaran,
-        grandtotal_pengeluaran: total_pengeluaran,
+        ...invoiceValues,
       });
+      transaction.set(
+        doc(db, "penawaran", id_penawaran, "invoice", invoiceRef.id),
+        invoiceValues,
+        { merge: true },
+      );
     }
   });
 

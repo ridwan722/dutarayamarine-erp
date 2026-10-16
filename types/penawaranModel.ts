@@ -54,6 +54,7 @@ export interface penawaranItemM {
 
 export interface pengeluaranM {
   id_pengeluaran: string;
+  invoice_out?: string;
   tanggal_pengeluaran: string;
   dikeluarkan_oleh: string;
   keterangan: string;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick } from "vue";
-import { collection, doc, getDocs, limit, query, where, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
 import { useCollection, useDocument, useFirestore } from "vuefire";
 import { persistPengeluaranDocuments } from "~/composables/useInvoiceAresaDigital";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
@@ -38,10 +38,11 @@ const invoiceCollectionRef = computed(() =>
 const { data: invoices } = useCollection(invoiceCollectionRef);
 const invoiceOptions = computed(() =>
   ((invoices.value ?? []) as invoiceM[])
-    .map((invoice, index) => ({
-      id: String(invoice.id ?? invoice.id_invoice ?? index),
+    .map((invoice) => ({
+      id: String(invoice.id_invoice || invoice.id || invoice.no_inv || ""),
       invoice,
     }))
+    .filter((option) => option.id)
     .sort(
       // Invoice paling awal menjadi pilihan default untuk uang masuk.
       (a, b) => Number(a.invoice.createdAt || 0) - Number(b.invoice.createdAt || 0),
@@ -63,6 +64,50 @@ const selectedInvoice = computed(
 const uangMasukInvoice = computed(() =>
   Number(selectedInvoice.value?.grandtotal_invoice) || 0,
 );
+const namaClient = computed(() =>
+  selectedInvoice.value?.nama_customer || detailPenawaran.value?.nama_perusahaan || "-",
+);
+const alamatClient = computed(() =>
+  selectedInvoice.value?.alamat_customer || detailPenawaran.value?.alamat_perusahaan || "-",
+);
+const vessel = computed(() =>
+  selectedInvoice.value?.vessel || detailPenawaran.value?.vessel || "-",
+);
+const nomorInvoice = computed(() => {
+  const invoice = selectedInvoice.value;
+  if (!invoice?.no_inv) return "-";
+  const invoiceYear = new Date(invoice.tanggal).getFullYear();
+  const createdAt = Number(invoice.createdAt);
+  const createdYear = createdAt
+    ? new Date(createdAt < 1e12 ? createdAt * 1000 : createdAt).getFullYear()
+    : NaN;
+  const year = [invoiceYear, createdYear].find(Number.isFinite) ?? new Date().getFullYear();
+  return `INV/DRM/${year}/${invoice.no_inv}`;
+});
+const nomorPreorder = computed(() => selectedInvoice.value?.no_preorder || "-");
+const getInvoiceLabel = (invoiceId?: string) => {
+  if (!invoiceId) return "Belum ditentukan";
+  const invoice = invoiceOptions.value.find((option) => option.id === invoiceId)?.invoice;
+  return invoice?.no_inv ? `INV/${invoice.no_inv}` : `Invoice ${invoiceId}`;
+};
+const getExpenseInvoiceLabel = (expense: pengeluaranM) =>
+  getInvoiceLabel(
+    expense.invoice_out ||
+      (invoiceOptions.value.length === 1 ? invoiceOptions.value[0]?.id : ""),
+  );
+const invoiceSelectItems = computed(() =>
+  invoiceOptions.value.map((option) => ({
+    title: getInvoiceLabel(option.id),
+    value: option.id,
+  })),
+);
+const isExpenseForInvoice = (
+  expense: pengeluaranM,
+  invoiceId: string,
+  invoiceCount: number,
+) =>
+  expense.invoice_out === invoiceId ||
+  (!expense.invoice_out && invoiceCount === 1);
 
 const getTanggalPengeluaranTimestamp = (tanggal: string) => {
   const timestamp = new Date(tanggal).getTime();
@@ -120,6 +165,19 @@ const pengeluaran = computed(() => {
       return timestampA - timestampB;
     });
 });
+const pengeluaranInvoice = computed(() => {
+  if (!invoiceOptions.value.length) return pengeluaran.value;
+  return pengeluaran.value.filter((expense) =>
+    isExpenseForInvoice(expense, selectedInvoiceId.value, invoiceOptions.value.length),
+  );
+});
+const unassignedExpenseCount = computed(() =>
+  invoiceOptions.value.length > 1
+    ? pengeluaran.value.filter(
+        (expense) => !invoiceOptions.value.some((option) => option.id === expense.invoice_out),
+      ).length
+    : 0,
+);
 
 /* =====================================================
    EDIT
@@ -135,6 +193,7 @@ const loadingStore = useloadingStore();
 
 const editForm = reactive<pengeluaranM>({
   id_pengeluaran: "",
+  invoice_out: "",
   tanggal_pengeluaran: "",
   keterangan: "",
   nominal: 0,
@@ -163,6 +222,11 @@ const headers = [
     title: "TANGGAL",
     key: "tanggal_pengeluaran",
     width: "120px",
+  },
+  {
+    title: "INVOICE",
+    key: "invoice_out",
+    width: "130px",
   },
   {
     title: "KETERANGAN",
@@ -222,7 +286,7 @@ const rupiah = new Intl.NumberFormat("id-ID", {
 });
 
 const totalPengeluaran = computed(() => {
-  return pengeluaran.value.reduce(
+  return pengeluaranInvoice.value.reduce(
     (total, item) => total + Number(item.nominal || 0),
     0,
   );
@@ -231,30 +295,35 @@ const totalPengeluaran = computed(() => {
 const simpanPengeluaranKeKeduaDokumen = async (
   pengeluaranBaru: pengeluaranM[],
 ) => {
-  const total = pengeluaranBaru.reduce(
+  const invoiceSnapshots = await getDocs(invoiceCollectionRef.value);
+  const invoiceIds = invoiceSnapshots.docs.map((snapshot) => snapshot.id);
+  const expenses = invoiceIds.length === 1
+    ? pengeluaranBaru.map((expense) =>
+        expense.invoice_out ? expense : { ...expense, invoice_out: invoiceIds[0] },
+      )
+    : pengeluaranBaru;
+  const total = expenses.reduce(
     (sum, expense) => sum + (Number(expense.nominal) || 0),
     0,
   );
-  let idInvoice = detailPenawaran.value?.id_invoice;
-  if (!idInvoice) {
-    const invoices = await getDocs(
-      query(
-        collection(db, "invoice"),
-        where("id_penawaran", "==", idPenawaran.value),
-        limit(1),
-      ),
-    );
-    idInvoice = invoices.docs[0]?.id;
-  }
-
   const batch = writeBatch(db);
-  const values = { pengeluaran: pengeluaranBaru, grandtotal_pengeluaran: total };
   batch.update(doc(db, "penawaran", idPenawaran.value), {
-    ...values,
-    ...(idInvoice ? { id_invoice: idInvoice } : {}),
+    pengeluaran: expenses,
+    grandtotal_pengeluaran: total,
   });
-  if (idInvoice) {
-    batch.update(doc(db, "invoice", idInvoice), values);
+  for (const invoiceId of invoiceIds) {
+    const invoiceExpenses = expenses.filter((expense) =>
+      isExpenseForInvoice(expense, invoiceId, invoiceIds.length),
+    );
+    const values = {
+      pengeluaran: invoiceExpenses,
+      grandtotal_pengeluaran: invoiceExpenses.reduce(
+        (sum, expense) => sum + (Number(expense.nominal) || 0),
+        0,
+      ),
+    };
+    batch.update(doc(db, "invoice", invoiceId), values);
+    batch.update(doc(db, "penawaran", idPenawaran.value, "invoice", invoiceId), values);
   }
   await batch.commit();
 };
@@ -284,6 +353,14 @@ watch(
 
 const savingPdf = ref(false);
 
+const loadPdfImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Gagal memuat gambar PDF: ${src}`));
+    image.src = src;
+  });
+
 const savePengeluaranPdf = async () => {
   if (savingPdf.value) return;
   savingPdf.value = true;
@@ -294,8 +371,13 @@ const savePengeluaranPdf = async () => {
     const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF("p", "mm", "a4");
     const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 15;
     const tableWidth = pageWidth - margin * 2;
+    const [logo, signature] = await Promise.all([
+      loadPdfImage("/logokopsurat.png"),
+      loadPdfImage("/ttd_ridwan.png"),
+    ]);
     const columns = [
       { title: "No.", width: 13 },
       { title: "Tanggal", width: 28 },
@@ -305,23 +387,93 @@ const savePengeluaranPdf = async () => {
     const columnStarts = columns.map((_, index) =>
       margin + columns.slice(0, index).reduce((width, column) => width + column.width, 0),
     );
-    let y = 20;
+    let y = 0;
 
+    const drawLetterhead = () => {
+      const logoWidth = 48;
+      const centerX = pageWidth / 2;
+      pdf.addImage(
+        logo,
+        "PNG",
+        margin,
+        12,
+        logoWidth,
+        (logoWidth * logo.naturalHeight) / logo.naturalWidth,
+      );
+      pdf.setTextColor(15, 43, 72);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.text("PT. DUTA RAYA MARINE", centerX, 17, { align: "center" });
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text("Cipta Grand City G-8, Sagulung, Kota Batam,", centerX, 23, { align: "center" });
+      pdf.text("Kepulauan Riau 29425", centerX, 27, { align: "center" });
+      pdf.text("Jl. Raya Pasar Minggu No. 15A, Jakarta Selatan.", centerX, 31, { align: "center" });
+      pdf.text("E-mail: sales@dutarayamarine.com | Phone/WhatsApp: +62823-8450-3953", centerX, 37, { align: "center" });
+      pdf.text("Website: www.dutarayamarine.com", centerX, 41, { align: "center" });
+      pdf.setDrawColor(3, 39, 82);
+      pdf.setLineWidth(0.8);
+      pdf.line(margin, 47, pageWidth - margin, 47);
+      pdf.setLineWidth(0.2);
+      y = 54;
+    };
+
+    const drawField = (label: string, value: string, x: number, top: number) => {
+      pdf.setTextColor(75, 85, 99);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8.5);
+      pdf.text(label, x, top);
+      pdf.setTextColor(17, 24, 39);
+      const lines = pdf.splitTextToSize(value || "-", 58) as string[];
+      pdf.text(lines, x + 29, top);
+      return top + Math.max(1, lines.length) * 4.2 + 2;
+    };
+
+    drawLetterhead();
+    pdf.setTextColor(17, 24, 39);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);
-    pdf.text("Daftar Pengeluaran", margin, y);
-    y += 8;
+    pdf.setFontSize(15);
+    pdf.text("DAFTAR PENGELUARAN", pageWidth / 2, y + 2, { align: "center" });
+    y += 10;
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(String(detailPenawaran.value?.perihal || "Project"), margin, y);
-    y += 5;
-    pdf.text(`No. Penawaran: ${detailPenawaran.value?.no_penawaran || idPenawaran.value}`, margin, y);
-    y += 9;
+    pdf.setFontSize(9);
+    const projectLines = pdf.splitTextToSize(
+      String(detailPenawaran.value?.perihal || "Project"),
+      tableWidth,
+    ) as string[];
+    pdf.text(projectLines, margin, y);
+    y += projectLines.length * 4.5 + 7;
+
+    let leftY = y;
+    leftY = drawField("Nama Client", namaClient.value, margin, leftY);
+    leftY = drawField("Alamat Client", alamatClient.value, margin, leftY);
+    leftY = drawField("Vessel", vessel.value, margin, leftY);
+    leftY = drawField(
+      "No. Penawaran",
+      detailPenawaran.value?.no_penawaran || idPenawaran.value,
+      margin,
+      leftY,
+    );
+    let rightY = y;
+    rightY = drawField("No. Invoice", nomorInvoice.value, 108, rightY);
+    rightY = drawField("No. Preorder", nomorPreorder.value, 108, rightY);
+    rightY = drawField(
+      "Nilai Invoice",
+      selectedInvoice.value ? rupiah.format(uangMasukInvoice.value) : "-",
+      108,
+      rightY,
+    );
+    y = Math.max(leftY, rightY) + 3;
+    if (y > pageHeight - 40) {
+      pdf.addPage();
+      drawLetterhead();
+    }
 
     const drawHeader = () => {
       pdf.setFillColor(245, 247, 250);
       pdf.setDrawColor(210, 215, 222);
       pdf.rect(margin, y, tableWidth, 9, "FD");
+      pdf.setTextColor(17, 24, 39);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(10);
       pdf.text(columns[0].title, columnStarts[0] + 2, y + 6);
@@ -342,16 +494,16 @@ const savePengeluaranPdf = async () => {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9);
 
-    pengeluaran.value.forEach((item, index) => {
+    pengeluaranInvoice.value.forEach((item, index) => {
       const descriptionLines = pdf.splitTextToSize(
         String(item.keterangan || "-"),
         columns[2].width - 4,
       ) as string[];
       const rowHeight = Math.max(8, descriptionLines.length * 4.5 + 3);
 
-      if (y + rowHeight > 275) {
+      if (y + rowHeight > pageHeight - 18) {
         pdf.addPage();
-        y = 15;
+        drawLetterhead();
         drawHeader();
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(9);
@@ -380,16 +532,34 @@ const savePengeluaranPdf = async () => {
       y += rowHeight;
     });
 
-    if (y + 20 > 285) {
+    const signatureWidth = Math.min(40, (20 * signature.naturalWidth) / signature.naturalHeight);
+    const signatureHeight = (signatureWidth * signature.naturalHeight) / signature.naturalWidth;
+    const signatureSpace = 38 + signatureHeight;
+    if (y + signatureSpace > pageHeight - 15) {
       pdf.addPage();
-      y = 20;
+      drawLetterhead();
     }
+    pdf.setTextColor(17, 24, 39);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(10);
-    pdf.text("Total Pengeluaran", margin + tableWidth - 70, y + 7);
-    pdf.text(rupiah.format(totalPengeluaran.value), margin + tableWidth, y + 7, {
+    pdf.text("Total Pengeluaran", margin, y + 7);
+    pdf.text(rupiah.format(totalPengeluaran.value), pageWidth - margin, y + 7, {
       align: "right",
     });
+    y += 18;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.text("Yours sincerely,", margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "bold");
+    pdf.text("PT. DUTA RAYA MARINE", margin, y);
+    y += 3;
+    pdf.addImage(signature, "PNG", margin, y, signatureWidth, signatureHeight);
+    y += signatureHeight + 2;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.text("Muhammad Ridwan", margin, y);
+
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
     pdf.setTextColor(120, 128, 138);
@@ -402,12 +572,16 @@ const savePengeluaranPdf = async () => {
       minute: "2-digit",
       hourCycle: "h23",
     }).format(new Date());
-    pdf.text(`Diunduh: ${waktuUnduh} WIB`, margin, y + 14);
+    pdf.text(`Diunduh: ${waktuUnduh} WIB`, pageWidth - margin, pageHeight - 9, {
+      align: "right",
+    });
 
-    const safeName = String(detailPenawaran.value?.perihal || idPenawaran.value)
-      // .replace(/[^a-z0-9-_]/gi, "-")
-      // .replace(/-+/g, "-");
-    pdf.save(`Pengeluaran - ${safeName}.pdf`);
+    const invoiceId = selectedInvoice.value?.id_invoice || selectedInvoiceId.value || "Tanpa-Invoice";
+    const projectTitle = String(detailPenawaran.value?.perihal || idPenawaran.value)
+      .replace(/[\\/:*?"<>|]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+    pdf.save(`Pengeluaran - INV-${invoiceId} ${projectTitle}.pdf`);
   } catch (error) {
     console.error("Gagal membuat PDF pengeluaran:", error);
     notificationStore.showError("Gagal membuat PDF pengeluaran.");
@@ -453,6 +627,8 @@ const filteredPengeluaran = computed(() => {
       item.no_telp_vendor,
       item.lokasi_vendor,
       item.status_pengeluaran,
+      getExpenseInvoiceLabel(item),
+      item.invoice_out,
       ...(item.doc_pengeluaran ?? []).map((document) => document.name),
     ]
       .join(" ")
@@ -481,6 +657,8 @@ const openEdit = (item: any) => {
   editIndex.value = originalIndex;
 
   editForm.id_pengeluaran = item.id_pengeluaran || "";
+  editForm.invoice_out =
+    item.invoice_out || (invoiceOptions.value.length === 1 ? invoiceOptions.value[0]?.id : "") || "";
   editForm.tanggal_pengeluaran = item.tanggal_pengeluaran || "";
   editForm.keterangan = item.keterangan || "";
   editForm.nominal = Number(item.nominal || 0);
@@ -559,6 +737,13 @@ const saveEdit = async () => {
     notificationStore.showError("Nominal dan qty harus lebih dari 0");
     return;
   }
+  if (
+    invoiceOptions.value.length > 0 &&
+    !invoiceOptions.value.some((option) => option.id === editForm.invoice_out)
+  ) {
+    notificationStore.showError("Pilih invoice untuk pengeluaran ini");
+    return;
+  }
 
   try {
     savingEdit.value = true;
@@ -594,6 +779,7 @@ const saveEdit = async () => {
       ...dataLama,
 
       id_pengeluaran: editForm.id_pengeluaran || dataLama.id_pengeluaran,
+      invoice_out: editForm.invoice_out || "",
 
       tanggal_pengeluaran: editForm.tanggal_pengeluaran,
       keterangan: editForm.keterangan,
@@ -668,6 +854,7 @@ const previewImage = (dataUrl: string) => {
     v-model="addPengeluaranDialog"
     :id-penawaran="idPenawaran"
     :penawaran="detailPenawaran"
+    @saved="selectedInvoiceId = $event || selectedInvoiceId"
   />
 
   <v-container fluid class="expense-page pa-0 pa-md-0">
@@ -743,6 +930,32 @@ const previewImage = (dataUrl: string) => {
             </div>
           </div>
         </div>
+        <div class="project-meta-grid">
+          <div class="project-meta-item">
+            <span>Nama Client</span>
+            <strong>{{ namaClient }}</strong>
+          </div>
+          <div class="project-meta-item">
+            <span>Alamat Client</span>
+            <strong>{{ alamatClient }}</strong>
+          </div>
+          <div class="project-meta-item">
+            <span>Vessel</span>
+            <strong>{{ vessel }}</strong>
+          </div>
+          <div class="project-meta-item">
+            <span>Nomor Invoice</span>
+            <strong>{{ nomorInvoice }}</strong>
+          </div>
+          <div class="project-meta-item">
+            <span>Nomor Preorder</span>
+            <strong>{{ nomorPreorder }}</strong>
+          </div>
+          <div class="project-meta-item">
+            <span>Nilai Invoice</span>
+            <strong>{{ selectedInvoice ? rupiah.format(uangMasukInvoice) : "-" }}</strong>
+          </div>
+        </div>
       </v-card>
     </div>
 
@@ -791,7 +1004,9 @@ const previewImage = (dataUrl: string) => {
           </div>
 
           <div class="summary-info">
-            <div class="summary-label">TOTAL PENGELUARAN</div>
+            <div class="summary-label">
+              {{ invoiceOptions.length ? "TOTAL PENGELUARAN (INVOICE)" : "TOTAL PENGELUARAN" }}
+            </div>
 
             <div class="summary-value">
               {{ rupiah.format(totalPengeluaran) }}
@@ -817,7 +1032,7 @@ const previewImage = (dataUrl: string) => {
           <div class="summary-label">JUMLAH TRANSAKSI</div>
 
           <div class="summary-value">
-            {{ pengeluaran.length }}
+            {{ pengeluaranInvoice.length }}
 
             <span class="summary-unit"> transaksi </span>
           </div>
@@ -867,7 +1082,7 @@ const previewImage = (dataUrl: string) => {
           <div class="table-title">Daftar Pengeluaran</div>
 
           <div class="table-subtitle">
-            Rincian biaya yang tercatat pada project ini
+            Semua biaya proyek; ringkasan dan PDF mengikuti invoice terpilih
           </div>
         </div>
 
@@ -901,6 +1116,16 @@ const previewImage = (dataUrl: string) => {
       </div>
 
       <v-divider />
+
+      <v-alert
+        v-if="unassignedExpenseCount"
+        type="warning"
+        variant="tonal"
+        density="compact"
+        class="ma-4 corporate-alert"
+      >
+        {{ unassignedExpenseCount }} pengeluaran belum terkait ke invoice yang tersedia. Edit pengeluaran tersebut untuk memilih invoice.
+      </v-alert>
 
       <div class="table-search-toolbar">
         <v-text-field
@@ -974,6 +1199,12 @@ const previewImage = (dataUrl: string) => {
             <div class="date-cell">
               {{ formatTanggal(item.tanggal_pengeluaran) }}
             </div>
+          </template>
+
+          <template #item.invoice_out="{ item }">
+            <span class="expense-invoice-label" :class="{ 'expense-invoice-unassigned': invoiceOptions.length > 1 && !invoiceOptions.some((option) => option.id === item.invoice_out) }">
+              {{ getExpenseInvoiceLabel(item) }}
+            </span>
           </template>
 
           <!-- KETERANGAN -->
@@ -1159,6 +1390,10 @@ const previewImage = (dataUrl: string) => {
 
           <div class="mobile-expense-details">
             <div class="mobile-expense-detail">
+              <span>Invoice</span>
+              <strong>{{ getExpenseInvoiceLabel(item) }}</strong>
+            </div>
+            <div class="mobile-expense-detail">
               <span>Qty</span>
               <strong>{{ item.qty ?? 0 }} {{ item.satuan || "-" }}</strong>
             </div>
@@ -1221,7 +1456,7 @@ const previewImage = (dataUrl: string) => {
 
       <div class="table-footer">
         <span class="footer-label">
-          {{ searchQuery ? "Total Hasil Pencarian" : "Total Pengeluaran" }}
+          {{ searchQuery ? "Total Hasil Pencarian" : "Total Semua Pengeluaran" }}
         </span>
 
         <span class="footer-total">
@@ -1253,6 +1488,15 @@ const previewImage = (dataUrl: string) => {
         </div>
 
         <div class="edit-modal-body">
+          <a-select-new
+            v-if="invoiceOptions.length > 1"
+            v-model="editForm.invoice_out"
+            label="Invoice Pengeluaran"
+            placeholder="Pilih invoice"
+            :items="invoiceSelectItems"
+            :disabled="savingEdit"
+            class="mb-2"
+          />
           <a-date-picker-new
             v-model="editForm.tanggal_pengeluaran"
             label="Tanggal Pengeluaran"
@@ -1503,6 +1747,35 @@ const previewImage = (dataUrl: string) => {
   font-size: 12px;
   font-weight: 700;
   color: #374151;
+}
+
+.project-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 20px;
+  padding: 14px 18px 16px;
+  border-top: 1px solid #eef0f3;
+}
+
+.project-meta-item {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.project-meta-item span {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.project-meta-item strong {
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* =====================================================
@@ -1884,7 +2157,7 @@ const previewImage = (dataUrl: string) => {
 ===================================================== */
 
 .corporate-table {
-  min-width: 1130px;
+  min-width: 1250px;
 }
 
 .corporate-table :deep(th) {
@@ -1928,6 +2201,22 @@ const previewImage = (dataUrl: string) => {
   font-size: 11px;
   color: #4b5563;
   white-space: nowrap;
+}
+
+.expense-invoice-label {
+  display: inline-block;
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: #eff6ff;
+  color: #164f8e;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.expense-invoice-unassigned {
+  background: #fff7ed;
+  color: #9a3412;
 }
 
 .description-cell {
@@ -2322,6 +2611,10 @@ const previewImage = (dataUrl: string) => {
     border-top: 1px solid #e5e7eb;
   }
 
+  .project-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .edit-form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2355,6 +2648,11 @@ const previewImage = (dataUrl: string) => {
 
   .project-content {
     padding: 14px;
+  }
+
+  .project-meta-grid {
+    gap: 12px;
+    padding: 12px 14px 14px;
   }
 
   .project-title {

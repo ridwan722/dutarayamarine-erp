@@ -34,6 +34,17 @@
       <!-- Content Body -->
       <div class="modal-body">
         <!-- Customer Info Section -->
+        <a-select-new
+          v-if="invoiceOptions.length > 1"
+          ref="invoiceOutSelect"
+          v-model="form.invoice_out"
+          label="Invoice Pengeluaran"
+          placeholder="Pilih invoice"
+          :items="invoiceOptions"
+          :rules="invoiceOutRules"
+          :disabled="saving"
+          class="mb-2"
+        />
         <a-date-picker-new
           ref="tanggalPengeluaranPicker"
           v-model="form.tanggal_pengeluaran"
@@ -169,11 +180,14 @@
 
 <script setup lang="ts">
 import { nextTick } from "vue";
+import { collection } from "firebase/firestore";
+import { useCollection, useFirestore } from "vuefire";
 import type {
   buktiPengeluaranM,
   penawaranM,
   pengeluaranM,
 } from "~/types/penawaranModel";
+import type { invoiceM } from "~/types/invoice";
 const billFiles = ref<File[]>([]);
 const props = defineProps<{
   modelValue: boolean;
@@ -182,20 +196,44 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   "update:modelValue": [value: boolean];
-  saved: [];
+  saved: [invoiceId: string];
 }>();
 
 const notificationStore = useNotificationStore();
 const loadingStore = useloadingStore();
+const db = useFirestore();
+const invoiceCollectionRef = computed(() =>
+  collection(db, "penawaran", props.idPenawaran, "invoice"),
+);
+const { data: invoices, pending: loadingInvoices } = useCollection(invoiceCollectionRef);
+const invoiceOptions = computed(() =>
+  ((invoices.value ?? []) as invoiceM[])
+    .map((invoice) => {
+      const value = String(invoice.id_invoice || invoice.id || invoice.no_inv || "");
+      return {
+        value,
+        title: `INV/${invoice.no_inv || value}`,
+        createdAt: Number(invoice.createdAt) || 0,
+      };
+    })
+    .filter((option) => option.value)
+    .sort((a, b) => a.createdAt - b.createdAt),
+);
 const saving = ref(false);
 const savingMessage = ref("Memproses...");
 const tanggalPengeluaranPicker = ref<{ validate: () => boolean } | null>(null);
+const invoiceOutSelect = ref<{ validate: () => boolean } | null>(null);
 const tanggalPengeluaranRules = [
   (value: string) => Boolean(value) || "Tanggal pengeluaran wajib diisi",
 ];
+const invoiceOutRules = [
+  (value: string) => Boolean(value) || "Invoice wajib dipilih",
+];
 
-const emptyForm = (): pengeluaranM => ({
+type PengeluaranForm = pengeluaranM & { invoice_out: string };
+const emptyForm = (): PengeluaranForm => ({
   id_pengeluaran: "",
+  invoice_out: "",
   keterangan: "",
   nominal: 0,
   satuan: "Pcs",
@@ -208,18 +246,42 @@ const emptyForm = (): pengeluaranM => ({
   status_pengeluaran: "Hutang",
   tanggal_pengeluaran: "",
 });
-const form = ref<pengeluaranM>(emptyForm());
+const form = ref<PengeluaranForm>(emptyForm());
+const automaticallySelectedInvoiceId = ref("");
 
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
       form.value = emptyForm();
+      automaticallySelectedInvoiceId.value = "";
+      if (invoiceOptions.value.length === 1) {
+        form.value.invoice_out = invoiceOptions.value[0]!.value;
+        automaticallySelectedInvoiceId.value = form.value.invoice_out;
+      }
       billFiles.value = [];
       savingMessage.value = "Memproses...";
     }
   },
 );
+
+watch(invoiceOptions, (options) => {
+  if (!props.modelValue || saving.value) return;
+
+  if (options.length === 1) {
+    form.value.invoice_out = options[0]!.value;
+    automaticallySelectedInvoiceId.value = form.value.invoice_out;
+    return;
+  }
+
+  if (
+    form.value.invoice_out === automaticallySelectedInvoiceId.value ||
+    !options.some((option) => option.value === form.value.invoice_out)
+  ) {
+    form.value.invoice_out = "";
+  }
+  automaticallySelectedInvoiceId.value = "";
+});
 
 function addfile(event: Event) {
   const target = event.target as HTMLInputElement;
@@ -234,6 +296,23 @@ async function save() {
   if (!props.idPenawaran) {
     notificationStore.showError("ID penawaran tidak ditemukan");
     return;
+  }
+  if (loadingInvoices.value) {
+    notificationStore.showError("Daftar invoice masih dimuat");
+    return;
+  }
+  if (invoiceOptions.value.length === 1) {
+    form.value.invoice_out = invoiceOptions.value[0]!.value;
+  } else if (invoiceOptions.value.length > 1) {
+    if (
+      !invoiceOptions.value.some((option) => option.value === form.value.invoice_out) ||
+      !invoiceOutSelect.value?.validate()
+    ) {
+      notificationStore.showError("Pilih invoice untuk pengeluaran ini");
+      return;
+    }
+  } else {
+    form.value.invoice_out = "";
   }
   if (!tanggalPengeluaranPicker.value?.validate()) {
     notificationStore.showError("Tanggal pengeluaran wajib diisi");
@@ -279,13 +358,12 @@ async function save() {
         keterangan: form.value.keterangan.trim(),
       },
       props.idPenawaran,
-      props.penawaran.id_invoice,
     );
     notificationStore.showSuccess("Pengeluaran berhasil ditambahkan");
     billFiles.value = [];
     form.value.doc_pengeluaran = [];
     emit("update:modelValue", false);
-    emit("saved");
+    emit("saved", form.value.invoice_out);
   } catch (error) {
     console.error("ERROR CREATE PENGELUARAN:", error);
 
