@@ -191,12 +191,12 @@ const emptyForm = (): pengeluaranM => ({
   keterangan: "",
   nominal: 0,
   satuan: "Pcs",
-  dikeluarkan_oleh: "",
+  dikeluarkan_oleh: "Leo",
   qty: 1,
-  nama_vendor: "",
+  nama_vendor: "-",
   doc_pengeluaran: [],
-  no_telp_vendor: "",
-  lokasi_vendor: "",
+  no_telp_vendor: "-",
+  lokasi_vendor: "-",
   status_pengeluaran: "Hutang",
   tanggal_pengeluaran: moment().format("YYYY-MM-DD"),
 });
@@ -241,15 +241,14 @@ async function save() {
 
   saving.value = true;
   try {
-    const documents: buktiPengeluaranM[] = [];
-    for (const file of billFiles.value) {
-      documents.push({
+    const documents: buktiPengeluaranM[] = await Promise.all(
+      billFiles.value.map(async (file) => ({
         name: file.name,
         dataUrl: await readBillFile(file),
         size: file.size,
         contentType: file.type || "application/octet-stream",
-      });
-    }
+      })),
+    );
     form.value.doc_pengeluaran = documents;
 
     await createPengeluaran(
@@ -258,8 +257,11 @@ async function save() {
         keterangan: form.value.keterangan.trim(),
       },
       props.idPenawaran,
+      props.penawaran.id_invoice,
     );
     notificationStore.showSuccess("Pengeluaran berhasil ditambahkan");
+    billFiles.value = [];
+    form.value.doc_pengeluaran = [];
     emit("update:modelValue", false);
     emit("saved");
   } catch (error) {

@@ -76,6 +76,7 @@ export const persistPengeluaranDocuments = async (
   idPenawaran: string,
   idPengeluaran: string,
   documents: pengeluaranM["doc_pengeluaran"],
+  removeExistingChunks = true,
 ) => {
   const db = useFirestore();
   const chunksRef = collection(
@@ -84,9 +85,11 @@ export const persistPengeluaranDocuments = async (
     idPenawaran,
     "pengeluaran_file_chunks",
   );
-  const oldChunks = await getDocs(
-    query(chunksRef, where("id_pengeluaran", "==", idPengeluaran)),
-  );
+  const oldChunks = removeExistingChunks
+    ? await getDocs(
+        query(chunksRef, where("id_pengeluaran", "==", idPengeluaran)),
+      )
+    : null;
 
   let batch = writeBatch(db);
   let operations = 0;
@@ -97,7 +100,7 @@ export const persistPengeluaranDocuments = async (
     operations = 0;
   };
 
-  for (const chunk of oldChunks.docs) {
+  for (const chunk of oldChunks?.docs ?? []) {
     batch.delete(chunk.ref);
     operations++;
     await commitBatchIfFull();
@@ -142,6 +145,7 @@ export const persistPengeluaranDocuments = async (
 export const createPengeluaran = async (
   data: pengeluaranM,
   id_penawaran: string,
+  knownInvoiceId?: string,
 ) => {
   if (!id_penawaran) {
     throw new Error("ID penawaran tidak ditemukan");
@@ -155,6 +159,7 @@ export const createPengeluaran = async (
     id_penawaran,
     idPengeluaran,
     data.doc_pengeluaran ?? [],
+    false,
   );
 
   const setdata: pengeluaranM = {
@@ -184,11 +189,13 @@ export const createPengeluaran = async (
   // Transaction.get accepts a DocumentReference, not a Query. Resolve the
   // related invoice before opening the transaction, then read its document
   // reference inside the transaction below.
-  const penawaranSnapshot = await getDoc(penawaranRef);
-  const invoiceIdFromPenawaran = penawaranSnapshot.data()?.id_invoice as
-    | string
-    | undefined;
-  let relatedInvoiceId = invoiceIdFromPenawaran;
+  let relatedInvoiceId = knownInvoiceId;
+  if (!relatedInvoiceId) {
+    const penawaranSnapshot = await getDoc(penawaranRef);
+    relatedInvoiceId = penawaranSnapshot.data()?.id_invoice as
+      | string
+      | undefined;
+  }
   if (!relatedInvoiceId) {
     const invoiceQuery = query(
       collection(db, "invoice"),

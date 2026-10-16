@@ -582,7 +582,7 @@ const previewImage = (dataUrl: string) => {
     :penawaran="detailPenawaran"
   />
 
-  <v-container fluid class="expense-page pa-4 pa-md-5">
+  <v-container fluid class="expense-page pa-0 pa-md-0">
     <v-dialog v-model="imagePreviewDialog" max-width="900">
       <v-card>
         <v-card-title class="d-flex align-center justify-space-between">
@@ -626,17 +626,7 @@ const previewImage = (dataUrl: string) => {
           <h1 class="page-title">Pengeluaran Project</h1>
         </div>
         </div>
-        <v-btn
-          color="primary"
-          variant="tonal"
-          prepend-icon="mdi-file-pdf-box"
-          size="small"
-          :loading="savingPdf"
-          :disabled="pending || !detailPenawaran"
-          @click="savePengeluaranPdf"
-        >
-          Save PDF
-        </v-btn>
+
       </div>
 
       <!-- PROJECT INFORMATION -->
@@ -674,30 +664,42 @@ const previewImage = (dataUrl: string) => {
 
     <div class="summary-grid mb-4">
       <v-card class="summary-card summary-primary" elevation="0">
-        <div class="summary-icon">
-          <v-icon icon="mdi-cash-minus" size="19" />
-        </div>
-        <div class="summary-info">
-          <div class="summary-label">TOTAL QUOTATION</div>
-
-          <div class="summary-value">
-            {{ rupiah.format(detailPenawaran?.grand_total_penawaran) }}
+        <div class="summary-primary-heading">
+          <div class="summary-icon">
+            <v-icon icon="mdi-cash-minus" size="19" />
           </div>
+          <div class="summary-heading-label">Ringkasan Keuangan</div>
         </div>
 
-        <div class="summary-info">
-          <div class="summary-label">TOTAL PENGELUARAN</div>
+        <div class="summary-metrics">
+          <div class="summary-info">
+            <div class="summary-label">TOTAL QUOTATION</div>
 
-          <div class="summary-value">
-            {{ rupiah.format(totalPengeluaran) }}
+            <div class="summary-value">
+              {{ rupiah.format(Number(detailPenawaran?.grand_total_penawaran ?? 0)) }}
+            </div>
           </div>
-        </div>
 
-         <div class="summary-info">
-          <div class="summary-label">Sisa</div>
+          <div class="summary-info">
+            <div class="summary-label">TOTAL PENGELUARAN</div>
 
-          <div class="summary-value">
-            {{ rupiah.format(Math.abs(totalPengeluaran - (detailPenawaran?.grand_total_penawaran ?? 0))) }}
+            <div class="summary-value">
+              {{ rupiah.format(totalPengeluaran) }}
+            </div>
+          </div>
+
+          <div class="summary-info summary-info-remaining">
+            <div class="summary-label">SISA</div>
+
+            <div class="summary-value">
+              {{ rupiah.format(Math.abs(totalPengeluaran - (detailPenawaran?.grand_total_penawaran ?? 0 - 350000000))) }}
+                <!-- {{ rupiah.format(
+  Math.abs(
+    totalPengeluaran -
+    ((detailPenawaran?.grand_total_penawaran ?? 0) - 325000000)
+  )
+) }} -->
+            </div>
           </div>
         </div>
       </v-card>
@@ -783,6 +785,18 @@ const previewImage = (dataUrl: string) => {
           >
             Tambah Pengeluaran
           </v-btn>
+
+          <v-btn
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-file-download"
+          size="small"
+          :loading="savingPdf"
+          :disabled="pending || !detailPenawaran"
+          @click="savePengeluaranPdf"
+        >
+          Unduh Pengeluaran (.pdf)
+        </v-btn>
         </div>
       </div>
 
@@ -793,6 +807,7 @@ const previewImage = (dataUrl: string) => {
           :headers="headers"
           :items="pengeluaran"
           :loading="pending"
+          :items-per-page="-1"
           item-value="id_pengeluaran"
           hover
           class="corporate-table"
@@ -1269,12 +1284,14 @@ const previewImage = (dataUrl: string) => {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.38fr);
   gap: 10px;
+  min-width: 0;
 }
 
 .summary-card {
-  min-height: 72px;
+  min-width: 0;
+  min-height: 92px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1285,8 +1302,42 @@ const previewImage = (dataUrl: string) => {
 }
 
 .summary-primary {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.55fr) minmax(0, 2fr);
+  align-items: stretch;
+  gap: 16px;
   background: #fafbfc;
   border-color: #e1e5ea;
+}
+
+.summary-primary-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.summary-heading-label {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  min-width: 0;
+}
+
+.summary-info {
+  min-width: 0;
+  padding: 2px 14px;
+}
+
+.summary-metrics .summary-info + .summary-info {
+  border-left: 1px solid #e5e7eb;
 }
 
 .summary-icon {
@@ -1315,6 +1366,8 @@ const previewImage = (dataUrl: string) => {
 }
 
 .summary-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 16px;
   line-height: 1.2;
   font-weight: 700;
@@ -1793,11 +1846,15 @@ const previewImage = (dataUrl: string) => {
 
 @media (max-width: 959px) {
   .expense-page {
-    padding: 14px !important;
+    padding: 1px !important;
   }
 
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .summary-card {
+    min-height: 82px;
   }
 
   .project-content {
@@ -1815,6 +1872,10 @@ const previewImage = (dataUrl: string) => {
     border-left: none;
     border-top: 1px solid #e5e7eb;
   }
+
+  .edit-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* =====================================================
@@ -1823,11 +1884,20 @@ const previewImage = (dataUrl: string) => {
 
 @media (max-width: 600px) {
   .expense-page {
-    padding: 10px !important;
+    padding: 1px !important;
   }
 
   .page-title {
     font-size: 19px;
+  }
+
+  .page-header > .d-flex {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .page-header > .d-flex > .v-btn {
+    flex-shrink: 0;
   }
 
   .page-eyebrow {
@@ -1847,9 +1917,47 @@ const previewImage = (dataUrl: string) => {
   }
 
   .summary-card {
-    min-height: 64px;
+    min-height: 0;
     padding: 10px 13px;
     gap: 10px;
+  }
+
+  .summary-primary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .summary-primary-heading {
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .summary-metrics {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .summary-info {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+  }
+
+  .summary-metrics .summary-info + .summary-info {
+    border-top: 1px solid #eef0f3;
+    border-left: 0;
+  }
+
+  .summary-label {
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .summary-value {
+    text-align: right;
+    overflow-wrap: anywhere;
   }
 
   .summary-icon {
@@ -1870,6 +1978,24 @@ const previewImage = (dataUrl: string) => {
     align-items: flex-start;
     flex-direction: column;
     padding: 13px 14px;
+  }
+
+  .table-header > .d-flex {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .edit-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .edit-modal-overlay {
+    padding: 10px;
+  }
+
+  .edit-modal-card {
+    max-height: calc(100dvh - 20px);
+    border-radius: 10px;
   }
 
   .transaction-chip {
