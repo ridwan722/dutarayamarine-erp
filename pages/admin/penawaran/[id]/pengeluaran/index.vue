@@ -677,12 +677,27 @@ const previewImage = (dataUrl: string) => {
         <div class="summary-icon">
           <v-icon icon="mdi-cash-minus" size="19" />
         </div>
+        <div class="summary-info">
+          <div class="summary-label">TOTAL QUOTATION</div>
+
+          <div class="summary-value">
+            {{ rupiah.format(detailPenawaran?.grand_total_penawaran) }}
+          </div>
+        </div>
 
         <div class="summary-info">
           <div class="summary-label">TOTAL PENGELUARAN</div>
 
           <div class="summary-value">
             {{ rupiah.format(totalPengeluaran) }}
+          </div>
+        </div>
+
+         <div class="summary-info">
+          <div class="summary-label">Sisa</div>
+
+          <div class="summary-value">
+            {{ rupiah.format(Math.abs(totalPengeluaran - (detailPenawaran?.grand_total_penawaran ?? 0))) }}
           </div>
         </div>
       </v-card>

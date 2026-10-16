@@ -2,6 +2,7 @@ import { useFirestore } from "vuefire";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   runTransaction,
@@ -180,6 +181,23 @@ export const createPengeluaran = async (
 
   const penawaranRef = doc(db, "penawaran", id_penawaran);
 
+  // Transaction.get accepts a DocumentReference, not a Query. Resolve the
+  // related invoice before opening the transaction, then read its document
+  // reference inside the transaction below.
+  const penawaranSnapshot = await getDoc(penawaranRef);
+  const invoiceIdFromPenawaran = penawaranSnapshot.data()?.id_invoice as
+    | string
+    | undefined;
+  let relatedInvoiceId = invoiceIdFromPenawaran;
+  if (!relatedInvoiceId) {
+    const invoiceQuery = query(
+      collection(db, "invoice"),
+      where("id_penawaran", "==", id_penawaran),
+    );
+    const matchingInvoices = await getDocs(invoiceQuery);
+    relatedInvoiceId = matchingInvoices.docs[0]?.id;
+  }
+
   await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(penawaranRef);
 
@@ -188,15 +206,8 @@ export const createPengeluaran = async (
     }
 
     const existingData = snapshot.data();
-    let invoiceId = existingData.id_invoice as string | undefined;
-    if (!invoiceId) {
-      const invoiceQuery = query(
-        collection(db, "invoice"),
-        where("id_penawaran", "==", id_penawaran),
-      );
-      const matchingInvoices = await transaction.get(invoiceQuery);
-      invoiceId = matchingInvoices.docs[0]?.id;
-    }
+    const invoiceId =
+      (existingData.id_invoice as string | undefined) || relatedInvoiceId;
     const invoiceRef = invoiceId ? doc(db, "invoice", invoiceId) : null;
     const invoiceSnapshot = invoiceRef ? await transaction.get(invoiceRef) : null;
     if (invoiceRef && !invoiceSnapshot?.exists()) {
