@@ -168,6 +168,7 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick } from "vue";
 import type {
   buktiPengeluaranM,
   penawaranM,
@@ -185,6 +186,7 @@ const emit = defineEmits<{
 }>();
 
 const notificationStore = useNotificationStore();
+const loadingStore = useloadingStore();
 const saving = ref(false);
 const savingMessage = ref("Memproses...");
 const tanggalPengeluaranPicker = ref<{ validate: () => boolean } | null>(null);
@@ -254,7 +256,9 @@ async function save() {
   }
 
   saving.value = true;
+  loadingStore.setLoading(true);
   try {
+    await nextTick();
     savingMessage.value = billFiles.value.length
       ? "Membaca lampiran..."
       : "Menyimpan pengeluaran...";
@@ -293,6 +297,7 @@ async function save() {
   } finally {
     saving.value = false;
     savingMessage.value = "Memproses...";
+    loadingStore.setLoading(false);
   }
 }
 

@@ -401,7 +401,7 @@ const handleSavePdf = async () => {
           <div class="company-address">
             Ruko Dream Land Blok A No.05, Dreamland Square, Marina City, <br />
             Tanjung Riau, Kec. Sekupang, Kota Batam 29425.<br />
-            Hp. +62821 9998 8670
+            Phone/WhatsApp : +62823-8450-3953
           </div>
           <div class="document-title mt-4">WORK COMPLETION REPORT</div>
         </div>

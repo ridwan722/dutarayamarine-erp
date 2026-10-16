@@ -1,5 +1,5 @@
 <template>
-  <v-dialog class="bg-dialog" v-model="isLoading" max-width="300" persistent>
+  <v-dialog class="bg-dialog" v-model="isLoading" max-width="300" :z-index="10000" persistent>
     <!-- Card removed, now using a plain div for structure with no background or elevation -->
     <div class="d-flex flex-column align-center justify-center p-6">
       

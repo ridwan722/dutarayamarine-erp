@@ -403,7 +403,7 @@ const handleSavePdf = async () => {
 
             <br />
 
-            Hp. +62853 6201 8099
+            Phone/WhatsApp : +62823-8450-3953
           </div>
 
           <div class="document-title mt-4">DELIVERY ORDER</div>

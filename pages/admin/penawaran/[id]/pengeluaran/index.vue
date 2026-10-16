@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nextTick } from "vue";
 import { collection, doc, getDocs, limit, query, where, writeBatch } from "firebase/firestore";
 import { useCollection, useDocument, useFirestore } from "vuefire";
 import { persistPengeluaranDocuments } from "~/composables/useInvoiceAresaDigital";
@@ -130,6 +131,7 @@ const deletingPengeluaranId = ref<string | null>(null);
 const editIndex = ref<number | null>(null);
 const editFiles = ref<File[]>([]);
 const notificationStore = useNotificationStore();
+const loadingStore = useloadingStore();
 
 const editForm = reactive<pengeluaranM>({
   id_pengeluaran: "",
@@ -285,8 +287,10 @@ const savingPdf = ref(false);
 const savePengeluaranPdf = async () => {
   if (savingPdf.value) return;
   savingPdf.value = true;
+  loadingStore.setLoading(true);
 
   try {
+    await nextTick();
     const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF("p", "mm", "a4");
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -409,6 +413,7 @@ const savePengeluaranPdf = async () => {
     notificationStore.showError("Gagal membuat PDF pengeluaran.");
   } finally {
     savingPdf.value = false;
+    loadingStore.setLoading(false);
   }
 };
 
@@ -522,6 +527,8 @@ const saveEdit = async () => {
 
   try {
     savingEdit.value = true;
+    loadingStore.setLoading(true);
+    await nextTick();
 
     const index = editIndex.value;
 
@@ -574,6 +581,7 @@ const saveEdit = async () => {
     console.error("Gagal mengedit pengeluaran:", err);
   } finally {
     savingEdit.value = false;
+    loadingStore.setLoading(false);
   }
 };
 
@@ -717,11 +725,33 @@ const previewImage = (dataUrl: string) => {
         </div>
 
         <div class="summary-metrics">
-          <div class="summary-info">
+          <div class="summary-info summary-info-invoice">
             <div class="summary-label">UANG MASUK (INVOICE)</div>
 
-            <div class="summary-value">
-              {{ rupiah.format(uangMasukInvoice) }}
+            <div class="summary-amount">
+              <div class="summary-value">
+                {{ rupiah.format(uangMasukInvoice) }}
+              </div>
+              <div
+                v-if="invoiceOptions.length"
+                class="invoice-selector"
+                aria-label="Pilih invoice untuk ringkasan"
+              >
+                <button
+                  v-for="(option, index) in invoiceOptions"
+                  :key="option.id"
+                  type="button"
+                  class="invoice-choice"
+                  :class="{ 'invoice-choice-active': selectedInvoiceId === option.id }"
+                  :aria-pressed="selectedInvoiceId === option.id"
+                  @click="selectedInvoiceId = option.id"
+                >
+                  <span>
+                    {{ option.invoice.no_inv ? `INV/${option.invoice.no_inv}` : `Invoice ${index + 1}` }}
+                  </span>
+                  <strong>{{ rupiah.format(Number(option.invoice.grandtotal_invoice) || 0) }}</strong>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -758,25 +788,6 @@ const previewImage = (dataUrl: string) => {
           </div>
         </div>
       </v-card>
-    </div>
-
-    <div
-      v-if="invoiceOptions.length"
-      class="invoice-selector mb-4"
-      aria-label="Pilih invoice untuk ringkasan"
-    >
-      <button
-        v-for="(option, index) in invoiceOptions"
-        :key="option.id"
-        type="button"
-        class="invoice-choice"
-        :class="{ 'invoice-choice-active': selectedInvoiceId === option.id }"
-        :aria-pressed="selectedInvoiceId === option.id"
-        @click="selectedInvoiceId = option.id"
-      >
-        <span>INV/{{ option.invoice.no_inv || `Invoice ${index + 1}` }}</span>
-        <strong>{{ rupiah.format(Number(option.invoice.grandtotal_invoice) || 0) }}</strong>
-      </button>
     </div>
 
     <!-- =================================================
@@ -825,19 +836,13 @@ const previewImage = (dataUrl: string) => {
           </div>
         </div>
 
-        <div class="d-flex align-center ga-2">
-          <v-chip
-            variant="tonal"
-            size="small"
-            prepend-icon="mdi-format-list-bulleted"
-            class="transaction-chip"
-          >
-            {{ pengeluaran.length }} transaksi
-          </v-chip>
+        <div class="table-actions">
           <v-btn
             color="primary"
+            variant="flat"
             prepend-icon="mdi-plus"
             size="small"
+            class="table-action table-action-primary"
             :disabled="!detailPenawaran"
             @click="addPengeluaranDialog = true"
           >
@@ -845,16 +850,18 @@ const previewImage = (dataUrl: string) => {
           </v-btn>
 
           <v-btn
-          color="primary"
-          variant="tonal"
-          prepend-icon="mdi-file-download"
-          size="small"
-          :loading="savingPdf"
-          :disabled="pending || !detailPenawaran"
-          @click="savePengeluaranPdf"
-        >
-          Unduh Pengeluaran (.pdf)
-        </v-btn>
+            color="primary"
+            variant="outlined"
+            prepend-icon="mdi-file-pdf-box"
+            size="small"
+            class="table-action table-action-secondary"
+            :loading="savingPdf"
+            :disabled="pending || !detailPenawaran"
+            aria-label="Unduh daftar pengeluaran sebagai PDF"
+            @click="savePengeluaranPdf"
+          >
+            Unduh PDF
+          </v-btn>
         </div>
       </div>
 
@@ -1385,7 +1392,7 @@ const previewImage = (dataUrl: string) => {
 .summary-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: center;
+  align-items: stretch;
   min-width: 0;
 }
 
@@ -1441,32 +1448,41 @@ const previewImage = (dataUrl: string) => {
 .invoice-selector {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
+  margin-top: 7px;
 }
 
 .invoice-choice {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-width: 190px;
+  gap: 6px;
+  min-width: 0;
   max-width: 100%;
-  padding: 8px 12px;
+  padding: 4px 7px;
   border: 1px solid #dbe2ea;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fff;
   color: #475569;
-  font-size: 11px;
+  font-size: 9px;
+  line-height: 1.2;
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease,
     color 0.15s ease;
 }
 
+.invoice-choice span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .invoice-choice strong {
   color: #1f2937;
-  font-size: 11px;
+  font-size: 9px;
   white-space: nowrap;
 }
 
@@ -1517,6 +1533,38 @@ const previewImage = (dataUrl: string) => {
   font-size: 14px;
   font-weight: 700;
   color: #111827;
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.table-action {
+  height: 36px !important;
+  padding-inline: 13px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.table-action-primary {
+  box-shadow: 0 3px 8px rgba(24, 103, 192, 0.18);
+}
+
+.table-action-secondary {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc;
+}
+
+.table-action-secondary:hover:not(:disabled) {
+  border-color: #1867c0 !important;
+  background: #eff6ff;
 }
 
 .table-subtitle {
@@ -1962,15 +2010,6 @@ const previewImage = (dataUrl: string) => {
     min-height: 82px;
   }
 
-  .invoice-selector {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .invoice-choice {
-    min-width: 0;
-  }
-
   .project-content {
     align-items: flex-start;
     flex-direction: column;
@@ -2059,6 +2098,18 @@ const previewImage = (dataUrl: string) => {
     padding: 9px 0;
   }
 
+  .summary-info-invoice .summary-amount {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 0;
+    max-width: 60%;
+  }
+
+  .summary-info-invoice .invoice-selector {
+    justify-content: flex-end;
+  }
+
   .summary-metrics .summary-info + .summary-info {
     border-top: 1px solid #eef0f3;
     border-left: 0;
@@ -2088,19 +2139,22 @@ const previewImage = (dataUrl: string) => {
     font-size: 14px;
   }
 
-  .invoice-selector {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .table-header {
     align-items: flex-start;
     flex-direction: column;
     padding: 13px 14px;
   }
 
-  .table-header > .d-flex {
+  .table-actions {
     width: 100%;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .table-action {
+    width: 100%;
+    padding-inline: 8px !important;
+    font-size: 11px !important;
   }
 
   .edit-form-grid {
@@ -2131,6 +2185,12 @@ const previewImage = (dataUrl: string) => {
 
   .edit-dialog-actions {
     padding: 10px 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .table-actions {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>
