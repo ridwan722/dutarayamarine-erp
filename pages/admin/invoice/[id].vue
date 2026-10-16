@@ -403,6 +403,8 @@
 
             <div class="reference-value">
               {{ invoiceDetail.no_preorder || "-" }}
+              <br>
+              <span class="text-caption">{{ invoiceDetail.tanggal_preorder }}</span>
             </div>
           </div>
 
@@ -643,10 +645,13 @@
                 <h1 class="company-name">PT. DUTA RAYA MARINE</h1>
                 <p class="address-line">
                   Cipta Grand City G-8, Sagulung, Kota Batam, <br />
-                  Kepulauan Riau 29425
+                  Kepulauan Riau 29425 <br />
+                  <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
+             Jl. Raya Pasar Minggu No. 15A, Jakarta Selatan.
+              <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
                 </p>
                 <p class="phone-line">
-                  E-mail: sales@dutarayamarine.com, HP : +62 821 9998 8670
+                  E-mail: sales@dutarayamarine.com, HP : +62 823 8450 3953
                   <br />
                   Website: www.dutarayamarine.com
                 </p>
@@ -878,7 +883,7 @@
                 </td>
               </tr>
 
-              <tr v-if="invoiceDetail.dp_persen > 0 || invoiceAmountLabel !== 'Down Payment' && invoiceDetail.pakai_ppn == true || invoiceDetail.discount_invoice > 0">
+              <tr v-if="invoiceDetail.dp_persen > 0 || invoiceAmountLabel !== 'Down Payment' || invoiceDetail.pakai_ppn || invoiceDetail.discount_invoice > 0">
                 <td></td>
                 <td></td>
                 <td></td>
@@ -891,6 +896,23 @@
                   <div class="d-flex justify-space-between">
                     <span>Rp</span>
                     <span>{{ rupiah(invoiceDetail.subtotal_invoice) }}</span>
+                  </div>
+                </td>
+              </tr>
+
+              <tr v-if="invoiceAmountLabel === 'Balance' && previousBilledSubtotal > 0">
+                <td></td>
+                <td></td>
+                <td></td>
+
+                <td class="footer-label">
+                  <span>DP {{ previousDpPercent }}%</span>
+                </td>
+
+                <td class="footer-value">
+                  <div class="d-flex justify-space-between">
+                    <span>Rp</span>
+                    <span>{{ rupiah(previousBilledSubtotal) }}</span>
                   </div>
                 </td>
               </tr>
@@ -923,9 +945,12 @@
 
                 <td class="footer-label">
                   <strong>
-                    {{ invoiceAmountLabel }} <span  v-if="invoiceAmountLabel !== 'Down Payment'">{{ invoiceDetail.dp_persen }}%</span>
-                    <template v-if="invoiceAmountLabel === 'Down Payment'">
-                      {{ invoiceDetail.dp_persen }} %
+                    {{ invoiceAmountLabel }}
+                    <template v-if="invoiceAmountLabel === 'Balance'">
+                      {{ balancePercent }}%
+                    </template>
+                    <template v-else-if="invoiceAmountLabel === 'Down Payment'">
+                      {{ invoiceDetail.dp_persen }}%
                     </template>
                   </strong>
                 </td>
@@ -1342,33 +1367,54 @@ function tutupDialogDoWr() {
 const invoiceDetail = computed(() => invoiceStore.getDetailInvoice);
 
 const billedSubtotal = (invoice: invoiceM) => {
-  const subtotal = Number(invoice.subtotal_invoice || 0);
+  const subtotal = Math.max(
+    0,
+    Number(invoice.subtotal_invoice || 0) - Number(invoice.discount_invoice || 0),
+  );
   return invoice.down_payment
     ? subtotal * (Number(invoice.dp_persen || 0) / 100)
     : subtotal;
 };
 
-const invoiceAmountLabel = computed(() => {
-  const quotationTotal = quotationGrandTotal.value;
-  const currentAmount = billedSubtotal(invoiceDetail.value);
+const previousBilledSubtotal = computed(() => {
+  const currentId = invoiceDetail.value.id || invoiceDetail.value.id_invoice;
   const invoicesInOrder = [...relatedInvoices.value].sort(
-    (a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0),
+    (a, b) =>
+      Number(a.createdAt || 0) - Number(b.createdAt || 0) ||
+      Number(a.no_inv || 0) - Number(b.no_inv || 0),
   );
-  let billedThroughCurrentInvoice = 0;
-  let foundCurrentInvoice = false;
-  for (const invoice of invoicesInOrder) {
-    billedThroughCurrentInvoice += billedSubtotal(invoice);
-    if (invoice.id === invoiceDetail.value.id) {
-      foundCurrentInvoice = true;
-      break;
-    }
-  }
-  if (!foundCurrentInvoice) {
-    billedThroughCurrentInvoice = invoicesInOrder.reduce(
-      (total, invoice) => total + billedSubtotal(invoice),
-      0,
-    );
-  }
+  const currentIndex = invoicesInOrder.findIndex(
+    (invoice) => (invoice.id || invoice.id_invoice) === currentId,
+  );
+  if (currentIndex <= 0) return 0;
+
+  return invoicesInOrder
+    .slice(0, currentIndex)
+    .reduce((total, invoice) => total + billedSubtotal(invoice), 0);
+});
+
+const invoiceBaseTotal = computed(() =>
+  Math.max(
+    0,
+    Number(invoiceDetail.value.subtotal_invoice || 0) -
+      Number(invoiceDetail.value.discount_invoice || 0),
+  ),
+);
+const invoiceReferenceTotal = computed(
+  () => quotationGrandTotal.value || invoiceBaseTotal.value,
+);
+const previousDpPercent = computed(() =>
+  invoiceReferenceTotal.value > 0
+    ? Math.round((previousBilledSubtotal.value / invoiceReferenceTotal.value) * 10000) / 100
+    : 0,
+);
+const balancePercent = computed(() =>
+  Math.max(0, Math.round((100 - previousDpPercent.value) * 100) / 100),
+);
+
+const invoiceAmountLabel = computed(() => {
+  const quotationTotal = invoiceReferenceTotal.value;
+  const currentAmount = billedSubtotal(invoiceDetail.value);
   const isSingleFullInvoice =
     relatedInvoices.value.length === 1 &&
     quotationTotal > 0 &&
@@ -1376,10 +1422,9 @@ const invoiceAmountLabel = computed(() => {
 
   if (isSingleFullInvoice) return "Grand Total";
   if (
-    invoiceDetail.value.status === "Selesai" ||
-    (relatedInvoices.value.length > 1 &&
-      quotationTotal > 0 &&
-      billedThroughCurrentInvoice >= quotationTotal - 1)
+    previousBilledSubtotal.value > 0 &&
+    quotationTotal > 0 &&
+    previousBilledSubtotal.value + currentAmount >= quotationTotal - 1
   ) {
     return "Balance";
   }
@@ -1788,13 +1833,22 @@ const handleSavePdf = async () => {
       import("jspdf"),
     ]);
 
+    const avoidPositionsCss: {
+      top: number;
+      bottom: number;
+      keepLine: boolean;
+    }[] = [];
+    let renderedHeightCss = 0;
+    const tableBoundsCss = { bottom: 0 };
+    const tableHeaderBoundsCss = { top: 0, bottom: 0 };
+
     const fullCanvas = await html2canvas(targetElement, {
       scale: 2,
       useCORS: true,
       backgroundColor: "#ffffff",
       logging: false,
 
-      onclone: (clonedDocument) => {
+      onclone: (clonedDocument, clonedTarget) => {
         clonedDocument
           .querySelectorAll(".no-print, .no-print-cell, .drag-icon")
           .forEach((element) => {
@@ -1806,8 +1860,67 @@ const handleSavePdf = async () => {
           .forEach((element) => {
             (element as HTMLElement).style.display = "table-cell";
           });
+
+        // Measure the same layout that html2canvas renders. Hiding no-print
+        // elements changes vertical positions compared with the live page.
+        const containerRect = clonedTarget.getBoundingClientRect();
+        renderedHeightCss = containerRect.height;
+
+        const table = clonedTarget.querySelector<HTMLElement>(".main-table");
+        const tableHeader = table?.querySelector<HTMLElement>("thead");
+        if (table && tableHeader) {
+          const tableRect = table.getBoundingClientRect();
+          const headerRect = tableHeader.getBoundingClientRect();
+          tableBoundsCss.bottom = tableRect.bottom - containerRect.top;
+          tableHeaderBoundsCss.top = headerRect.top - containerRect.top;
+          tableHeaderBoundsCss.bottom = headerRect.bottom - containerRect.top;
+        }
+
+        const addAvoidPosition = (rect: DOMRect, keepLine = false) => {
+          const top = rect.top - containerRect.top;
+          const bottom = rect.bottom - containerRect.top;
+          if (bottom > top) {
+            avoidPositionsCss.push({ top, bottom, keepLine });
+          }
+        };
+
+        clonedTarget
+          .querySelectorAll(
+            ".main-table thead, .description-line, .terbilang-strip, .remark-border-box, .page-break-section, .info-grid",
+          )
+          .forEach((element) => {
+            addAvoidPosition(
+              element.getBoundingClientRect(),
+              element.matches(".main-table thead, .description-line"),
+            );
+          });
+
+        const textWalker = clonedDocument.createTreeWalker(
+          clonedTarget,
+          NodeFilter.SHOW_TEXT,
+          {
+            acceptNode: (node) =>
+              node.textContent?.trim()
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT,
+          },
+        );
+
+        let textNode = textWalker.nextNode();
+        while (textNode) {
+          const range = clonedDocument.createRange();
+          range.selectNodeContents(textNode);
+          Array.from(range.getClientRects()).forEach((rect) =>
+            addAvoidPosition(rect, true),
+          );
+          textNode = textWalker.nextNode();
+        }
       },
     });
+
+    if (!renderedHeightCss) {
+      throw new Error("Layout invoice untuk PDF tidak ditemukan");
+    }
 
     const pdf = new jsPDF("p", "mm", "a4");
 
@@ -1818,58 +1931,53 @@ const handleSavePdf = async () => {
     const marginTopSecondPageMm = 12;
     const marginBottomMm = 10;
 
-    const containerRect = targetElement.getBoundingClientRect();
+    const scaleY = fullCanvas.height / renderedHeightCss;
+    const textPaddingPx = 3 * scaleY;
+    const avoidPositionsPx = avoidPositionsCss
+      .map((position) => ({
+        top: position.top * scaleY,
+        bottom: position.bottom * scaleY,
+        keepLine: position.keepLine,
+      }))
+      .sort((a, b) => a.top - b.top);
 
-    const scaleY = fullCanvas.height / containerRect.height;
-
-    const avoidPositionsPx: {
-      top: number;
-      bottom: number;
-      keepLine: boolean;
-    }[] = [];
-
-    const addAvoidPosition = (rect: DOMRect, keepLine = false) => {
-      const topPx = (rect.top - containerRect.top) * scaleY;
-      const bottomPx = (rect.bottom - containerRect.top) * scaleY;
-
-      if (bottomPx > topPx) {
-        avoidPositionsPx.push({ top: topPx, bottom: bottomPx, keepLine });
-      }
-    };
-
-    targetElement
-      .querySelectorAll(
-        ".description-line, .terbilang-strip, .remark-border-box, .page-break-section, .info-grid",
-      )
-      .forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        addAvoidPosition(rect, el.classList.contains("description-line"));
-      });
-
-    // Keep each rendered text line intact while allowing a table row to
-    // continue on the next page when it does not fit in the remaining space.
-    const textWalker = document.createTreeWalker(
-      targetElement,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) =>
-          node.textContent?.trim()
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_REJECT,
-      },
+    const tableBottomPx = tableBoundsCss.bottom * scaleY;
+    const headerTopPx = Math.max(
+      0,
+      Math.floor(tableHeaderBoundsCss.top * scaleY) - 1,
     );
+    const headerBottomPx =
+      tableHeaderBoundsCss.bottom > tableHeaderBoundsCss.top
+        ? Math.min(
+            fullCanvas.height,
+            Math.ceil(tableHeaderBoundsCss.bottom * scaleY) + 1,
+          )
+        : 0;
+    let repeatedHeaderImage = "";
+    let repeatedHeaderHeightMm = 0;
 
-    let textNode = textWalker.nextNode();
-    while (textNode) {
-      const range = document.createRange();
-      range.selectNodeContents(textNode);
-      Array.from(range.getClientRects()).forEach((rect) =>
-        addAvoidPosition(rect, true),
-      );
-      textNode = textWalker.nextNode();
+    if (headerBottomPx > headerTopPx) {
+      const headerCanvas = document.createElement("canvas");
+      headerCanvas.width = fullCanvas.width;
+      headerCanvas.height = headerBottomPx - headerTopPx;
+      const headerContext = headerCanvas.getContext("2d");
+      if (headerContext) {
+        headerContext.drawImage(
+          fullCanvas,
+          0,
+          headerTopPx,
+          fullCanvas.width,
+          headerCanvas.height,
+          0,
+          0,
+          fullCanvas.width,
+          headerCanvas.height,
+        );
+        repeatedHeaderImage = headerCanvas.toDataURL("image/jpeg", 0.94);
+        repeatedHeaderHeightMm =
+          (headerCanvas.height * pdfWidth) / fullCanvas.width;
+      }
     }
-
-    avoidPositionsPx.sort((a, b) => a.top - b.top);
 
     let currentCanvasY = 0;
     let pageCount = 0;
@@ -1884,11 +1992,21 @@ const handleSavePdf = async () => {
       const currentBottomMarginMm =
         pageCount > 0 ? marginBottomMm : footerGapMm;
 
-      const maxUsablePdfHeightMm =
-        pdfHeight - currentTopMarginMm - currentBottomMarginMm;
+      const repeatTableHeader =
+        pageCount > 0 &&
+        Boolean(repeatedHeaderImage) &&
+        currentCanvasY >= headerBottomPx &&
+        currentCanvasY < tableBottomPx;
+      const contentTopMm =
+        currentTopMarginMm +
+        (repeatTableHeader ? repeatedHeaderHeightMm : 0);
 
-      let targetSliceHeightPx =
-        (maxUsablePdfHeightMm * fullCanvas.width) / pdfWidth;
+      const maxUsablePdfHeightMm =
+        pdfHeight - contentTopMm - currentBottomMarginMm;
+
+      let targetSliceHeightPx = Math.floor(
+        (maxUsablePdfHeightMm * fullCanvas.width) / pdfWidth,
+      );
 
       const remainingCanvasHeightPx = fullCanvas.height - currentCanvasY;
 
@@ -1896,17 +2014,17 @@ const handleSavePdf = async () => {
         const theoreticalCutY = currentCanvasY + targetSliceHeightPx;
 
         const conflicts = avoidPositionsPx.filter(
-          (pos) => theoreticalCutY > pos.top && theoreticalCutY < pos.bottom,
+          (pos) =>
+            theoreticalCutY > pos.top - textPaddingPx &&
+            theoreticalCutY < pos.bottom + textPaddingPx,
         );
         const conflictingElement =
           conflicts.find((pos) => pos.keepLine) || conflicts[0];
 
         if (conflictingElement) {
-          if (conflictingElement.top > currentCanvasY) {
-            targetSliceHeightPx = conflictingElement.top - currentCanvasY;
-          } else if (conflictingElement.keepLine) {
-            targetSliceHeightPx =
-              conflictingElement.bottom - currentCanvasY;
+          const safeCutY = Math.floor(conflictingElement.top - textPaddingPx);
+          if (safeCutY > currentCanvasY) {
+            targetSliceHeightPx = safeCutY - currentCanvasY;
           }
         }
       } else {
@@ -1945,11 +2063,22 @@ const handleSavePdf = async () => {
       const slicePdfHeightMm =
         (targetSliceHeightPx * pdfWidth) / fullCanvas.width;
 
+      if (repeatTableHeader) {
+        pdf.addImage(
+          repeatedHeaderImage,
+          "JPEG",
+          0,
+          currentTopMarginMm,
+          pdfWidth,
+          repeatedHeaderHeightMm,
+        );
+      }
+
       pdf.addImage(
         imgData,
         "JPEG",
         0,
-        currentTopMarginMm,
+        contentTopMm,
         pdfWidth,
         slicePdfHeightMm,
       );

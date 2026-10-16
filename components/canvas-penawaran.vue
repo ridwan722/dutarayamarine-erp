@@ -87,7 +87,7 @@
               <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
             </p>
             <p class="phone-line">
-              E-mail: sales@dutarayamarine.com, HP : +62 821 9998 8670 <br />
+              E-mail: sales@dutarayamarine.com, HP : +62 823 8450 3953 <br />
               Website: www.dutarayamarine.com
             </p>
           </div>

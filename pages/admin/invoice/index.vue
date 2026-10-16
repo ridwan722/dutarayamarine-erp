@@ -84,12 +84,21 @@
         </v-row>
         <v-divider class="my-2 border-opacity-50" />
 
-        <a-text-field-new
-          v-model="newInvoice.no_preorder"
-          class="mt-2"
-          label="No. Pre Order (PO)"
-          placeholder="opsional"
-        />
+        <v-row no-gutters class="mt-2">
+          <v-col cols="12" sm="6" class="pa-1">
+            <a-text-field-new
+              v-model="newInvoice.no_preorder"
+              label="No. Pre Order (PO)"
+              placeholder="opsional"
+            />
+          </v-col>
+          <v-col cols="12" sm="6" class="pa-1">
+            <a-date-picker-new
+              v-model="newInvoice.tanggal_preorder"
+              label="Tanggal Pre Order (PO)"
+            />
+          </v-col>
+        </v-row>
 
         <div class="mt-3">
           <div class="po-upload-row">
@@ -263,6 +272,18 @@
           </v-row>
         </div>
 
+        <a-select-new
+          v-model="newInvoice.sign_by"
+          :items="[
+            'Seilla Maryana',
+            'Leo Adiatmaja Sembiring',
+            'Muhammad Ridwan',
+            'Lilis',
+          ]"
+          label="Sign By / Yang Bertanda Tangan ?"
+          class="mb-4"
+        />
+
         <!-- Bagian Template: Update tabel Terms & Conditions -->
         <div class="mt-4">
           <span class="text-caption">
@@ -359,6 +380,34 @@
                 <span class="font-weight-medium text-grey-darken-3"
                   >Rp {{ rupiah(subtotal_invoice) }}</span
                 >
+              </div>
+              <div
+                v-if="discountInvoice > 0"
+                class="d-flex justify-space-between text-body-2 text-grey-darken-2 mb-1"
+              >
+                <span>Discount</span>
+                <span class="font-weight-medium text-grey-darken-3"
+                  >- Rp {{ rupiah(discountInvoice) }}</span
+                >
+              </div>
+              <div class="d-flex flex-wrap align-center justify-space-between ga-2 text-body-2 text-grey-darken-2 mb-1">
+                <v-checkbox
+                  v-model="newInvoice.down_payment"
+                  label="Termin"
+                  density="compact"
+                  hide-details
+                />
+                <a-text-field-new
+                  v-if="newInvoice.down_payment"
+                  v-model="newInvoice.dp_persen"
+                  type="number"
+                  label="Persentase"
+                  suffix="%"
+                  style="max-width: 130px"
+                />
+                <span v-if="newInvoice.down_payment" class="font-weight-medium text-grey-darken-3">
+                  Rp {{ rupiah(dpNominal) }}
+                </span>
               </div>
               <div
                 v-if="newInvoice.pakai_ppn == true"
@@ -666,6 +715,7 @@ function emptyInvoice(): invoiceM {
     nama_customer: "",
     alamat_customer: "",
     no_preorder: "",
+    tanggal_preorder: "",
     doc_preorder: [],
     vessel: "",
     no_telp: "",
@@ -686,14 +736,18 @@ function emptyInvoice(): invoiceM {
     ],
     pakai_ppn: false,
     subtotal_invoice: 0,
+    discount_invoice: 0,
     ppn: 0,
     grandtotal_invoice: 0,
+    down_payment: false,
+    dp_persen: 0,
     status: "",
     createdAt: 0,
     createdBy: "",
     termCondition: [],
     tanggal_bayar: "",
     doc_bukti_bayar: [],
+    doc_do_wr: [],
   };
 }
 
@@ -795,15 +849,28 @@ async function tambahDokumenPo(event: Event) {
 
 const subtotal_invoice = computed(() =>
   newInvoice.value.item_pekerjaan.reduce(
-    (total, item) => total + (Number(item.amount) || 0),
+    (total, item) => total + (Number(item.qty) || 0) * (Number(item.amount) || 0),
     0,
   ),
 );
+const discountInvoice = computed(
+  () => Number(newInvoice.value.discount_invoice) || 0,
+);
+const netSubtotal = computed(
+  () => subtotal_invoice.value - discountInvoice.value,
+);
+const dpNominal = computed(() =>
+  Math.round(
+    (netSubtotal.value * (Number(newInvoice.value.dp_persen) || 0)) / 100,
+  ),
+);
 const ppnInvoice = computed(() =>
-  newInvoice.value.pakai_ppn ? Math.round(subtotal_invoice.value * 0.11) : 0,
+  newInvoice.value.pakai_ppn ? Math.round(netSubtotal.value * 0.11) : 0,
 );
 const grandtotal_invoice = computed(
-  () => subtotal_invoice.value + ppnInvoice.value,
+  () =>
+    (newInvoice.value.down_payment ? dpNominal.value : netSubtotal.value) +
+    ppnInvoice.value,
 );
 
 watch(
@@ -890,7 +957,10 @@ function openDialogEditInvoice(item: invoiceM) {
       dataCustomer.vessel === item.vessel,
   );
 
-  const invoice = JSON.parse(JSON.stringify(item)) as invoiceM;
+  const invoice = {
+    ...emptyInvoice(),
+    ...JSON.parse(JSON.stringify(item)),
+  } as invoiceM;
   if (customer?.id) {
     invoice.id_customer = customer.id;
     invoice.nama_customer = customer.nama;
@@ -939,12 +1009,27 @@ async function simpanInvoiceDialog() {
     return notificationStore.showError("Customer belum dipilih");
   }
   if (
-    newInvoice.value.item_pekerjaan.some((item) => !item.nama || !item.amount)
+    !newInvoice.value.item_pekerjaan.length ||
+    newInvoice.value.item_pekerjaan.some(
+      (item) => !item.nama || Number(item.qty) <= 0 || Number(item.amount) <= 0,
+    )
   ) {
     return notificationStore.showError(
-      "Setiap baris item harus punya description dan amount",
+      "Setiap baris item harus punya description, qty, dan amount",
     );
   }
+  if (
+    newInvoice.value.down_payment &&
+    (!Number.isFinite(Number(newInvoice.value.dp_persen)) ||
+      Number(newInvoice.value.dp_persen) <= 0 ||
+      Number(newInvoice.value.dp_persen) > 100)
+  ) {
+    return notificationStore.showError("Persentase termin harus antara 1 dan 100");
+  }
+
+  newInvoice.value.item_pekerjaan.forEach((item) => {
+    item.subtotal_item = Number(item.qty) * Number(item.amount);
+  });
 
   newInvoice.value.subtotal_invoice = subtotal_invoice.value;
   newInvoice.value.ppn = ppnInvoice.value;

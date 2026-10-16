@@ -8,6 +8,7 @@ import type {
   penawaranM,
   pengeluaranM,
 } from "~/types/penawaranModel";
+import type { invoiceM } from "~/types/invoice";
 
 definePageMeta({
   layout: "admin",
@@ -29,6 +30,37 @@ const { data: pengeluaranFileChunks } = useCollection(pengeluaranFileChunksRef);
 
 const detailPenawaran = computed(
   () => penawaran.value as penawaranM | undefined,
+);
+const invoiceCollectionRef = computed(() =>
+  collection(db, "penawaran", idPenawaran.value, "invoice"),
+);
+const { data: invoices } = useCollection(invoiceCollectionRef);
+const invoiceOptions = computed(() =>
+  ((invoices.value ?? []) as invoiceM[])
+    .map((invoice, index) => ({
+      id: String(invoice.id ?? invoice.id_invoice ?? index),
+      invoice,
+    }))
+    .sort(
+      // Invoice paling awal menjadi pilihan default untuk uang masuk.
+      (a, b) => Number(a.invoice.createdAt || 0) - Number(b.invoice.createdAt || 0),
+    ),
+);
+const selectedInvoiceId = ref("");
+watch(
+  invoiceOptions,
+  (options) => {
+    if (!options.some((option) => option.id === selectedInvoiceId.value)) {
+      selectedInvoiceId.value = options[0]?.id ?? "";
+    }
+  },
+  { immediate: true },
+);
+const selectedInvoice = computed(
+  () => invoiceOptions.value.find((option) => option.id === selectedInvoiceId.value)?.invoice,
+);
+const uangMasukInvoice = computed(() =>
+  Number(selectedInvoice.value?.grandtotal_invoice) || 0,
 );
 
 const getTanggalPengeluaranTimestamp = (tanggal: string) => {
@@ -163,11 +195,11 @@ const headers = [
     minWidth: "100px",
   },
 
-  {
-    title: "Status",
-    key: "status_pengeluaran",
-    minWidth: "50px",
-  },
+  // {
+  //   title: "Status",
+  //   key: "status_pengeluaran",
+  //   minWidth: "50px",
+  // },
   {
     title: "AKSI",
     key: "actions",
@@ -686,10 +718,10 @@ const previewImage = (dataUrl: string) => {
 
         <div class="summary-metrics">
           <div class="summary-info">
-            <div class="summary-label">TOTAL QUOTATION</div>
+            <div class="summary-label">UANG MASUK (INVOICE)</div>
 
             <div class="summary-value">
-              {{ rupiah.format(Number(detailPenawaran?.grand_total_penawaran ?? 0)) }}
+              {{ rupiah.format(uangMasukInvoice) }}
             </div>
           </div>
 
@@ -705,13 +737,7 @@ const previewImage = (dataUrl: string) => {
             <div class="summary-label">SISA</div>
 
             <div class="summary-value">
-              {{ rupiah.format(Math.abs(totalPengeluaran - detailPenawaran?.grand_total_penawaran || 0)) }}
-                <!-- {{ rupiah.format(
-  Math.abs(
-    totalPengeluaran -
-    ((detailPenawaran?.grand_total_penawaran ?? 0) - 325000000)
-  )
-) }} -->
+              {{ rupiah.format(uangMasukInvoice - totalPengeluaran) }}
             </div>
           </div>
         </div>
@@ -732,6 +758,25 @@ const previewImage = (dataUrl: string) => {
           </div>
         </div>
       </v-card>
+    </div>
+
+    <div
+      v-if="invoiceOptions.length"
+      class="invoice-selector mb-4"
+      aria-label="Pilih invoice untuk ringkasan"
+    >
+      <button
+        v-for="(option, index) in invoiceOptions"
+        :key="option.id"
+        type="button"
+        class="invoice-choice"
+        :class="{ 'invoice-choice-active': selectedInvoiceId === option.id }"
+        :aria-pressed="selectedInvoiceId === option.id"
+        @click="selectedInvoiceId = option.id"
+      >
+        <span>INV/{{ option.invoice.no_inv || `Invoice ${index + 1}` }}</span>
+        <strong>{{ rupiah.format(Number(option.invoice.grandtotal_invoice) || 0) }}</strong>
+      </button>
     </div>
 
     <!-- =================================================
@@ -1393,6 +1438,53 @@ const previewImage = (dataUrl: string) => {
   color: #9ca3af;
 }
 
+.invoice-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.invoice-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 190px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.invoice-choice strong {
+  color: #1f2937;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.invoice-choice:hover {
+  border-color: #93b4d5;
+}
+
+.invoice-choice-active {
+  border-color: #1867c0;
+  background: #eff6ff;
+  color: #164f8e;
+  box-shadow: 0 0 0 1px #1867c0 inset;
+}
+
+.invoice-choice-active strong {
+  color: #164f8e;
+}
+
 /* =====================================================
    ALERT
 ===================================================== */
@@ -1870,6 +1962,15 @@ const previewImage = (dataUrl: string) => {
     min-height: 82px;
   }
 
+  .invoice-selector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .invoice-choice {
+    min-width: 0;
+  }
+
   .project-content {
     align-items: flex-start;
     flex-direction: column;
@@ -1985,6 +2086,10 @@ const previewImage = (dataUrl: string) => {
 
   .summary-value {
     font-size: 14px;
+  }
+
+  .invoice-selector {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .table-header {
