@@ -433,6 +433,41 @@ const formatTanggal = (tanggal: string) => {
   }).format(date);
 };
 
+const searchPengeluaran = ref("");
+const searchQuery = computed(() => (searchPengeluaran.value ?? "").trim());
+const filteredPengeluaran = computed(() => {
+  const terms = searchQuery.value.toLocaleLowerCase("id-ID").split(/\s+/).filter(Boolean);
+  if (!terms.length) return pengeluaran.value;
+
+  return pengeluaran.value.filter((item) => {
+    const searchableText = [
+      item.tanggal_pengeluaran,
+      formatTanggal(item.tanggal_pengeluaran),
+      item.keterangan,
+      item.dikeluarkan_oleh,
+      item.nominal,
+      rupiah.format(Number(item.nominal) || 0),
+      item.qty,
+      item.satuan,
+      item.nama_vendor,
+      item.no_telp_vendor,
+      item.lokasi_vendor,
+      item.status_pengeluaran,
+      ...(item.doc_pengeluaran ?? []).map((document) => document.name),
+    ]
+      .join(" ")
+      .toLocaleLowerCase("id-ID");
+
+    return terms.every((term) => searchableText.includes(term));
+  });
+});
+const totalPengeluaranDitampilkan = computed(() =>
+  filteredPengeluaran.value.reduce(
+    (total, item) => total + Number(item.nominal || 0),
+    0,
+  ),
+);
+
 /* =====================================================
    OPEN EDIT
 ===================================================== */
@@ -867,10 +902,29 @@ const previewImage = (dataUrl: string) => {
 
       <v-divider />
 
+      <div class="table-search-toolbar">
+        <v-text-field
+          v-model="searchPengeluaran"
+
+          placeholder="Keterangan, vendor, tanggal, nominal..."
+          prepend-inner-icon="mdi-magnify"
+          variant="outlined"
+          density="compact"
+          hide-details
+          clearable
+          class="expense-search"
+        />
+        <span v-if="searchQuery" class="search-result-count">
+          {{ filteredPengeluaran.length }} dari {{ pengeluaran.length }} data
+        </span>
+      </div>
+
+      <v-divider />
+
       <div class="table-wrapper">
         <v-data-table
           :headers="headers"
-          :items="pengeluaran"
+          :items="filteredPengeluaran"
           :loading="pending"
           :items-per-page="-1"
           item-value="id_pengeluaran"
@@ -892,10 +946,16 @@ const previewImage = (dataUrl: string) => {
                 <v-icon icon="mdi-receipt-text-outline" size="30" />
               </div>
 
-              <div class="empty-title">Belum ada pengeluaran</div>
+              <div class="empty-title">
+                {{ searchQuery ? "Tidak ada hasil pencarian" : "Belum ada pengeluaran" }}
+              </div>
 
               <div class="empty-description">
-                Belum terdapat data pengeluaran untuk project ini.
+                {{
+                  searchQuery
+                    ? "Coba kata kunci lain atau hapus pencarian."
+                    : "Belum terdapat data pengeluaran untuk project ini."
+                }}
               </div>
             </div>
           </template>
@@ -992,7 +1052,7 @@ const previewImage = (dataUrl: string) => {
             </div>
           </template>
 
-          <template #item.status_pengeluaran="{ item }">
+          <!-- <template #item.status_pengeluaran="{ item }">
             <div
               class="issued-by-cell"
               :style="{
@@ -1016,7 +1076,7 @@ const previewImage = (dataUrl: string) => {
             >
               {{ item.status_pengeluaran || "-" }}
             </div>
-          </template>
+          </template> -->
 
           <!-- AKSI -->
 
@@ -1055,15 +1115,117 @@ const previewImage = (dataUrl: string) => {
         </v-data-table>
       </div>
 
+      <div class="mobile-expense-list">
+        <v-skeleton-loader v-if="pending" type="card@3" />
+
+        <div v-else-if="!filteredPengeluaran.length" class="empty-state">
+          <div class="empty-icon">
+            <v-icon icon="mdi-receipt-text-outline" size="30" />
+          </div>
+          <div class="empty-title">
+            {{ searchQuery ? "Tidak ada hasil pencarian" : "Belum ada pengeluaran" }}
+          </div>
+          <div class="empty-description">
+            {{
+              searchQuery
+                ? "Coba kata kunci lain atau hapus pencarian."
+                : "Belum terdapat data pengeluaran untuk project ini."
+            }}
+          </div>
+        </div>
+
+        <article
+          v-for="(item, index) in pending ? [] : filteredPengeluaran"
+          :key="item.id_pengeluaran"
+          class="mobile-expense-card"
+        >
+          <div class="mobile-expense-topline">
+            <span class="mobile-expense-date">
+              <span class="row-number">#{{ String(index + 1).padStart(2, "0") }}</span>
+              <!-- {{ formatTanggal(item.tanggal_pengeluaran) }} -->
+            </span>
+            <span
+              class="text-caption text-grey"
+              
+            >
+              {{ formatTanggal(item.tanggal_pengeluaran) }}
+            </span>
+          </div>
+
+          <div class="mobile-expense-description">{{ item.keterangan || "-" }}</div>
+          <div class="mobile-expense-amount">
+            {{ rupiah.format(Number(item.nominal || 0)) }}
+          </div>
+
+          <div class="mobile-expense-details">
+            <div class="mobile-expense-detail">
+              <span>Qty</span>
+              <strong>{{ item.qty ?? 0 }} {{ item.satuan || "-" }}</strong>
+            </div>
+            <div v-if="item.nama_vendor || item.no_telp_vendor || item.lokasi_vendor" class="mobile-expense-detail">
+              <span>Vendor</span>
+              <strong>
+                {{ [item.nama_vendor, item.no_telp_vendor, item.lokasi_vendor].filter(Boolean).join(" · ") }}
+              </strong>
+            </div>
+            <div class="mobile-expense-detail">
+              <span>Dikeluarkan oleh</span>
+              <strong>{{ item.dikeluarkan_oleh || "-" }}</strong>
+            </div>
+          </div>
+
+          <div class="mobile-expense-actions">
+            <div class="mobile-expense-attachments">
+              <button
+                v-for="(document, documentIndex) in item.doc_pengeluaran ?? []"
+                :key="document.fileId || documentIndex"
+                type="button"
+                class="btn-image-preview"
+                :aria-label="`Pratinjau ${document.name || 'lampiran'}`"
+                @click="previewImage(document.dataUrl)"
+              >
+                <v-icon size="18">mdi-image-outline</v-icon>
+              </button>
+              <span v-if="!item.doc_pengeluaran?.length" class="mobile-expense-no-file">
+                Tanpa lampiran
+              </span>
+            </div>
+            <div class="mobile-expense-action-buttons">
+              <v-btn
+                icon="mdi-pencil-outline"
+                variant="text"
+                size="small"
+                color="grey-darken-1"
+                aria-label="Edit pengeluaran"
+                :disabled="deletingPengeluaranId !== null"
+                @click="openEdit(item)"
+              />
+              <v-btn
+                icon="mdi-delete-outline"
+                variant="text"
+                size="small"
+                color="error"
+                aria-label="Hapus pengeluaran"
+                :loading="deletingPengeluaranId === item.id_pengeluaran"
+                :disabled="deletingPengeluaranId !== null"
+                @click="deletePengeluaran(item)"
+              />
+            </div>
+          </div>
+        </article>
+      </div>
+
       <!-- TABLE FOOTER -->
 
       <v-divider />
 
       <div class="table-footer">
-        <span class="footer-label"> Total Pengeluaran </span>
+        <span class="footer-label">
+          {{ searchQuery ? "Total Hasil Pencarian" : "Total Pengeluaran" }}
+        </span>
 
         <span class="footer-total">
-          {{ rupiah.format(totalPengeluaran) }}
+          {{ rupiah.format(totalPengeluaranDitampilkan) }}
         </span>
       </div>
     </v-card>
@@ -1573,6 +1735,23 @@ const previewImage = (dataUrl: string) => {
   color: #9ca3af;
 }
 
+.table-search-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.expense-search {
+  max-width: 360px;
+}
+
+.search-result-count {
+  color: #6b7280;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .transaction-chip {
   font-size: 11px !important;
   flex-shrink: 0;
@@ -1581,6 +1760,123 @@ const previewImage = (dataUrl: string) => {
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
+}
+
+.mobile-expense-list {
+  display: none;
+}
+
+.mobile-expense-card {
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.mobile-expense-topline,
+.mobile-expense-date,
+.mobile-expense-actions,
+.mobile-expense-action-buttons,
+.mobile-expense-attachments {
+  display: flex;
+  align-items: center;
+}
+
+.mobile-expense-topline,
+.mobile-expense-actions {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobile-expense-date {
+  gap: 7px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.mobile-expense-status {
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mobile-expense-status-debt {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.mobile-expense-status-paid {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.mobile-expense-description {
+  margin-top: 12px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.mobile-expense-amount {
+  margin-top: 3px;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-expense-details {
+  display: grid;
+  gap: 7px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid #f0f1f3;
+}
+
+.mobile-expense-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  line-height: 1.0;
+}
+
+.mobile-expense-detail span {
+  flex-shrink: 0;
+  color: #9ca3af;
+}
+
+.mobile-expense-detail strong {
+  color: #4b5563;
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.mobile-expense-actions {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f1f3;
+}
+
+.mobile-expense-attachments {
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.mobile-expense-no-file {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.mobile-expense-action-buttons {
+  flex-shrink: 0;
+  gap: 2px;
 }
 
 /* =====================================================
@@ -2155,6 +2451,33 @@ const previewImage = (dataUrl: string) => {
     width: 100%;
     padding-inline: 8px !important;
     font-size: 11px !important;
+  }
+
+  .table-search-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+  }
+
+  .expense-search {
+    max-width: none;
+  }
+
+  .table-wrapper {
+    display: none;
+  }
+
+  .mobile-expense-list {
+    display: grid;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #f8fafc;
+  }
+
+  .mobile-expense-list > .empty-state {
+    background: #fff;
+    border-radius: 10px;
   }
 
   .edit-form-grid {
