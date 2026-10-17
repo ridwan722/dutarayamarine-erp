@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick } from "vue";
-import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, runTransaction } from "firebase/firestore";
 import { useCollection, useDocument, useFirestore } from "vuefire";
 import { persistPengeluaranDocuments } from "~/composables/useInvoiceAresaDigital";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
@@ -292,64 +292,57 @@ const totalPengeluaran = computed(() => {
   );
 });
 
-const simpanPengeluaranKeKeduaDokumen = async (
-  pengeluaranBaru: pengeluaranM[],
+const ubahPengeluaranSecaraTransaksional = async (
+  mutate: (pengeluaranSaatIni: pengeluaranM[]) => pengeluaranM[],
 ) => {
   const invoiceSnapshots = await getDocs(invoiceCollectionRef.value);
   const invoiceIds = invoiceSnapshots.docs.map((snapshot) => snapshot.id);
-  const expenses = invoiceIds.length === 1
-    ? pengeluaranBaru.map((expense) =>
-        expense.invoice_out ? expense : { ...expense, invoice_out: invoiceIds[0] },
-      )
-    : pengeluaranBaru;
-  const total = expenses.reduce(
-    (sum, expense) => sum + (Number(expense.nominal) || 0),
-    0,
-  );
-  const batch = writeBatch(db);
-  batch.update(doc(db, "penawaran", idPenawaran.value), {
-    pengeluaran: expenses,
-    grandtotal_pengeluaran: total,
-  });
-  for (const invoiceId of invoiceIds) {
-    const invoiceExpenses = expenses.filter((expense) =>
-      isExpenseForInvoice(expense, invoiceId, invoiceIds.length),
-    );
-    const values = {
-      pengeluaran: invoiceExpenses,
-      grandtotal_pengeluaran: invoiceExpenses.reduce(
-        (sum, expense) => sum + (Number(expense.nominal) || 0),
-        0,
-      ),
-    };
-    batch.update(doc(db, "invoice", invoiceId), values);
-    batch.update(doc(db, "penawaran", idPenawaran.value, "invoice", invoiceId), values);
-  }
-  await batch.commit();
-};
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(penawaranRef.value);
+    if (!snapshot.exists()) {
+      throw new Error("Penawaran tidak ditemukan");
+    }
 
-let syncedExistingExpenses = false;
-watch(
-  [pending, detailPenawaran],
-  async ([isPending, currentPenawaran]) => {
-    if (
-      isPending ||
-      syncedExistingExpenses ||
-      !currentPenawaran?.pengeluaran?.length
-    ) {
-      return;
+    const pengeluaranSaatIni: pengeluaranM[] = Array.isArray(
+      snapshot.data().pengeluaran,
+    )
+      ? snapshot.data().pengeluaran
+      : [];
+    const hasilMutasi = mutate([...pengeluaranSaatIni]);
+    const expenses = invoiceIds.length === 1
+      ? hasilMutasi.map((expense) =>
+          expense.invoice_out ? expense : { ...expense, invoice_out: invoiceIds[0] },
+        )
+      : hasilMutasi;
+    const total = expenses.reduce(
+      (sum, expense) => sum + (Number(expense.nominal) || 0),
+      0,
+    );
+
+    transaction.update(penawaranRef.value, {
+      pengeluaran: expenses,
+      grandtotal_pengeluaran: total,
+    });
+    for (const invoiceId of invoiceIds) {
+      const invoiceExpenses = expenses.filter((expense) =>
+        isExpenseForInvoice(expense, invoiceId, invoiceIds.length),
+      );
+      const values = {
+        pengeluaran: invoiceExpenses,
+        grandtotal_pengeluaran: invoiceExpenses.reduce(
+          (sum, expense) => sum + (Number(expense.nominal) || 0),
+          0,
+        ),
+      };
+      transaction.update(doc(db, "invoice", invoiceId), values);
+      transaction.set(
+        doc(db, "penawaran", idPenawaran.value, "invoice", invoiceId),
+        values,
+        { merge: true },
+      );
     }
-    syncedExistingExpenses = true;
-    try {
-      await simpanPengeluaranKeKeduaDokumen(currentPenawaran.pengeluaran);
-    } catch (syncError) {
-      syncedExistingExpenses = false;
-      console.error("Gagal menyinkronkan pengeluaran ke invoice:", syncError);
-      notificationStore.showError("Gagal menyinkronkan pengeluaran ke invoice");
-    }
-  },
-  { immediate: true },
-);
+  });
+};
 
 const savingPdf = ref(false);
 
@@ -534,8 +527,10 @@ const savePengeluaranPdf = async () => {
 
     const signatureWidth = Math.min(40, (20 * signature.naturalWidth) / signature.naturalHeight);
     const signatureHeight = (signatureWidth * signature.naturalHeight) / signature.naturalWidth;
-    const signatureSpace = 38 + signatureHeight;
-    if (y + signatureSpace > pageHeight - 15) {
+    const signatureContentHeight = 18 + 6 + 3 + signatureHeight + 2;
+    const footerTop = pageHeight - 12;
+    const signatureBottomGap = 2;
+    if (y + signatureContentHeight + signatureBottomGap > footerTop) {
       pdf.addPage();
       drawLetterhead();
     }
@@ -752,9 +747,7 @@ const saveEdit = async () => {
 
     const index = editIndex.value;
 
-    const pengeluaranBaru = [...detailPenawaran.value.pengeluaran];
-
-    const dataLama = pengeluaranBaru[index];
+    const dataLama = detailPenawaran.value.pengeluaran[index];
 
     if (!dataLama) {
       return;
@@ -775,7 +768,7 @@ const saveEdit = async () => {
       [...editForm.doc_pengeluaran, ...newDocuments],
     );
 
-    pengeluaranBaru[index] = {
+    const pengeluaranDiedit: pengeluaranM = {
       ...dataLama,
 
       id_pengeluaran: editForm.id_pengeluaran || dataLama.id_pengeluaran,
@@ -794,7 +787,20 @@ const saveEdit = async () => {
       doc_pengeluaran,
     };
 
-    await simpanPengeluaranKeKeduaDokumen(pengeluaranBaru);
+    await ubahPengeluaranSecaraTransaksional((pengeluaranSaatIni) => {
+      const currentIndex = pengeluaranSaatIni.findIndex(
+        (expense) => expense.id_pengeluaran === dataLama.id_pengeluaran,
+      );
+      if (currentIndex < 0) {
+        throw new Error("Pengeluaran yang diedit sudah tidak ditemukan");
+      }
+
+      pengeluaranSaatIni[currentIndex] = {
+        ...pengeluaranSaatIni[currentIndex],
+        ...pengeluaranDiedit,
+      };
+      return pengeluaranSaatIni;
+    });
 
     editDialog.value = false;
     editIndex.value = null;
@@ -819,10 +825,11 @@ const deletePengeluaran = async (item: any) => {
 
   try {
     deletingPengeluaranId.value = idPengeluaran;
-    const pengeluaranBaru = (detailPenawaran.value.pengeluaran ?? []).filter(
-      (expense) => expense.id_pengeluaran !== idPengeluaran,
+    await ubahPengeluaranSecaraTransaksional((pengeluaranSaatIni) =>
+      pengeluaranSaatIni.filter(
+        (expense) => expense.id_pengeluaran !== idPengeluaran,
+      ),
     );
-    await simpanPengeluaranKeKeduaDokumen(pengeluaranBaru);
     try {
       await persistPengeluaranDocuments(idPenawaran.value, idPengeluaran, []);
     } catch (cleanupError) {
