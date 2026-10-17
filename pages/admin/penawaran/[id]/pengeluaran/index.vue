@@ -186,10 +186,31 @@ const unassignedExpenseCount = computed(() =>
 const editDialog = ref(false);
 const savingEdit = ref(false);
 const deletingPengeluaranId = ref<string | null>(null);
-const editIndex = ref<number | null>(null);
+const editingPengeluaranId = ref<string | null>(null);
+const editingPengeluaranSnapshot = ref("");
 const editFiles = ref<File[]>([]);
 const notificationStore = useNotificationStore();
 const loadingStore = useloadingStore();
+
+const canonicalizeSnapshotValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(canonicalizeSnapshotValue);
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((result, key) => {
+        result[key] = canonicalizeSnapshotValue(
+          (value as Record<string, unknown>)[key],
+        );
+        return result;
+      }, {});
+  }
+  return value;
+};
+
+const createPengeluaranSnapshot = (expense: pengeluaranM) =>
+  JSON.stringify(canonicalizeSnapshotValue(expense));
 
 const editForm = reactive<pengeluaranM>({
   id_pengeluaran: "",
@@ -308,12 +329,7 @@ const ubahPengeluaranSecaraTransaksional = async (
     )
       ? snapshot.data().pengeluaran
       : [];
-    const hasilMutasi = mutate([...pengeluaranSaatIni]);
-    const expenses = invoiceIds.length === 1
-      ? hasilMutasi.map((expense) =>
-          expense.invoice_out ? expense : { ...expense, invoice_out: invoiceIds[0] },
-        )
-      : hasilMutasi;
+    const expenses = mutate([...pengeluaranSaatIni]);
     const total = expenses.reduce(
       (sum, expense) => sum + (Number(expense.nominal) || 0),
       0,
@@ -644,12 +660,13 @@ const totalPengeluaranDitampilkan = computed(() =>
 ===================================================== */
 
 const openEdit = (item: any) => {
-  const originalIndex = (detailPenawaran.value?.pengeluaran ?? []).findIndex(
+  const expenseToEdit = (detailPenawaran.value?.pengeluaran ?? []).find(
     (expense) => expense.id_pengeluaran === item.id_pengeluaran,
   );
-  if (originalIndex < 0) return;
+  if (!expenseToEdit || !item.id_pengeluaran) return;
 
-  editIndex.value = originalIndex;
+  editingPengeluaranId.value = item.id_pengeluaran;
+  editingPengeluaranSnapshot.value = createPengeluaranSnapshot(expenseToEdit);
 
   editForm.id_pengeluaran = item.id_pengeluaran || "";
   editForm.invoice_out =
@@ -698,7 +715,8 @@ const closeEdit = () => {
   if (savingEdit.value) return;
 
   editDialog.value = false;
-  editIndex.value = null;
+  editingPengeluaranId.value = null;
+  editingPengeluaranSnapshot.value = "";
 };
 
 /* =====================================================
@@ -707,7 +725,8 @@ const closeEdit = () => {
 
 const saveEdit = async () => {
   if (
-    editIndex.value === null ||
+    !editingPengeluaranId.value ||
+    !editingPengeluaranSnapshot.value ||
     !detailPenawaran.value ||
     !Array.isArray(detailPenawaran.value.pengeluaran)
   ) {
@@ -745,9 +764,11 @@ const saveEdit = async () => {
     loadingStore.setLoading(true);
     await nextTick();
 
-    const index = editIndex.value;
-
-    const dataLama = detailPenawaran.value.pengeluaran[index];
+    const idPengeluaranDiedit = editingPengeluaranId.value;
+    const snapshotPengeluaranDiedit = editingPengeluaranSnapshot.value;
+    const dataLama = detailPenawaran.value.pengeluaran.find(
+      (expense) => expense.id_pengeluaran === idPengeluaranDiedit,
+    );
 
     if (!dataLama) {
       return;
@@ -766,12 +787,10 @@ const saveEdit = async () => {
       idPenawaran.value,
       dataLama.id_pengeluaran,
       [...editForm.doc_pengeluaran, ...newDocuments],
+      false,
     );
 
-    const pengeluaranDiedit: pengeluaranM = {
-      ...dataLama,
-
-      id_pengeluaran: editForm.id_pengeluaran || dataLama.id_pengeluaran,
+    const perubahanPengeluaran: Partial<pengeluaranM> = {
       invoice_out: editForm.invoice_out || "",
 
       tanggal_pengeluaran: editForm.tanggal_pengeluaran,
@@ -789,23 +808,45 @@ const saveEdit = async () => {
 
     await ubahPengeluaranSecaraTransaksional((pengeluaranSaatIni) => {
       const currentIndex = pengeluaranSaatIni.findIndex(
-        (expense) => expense.id_pengeluaran === dataLama.id_pengeluaran,
+        (expense) => expense.id_pengeluaran === idPengeluaranDiedit,
       );
       if (currentIndex < 0) {
         throw new Error("Pengeluaran yang diedit sudah tidak ditemukan");
       }
+      if (
+        createPengeluaranSnapshot(pengeluaranSaatIni[currentIndex]!) !==
+        snapshotPengeluaranDiedit
+      ) {
+        throw new Error(
+          "Pengeluaran berubah setelah dialog dibuka. Tutup lalu buka kembali sebelum mengedit.",
+        );
+      }
 
       pengeluaranSaatIni[currentIndex] = {
         ...pengeluaranSaatIni[currentIndex],
-        ...pengeluaranDiedit,
+        ...perubahanPengeluaran,
       };
       return pengeluaranSaatIni;
     });
 
+    try {
+      await persistPengeluaranDocuments(
+        idPenawaran.value,
+        idPengeluaranDiedit,
+        doc_pengeluaran,
+      );
+    } catch (cleanupError) {
+      console.error("Gagal membersihkan lampiran lama:", cleanupError);
+    }
+
     editDialog.value = false;
-    editIndex.value = null;
+    editingPengeluaranId.value = null;
+    editingPengeluaranSnapshot.value = "";
   } catch (err) {
     console.error("Gagal mengedit pengeluaran:", err);
+    notificationStore.showError(
+      err instanceof Error ? err.message : "Gagal mengedit pengeluaran",
+    );
   } finally {
     savingEdit.value = false;
     loadingStore.setLoading(false);
@@ -815,6 +856,13 @@ const saveEdit = async () => {
 const deletePengeluaran = async (item: any) => {
   const idPengeluaran = item.id_pengeluaran;
   if (!idPengeluaran || !detailPenawaran.value) return;
+  const pengeluaranYangDihapus = detailPenawaran.value.pengeluaran?.find(
+    (expense) => expense.id_pengeluaran === idPengeluaran,
+  );
+  if (!pengeluaranYangDihapus) return;
+  const snapshotPengeluaranDihapus = createPengeluaranSnapshot(
+    pengeluaranYangDihapus,
+  );
   if (
     !window.confirm(
       `Hapus pengeluaran "${item.keterangan || "ini"}"? Tindakan ini tidak dapat dibatalkan.`,
@@ -825,11 +873,24 @@ const deletePengeluaran = async (item: any) => {
 
   try {
     deletingPengeluaranId.value = idPengeluaran;
-    await ubahPengeluaranSecaraTransaksional((pengeluaranSaatIni) =>
-      pengeluaranSaatIni.filter(
-        (expense) => expense.id_pengeluaran !== idPengeluaran,
-      ),
-    );
+    await ubahPengeluaranSecaraTransaksional((pengeluaranSaatIni) => {
+      const currentIndex = pengeluaranSaatIni.findIndex(
+        (expense) => expense.id_pengeluaran === idPengeluaran,
+      );
+      if (currentIndex < 0) {
+        throw new Error("Pengeluaran yang akan dihapus sudah tidak ditemukan");
+      }
+      if (
+        createPengeluaranSnapshot(pengeluaranSaatIni[currentIndex]!) !==
+        snapshotPengeluaranDihapus
+      ) {
+        throw new Error(
+          "Pengeluaran berubah sebelum dihapus. Muat ulang data lalu coba kembali.",
+        );
+      }
+      pengeluaranSaatIni.splice(currentIndex, 1);
+      return pengeluaranSaatIni;
+    });
     try {
       await persistPengeluaranDocuments(idPenawaran.value, idPengeluaran, []);
     } catch (cleanupError) {
@@ -838,7 +899,9 @@ const deletePengeluaran = async (item: any) => {
     notificationStore.showSuccess("Pengeluaran berhasil dihapus");
   } catch (err) {
     console.error("Gagal menghapus pengeluaran:", err);
-    notificationStore.showError("Gagal menghapus pengeluaran");
+    notificationStore.showError(
+      err instanceof Error ? err.message : "Gagal menghapus pengeluaran",
+    );
   } finally {
     deletingPengeluaranId.value = null;
   }
@@ -1273,7 +1336,15 @@ const previewImage = (dataUrl: string) => {
                     class="btn-image-preview"
                     @click="previewImage(document.dataUrl)"
                   >
-                    <v-icon size="20">mdi-image-outline</v-icon>
+                    <img
+                      v-if="document.dataUrl"
+                      :src="document.dataUrl"
+                      :alt="document.name || 'Bukti pengeluaran'"
+                      class="attachment-thumbnail"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span v-else class="attachment-thumbnail-placeholder" />
                   </button>
                 </template>
               </v-tooltip>
@@ -1426,7 +1497,18 @@ const previewImage = (dataUrl: string) => {
                 :aria-label="`Pratinjau ${document.name || 'lampiran'}`"
                 @click="previewImage(document.dataUrl)"
               >
-                <v-icon size="18">mdi-image-outline</v-icon>
+                <img
+                  v-if="document.dataUrl"
+                  :src="document.dataUrl"
+                  :alt="document.name || 'Bukti pengeluaran'"
+                  class="attachment-thumbnail attachment-thumbnail-mobile"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span
+                  v-else
+                  class="attachment-thumbnail-placeholder attachment-thumbnail-mobile"
+                />
               </button>
               <span v-if="!item.doc_pengeluaran?.length" class="mobile-expense-no-file">
                 Tanpa lampiran
@@ -2157,6 +2239,38 @@ const previewImage = (dataUrl: string) => {
 .mobile-expense-action-buttons {
   flex-shrink: 0;
   gap: 2px;
+}
+
+.btn-image-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.attachment-thumbnail,
+.attachment-thumbnail-placeholder {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.attachment-thumbnail {
+  object-fit: cover;
+}
+
+.attachment-thumbnail-placeholder {
+  background: #e5e7eb;
+}
+
+.attachment-thumbnail-mobile {
+  width: 18px;
+  height: 18px;
 }
 
 /* =====================================================

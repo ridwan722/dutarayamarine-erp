@@ -182,7 +182,14 @@ export const persistPengeluaranDocuments = async (
     operations = 0;
   };
 
+  const retainedFileIds = new Set(
+    documents
+      .map((document) => document.fileId)
+      .filter((fileId): fileId is string => Boolean(fileId)),
+  );
+
   for (const chunk of oldChunks?.docs ?? []) {
+    if (retainedFileIds.has(String(chunk.data().fileId || ""))) continue;
     batch.delete(chunk.ref);
     operations++;
     await commitBatchIfFull();
@@ -192,6 +199,24 @@ export const persistPengeluaranDocuments = async (
   for (const document of documents) {
     const fileId = document.fileId || doc(chunksRef).id;
     const dataUrl = document.dataUrl || "";
+
+    // New attachments are stored as binary files in Firebase Storage. Keep
+    // only their regular download URL in Firestore instead of chunking it.
+    if (document.storagePath || /^https?:\/\//i.test(dataUrl)) {
+      storedDocuments.push({ ...document, dataUrl });
+      continue;
+    }
+
+    // A document with a fileId is already persisted. Keep its chunks intact;
+    // only new files (without a fileId) need to be written.
+    if (document.fileId) {
+      storedDocuments.push({ ...document, dataUrl: "" });
+      continue;
+    }
+    if (!dataUrl) {
+      throw new Error(`Lampiran ${document.name || "pengeluaran"} kosong`);
+    }
+
     const totalChunks = Math.max(
       1,
       Math.ceil(dataUrl.length / PENGELUARAN_FILE_CHUNK_LENGTH),
@@ -289,8 +314,6 @@ export const createPengeluaran = async (
   if (invoiceId) setdata.invoice_out = invoiceId;
   else delete setdata.invoice_out;
 
-  console.log("DATA PENGELUARAN:", setdata);
-
   const penawaranRef = doc(db, "penawaran", id_penawaran);
 
   await runTransaction(db, async (transaction) => {
@@ -313,22 +336,14 @@ export const createPengeluaran = async (
       }
     }
 
-    // An unassigned legacy expense is unambiguous only with a single invoice.
     const pengeluaran: pengeluaranM[] = Array.isArray(existingData.pengeluaran)
-      ? existingData.pengeluaran.map((expense: pengeluaranM) =>
-          !expense.invoice_out && relatedInvoiceIds.length === 1
-            ? { ...expense, invoice_out: relatedInvoiceIds[0] }
-            : expense,
-        )
+      ? [...existingData.pengeluaran]
       : [];
 
-    if (
-      !pengeluaran.some(
-        (item) => item.id_pengeluaran === setdata.id_pengeluaran,
-      )
-    ) {
-      pengeluaran.push(setdata);
+    if (pengeluaran.some((item) => item.id_pengeluaran === setdata.id_pengeluaran)) {
+      throw new Error("ID pengeluaran sudah tersimpan. Muat ulang lalu coba kembali.");
     }
+    pengeluaran.push(setdata);
 
     const total_pengeluaran = pengeluaran.reduce(
       (total, item) => total + (Number(item.nominal) || 0),
@@ -341,7 +356,9 @@ export const createPengeluaran = async (
     });
     for (const invoiceRef of invoiceRefs) {
       const invoiceExpenses = pengeluaran.filter(
-        (expense) => expense.invoice_out === invoiceRef.id,
+        (expense) =>
+          expense.invoice_out === invoiceRef.id ||
+          (!expense.invoice_out && invoiceRefs.length === 1),
       );
       const invoiceValues = {
         pengeluaran: invoiceExpenses,

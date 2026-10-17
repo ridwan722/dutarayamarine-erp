@@ -53,7 +53,8 @@
           :rules="tanggalPengeluaranRules"
           class="mb-2"
         ></a-date-picker-new>
-        <a-text-field-new
+        <a-select-new
+        :items="['Leo', 'Seilla']"
             v-model="form.dikeluarkan_oleh"
             label="Dikeluarkan Oleh"
             :disabled="saving"
@@ -112,8 +113,8 @@
                 type="file"
                 multiple
                 :disabled="saving"
-                @change="addfile"
                 class="po-file-input"
+                @change="addfile"
               />
 
               <div class="po-upload-icon">↑</div>
@@ -135,13 +136,30 @@
                 :key="index"
                 class="po-file-item"
               >
-                <div class="po-file-name">📄 {{ file.name }}</div>
+                <div class="po-file-main">
+                  <button
+                    v-if="billPreviewUrls[index]"
+                    type="button"
+                    class="po-file-thumbnail-button"
+                    :aria-label="`Pratinjau ${file.name}`"
+                    :disabled="saving"
+                    @click="previewSelectedImage(index)"
+                  >
+                    <img
+                      :src="billPreviewUrls[index]"
+                      :alt="file.name"
+                      class="po-file-thumbnail"
+                    />
+                  </button>
+                  <span v-else class="po-file-document">📄</span>
+                  <div class="po-file-name">{{ file.name }}</div>
+                </div>
 
                 <button
                   type="button"
                   class="po-file-remove"
                   :disabled="saving"
-                  @click="billFiles.splice(index, 1)"
+                  @click="removeBillFile(index)"
                 >
                   ×
                 </button>
@@ -149,13 +167,13 @@
             </div>
           </div>
         </div>
-          <a-select-new
+          <!-- <a-select-new
             v-model="form.status_pengeluaran"
             :items="['Hutang', 'Lunas']"
             label="Status"
             :disabled="saving"
             class="mt-2"
-          />
+          /> -->
       </div>
 
 
@@ -176,12 +194,47 @@
       </div>
     </div>
   </div>
+
+  <v-dialog
+    v-model="selectedImagePreviewDialog"
+    max-width="900"
+    :z-index="10001"
+  >
+    <v-card class="selected-image-preview-card">
+      <v-card-title class="selected-image-preview-header">
+        <span class="selected-image-preview-title">
+          {{ selectedImagePreviewName || "Pratinjau Lampiran" }}
+        </span>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          aria-label="Tutup pratinjau"
+          @click="closeSelectedImagePreview"
+        />
+      </v-card-title>
+      <v-card-text class="selected-image-preview-body">
+        <img
+          v-if="selectedImagePreviewUrl"
+          :src="selectedImagePreviewUrl"
+          :alt="selectedImagePreviewName || 'Pratinjau lampiran'"
+          class="selected-image-preview"
+        />
+      </v-card-text>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
-import { nextTick } from "vue";
-import { collection } from "firebase/firestore";
-import { useCollection, useFirestore } from "vuefire";
+import { nextTick, onBeforeUnmount } from "vue";
+import { collection, doc } from "firebase/firestore";
+import {
+  deleteObject,
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytesResumable,
+} from "firebase/storage";
+import { useCollection, useFirebaseStorage, useFirestore } from "vuefire";
 import type {
   buktiPengeluaranM,
   penawaranM,
@@ -189,6 +242,10 @@ import type {
 } from "~/types/penawaranModel";
 import type { invoiceM } from "~/types/invoice";
 const billFiles = ref<File[]>([]);
+const billPreviewUrls = ref<string[]>([]);
+const selectedImagePreviewDialog = ref(false);
+const selectedImagePreviewUrl = ref("");
+const selectedImagePreviewName = ref("");
 const props = defineProps<{
   modelValue: boolean;
   penawaran: penawaranM;
@@ -200,12 +257,16 @@ const emit = defineEmits<{
 }>();
 
 const notificationStore = useNotificationStore();
-const loadingStore = useloadingStore();
 const db = useFirestore();
+const storage = useFirebaseStorage();
 const invoiceCollectionRef = computed(() =>
   collection(db, "penawaran", props.idPenawaran, "invoice"),
 );
-const { data: invoices, pending: loadingInvoices } = useCollection(invoiceCollectionRef);
+const {
+  data: invoices,
+  pending: loadingInvoices,
+  error: invoiceError,
+} = useCollection(invoiceCollectionRef);
 const invoiceOptions = computed(() =>
   ((invoices.value ?? []) as invoiceM[])
     .map((invoice) => {
@@ -248,19 +309,29 @@ const emptyForm = (): PengeluaranForm => ({
 });
 const form = ref<PengeluaranForm>(emptyForm());
 const automaticallySelectedInvoiceId = ref("");
+const IMAGE_COMPRESSION_MIN_BYTES = 750_000;
+const IMAGE_MAX_EDGE = 2_048;
+const IMAGE_WEBP_QUALITY = 0.85;
+const IMAGE_PREPARATION_TIMEOUT_MS = 8_000;
+const FILE_UPLOAD_STALL_TIMEOUT_MS = 8_000;
+const DOWNLOAD_URL_TIMEOUT_MS = 15_000;
+const storageUnavailable = ref(false);
 
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
+      resetBillFiles();
       form.value = emptyForm();
       automaticallySelectedInvoiceId.value = "";
       if (invoiceOptions.value.length === 1) {
         form.value.invoice_out = invoiceOptions.value[0]!.value;
         automaticallySelectedInvoiceId.value = form.value.invoice_out;
       }
-      billFiles.value = [];
       savingMessage.value = "Memproses...";
+    } else {
+      closeSelectedImagePreview();
+      resetBillFiles();
     }
   },
 );
@@ -286,10 +357,54 @@ watch(invoiceOptions, (options) => {
 function addfile(event: Event) {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files.length > 0) {
-    billFiles.value = [...billFiles.value, ...Array.from(target.files)];
+    const newFiles = Array.from(target.files);
+    billFiles.value = [...billFiles.value, ...newFiles];
+    billPreviewUrls.value = [
+      ...billPreviewUrls.value,
+      ...newFiles.map((file) =>
+        file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+      ),
+    ];
   }
   target.value = "";
 }
+
+function removeBillFile(index: number) {
+  const previewUrl = billPreviewUrls.value[index];
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  if (selectedImagePreviewUrl.value === previewUrl) {
+    closeSelectedImagePreview();
+  }
+  billFiles.value.splice(index, 1);
+  billPreviewUrls.value.splice(index, 1);
+}
+
+function previewSelectedImage(index: number) {
+  const previewUrl = billPreviewUrls.value[index];
+  if (!previewUrl) return;
+  selectedImagePreviewUrl.value = previewUrl;
+  selectedImagePreviewName.value = billFiles.value[index]?.name || "";
+  selectedImagePreviewDialog.value = true;
+}
+
+function closeSelectedImagePreview() {
+  selectedImagePreviewDialog.value = false;
+  selectedImagePreviewUrl.value = "";
+  selectedImagePreviewName.value = "";
+}
+
+function resetBillFiles() {
+  for (const previewUrl of billPreviewUrls.value) {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }
+  billFiles.value = [];
+  billPreviewUrls.value = [];
+}
+
+onBeforeUnmount(() => {
+  closeSelectedImagePreview();
+  resetBillFiles();
+});
 
 async function save() {
   if (saving.value) return;
@@ -299,6 +414,10 @@ async function save() {
   }
   if (loadingInvoices.value) {
     notificationStore.showError("Daftar invoice masih dimuat");
+    return;
+  }
+  if (invoiceError.value) {
+    notificationStore.showError("Daftar invoice gagal dimuat. Tutup dialog lalu coba kembali.");
     return;
   }
   if (invoiceOptions.value.length === 1) {
@@ -314,58 +433,163 @@ async function save() {
   } else {
     form.value.invoice_out = "";
   }
-  if (!tanggalPengeluaranPicker.value?.validate()) {
+  const tanggalPengeluaran = String(form.value.tanggal_pengeluaran || "").trim();
+  if (
+    !tanggalPengeluaranPicker.value?.validate() ||
+    Number.isNaN(new Date(`${tanggalPengeluaran}T00:00:00`).getTime())
+  ) {
     notificationStore.showError("Tanggal pengeluaran wajib diisi");
     return;
   }
-  if (!form.value.keterangan.trim() || !form.value.dikeluarkan_oleh) {
+  const keterangan = String(form.value.keterangan || "").trim();
+  const dikeluarkanOleh = String(form.value.dikeluarkan_oleh || "").trim();
+  if (!keterangan || !dikeluarkanOleh) {
     notificationStore.showError(
       "Keterangan dan dikeluarkan oleh wajib diisi",
     );
     return;
   }
+  const nominal = Number(form.value.nominal);
+  const qty = Number(form.value.qty);
   if (
-    !Number.isFinite(form.value.nominal) ||
-    form.value.nominal <= 0 ||
-    !Number.isFinite(form.value.qty) ||
-    form.value.qty <= 0
+    !Number.isFinite(nominal) ||
+    nominal <= 0 ||
+    !Number.isFinite(qty) ||
+    qty <= 0
   ) {
     notificationStore.showError("Nominal dan qty harus lebih dari 0");
     return;
   }
 
   saving.value = true;
-  loadingStore.setLoading(true);
+  const uploadedStoragePaths: string[] = [];
+  let expenseSaved = false;
   try {
     await nextTick();
     savingMessage.value = billFiles.value.length
-      ? "Membaca lampiran..."
+      ? "Mengunggah lampiran..."
       : "Menyimpan pengeluaran...";
-    const documents: buktiPengeluaranM[] = await Promise.all(
-      billFiles.value.map(async (file) => ({
-        name: file.name,
-        dataUrl: await readBillFile(file),
-        size: file.size,
-        contentType: file.type || "application/octet-stream",
+    const filesToUpload = [...billFiles.value];
+    const idPengeluaran = doc(collection(db, "penawaran")).id;
+    if (filesToUpload.length) savingMessage.value = "Menyiapkan lampiran...";
+    const preparedFiles = await Promise.all(
+      filesToUpload.map(async (file) => ({
+        originalName: file.name,
+        file: await withTimeout(
+          optimizeBillImage(file),
+          IMAGE_PREPARATION_TIMEOUT_MS,
+          "Persiapan gambar terlalu lama",
+        ).catch(() => file),
       })),
     );
-    form.value.doc_pengeluaran = documents;
+
+    let documents: buktiPengeluaranM[] = [];
+    if (preparedFiles.length && !storageUnavailable.value) {
+      savingMessage.value = "Mengunggah lampiran...";
+      const uploadedBytes = preparedFiles.map(() => 0);
+      const totalUploadBytes = preparedFiles.reduce(
+        (total, prepared) => total + prepared.file.size,
+        0,
+      );
+      const datePath = new Date().toISOString().slice(0, 10).replace(/-/g, "/");
+      const uploadResults = await Promise.allSettled(
+        preparedFiles.map(async ({ originalName, file }, uploadIndex) => {
+          const safeFileName =
+            file.name.replace(/[^\w.-]/g, "_") || "lampiran";
+          const fileId = doc(collection(db, "penawaran")).id;
+          const path = `upload/${datePath}/pengeluaran/${props.idPenawaran}/${idPengeluaran}/${fileId}-${safeFileName}`;
+          const fileRef = storageRef(storage, path);
+
+          await uploadBillFile(fileRef, file, (bytesTransferred) => {
+            uploadedBytes[uploadIndex] = bytesTransferred;
+            const progress = totalUploadBytes
+              ? Math.round(
+                  (uploadedBytes.reduce((total, bytes) => total + bytes, 0) /
+                    totalUploadBytes) *
+                    100,
+                )
+              : 100;
+            savingMessage.value = `Mengunggah lampiran ${progress}%`;
+          });
+          uploadedStoragePaths.push(path);
+
+          return {
+            name: originalName,
+            dataUrl: await withTimeout(
+              getDownloadURL(fileRef),
+              DOWNLOAD_URL_TIMEOUT_MS,
+              "Link lampiran gagal dibuat",
+            ),
+            size: file.size,
+            contentType: file.type || "application/octet-stream",
+            storagePath: path,
+          } satisfies buktiPengeluaranM;
+        }),
+      );
+
+      if (uploadResults.some((result) => result.status === "rejected")) {
+        storageUnavailable.value = true;
+        console.warn(
+          "Firebase Storage tidak tersedia; lampiran dialihkan ke Firestore.",
+          uploadResults
+            .filter((result) => result.status === "rejected")
+            .map((result) => result.reason),
+        );
+      }
+
+      savingMessage.value = storageUnavailable.value
+        ? "Menyimpan lampiran..."
+        : "Menyimpan pengeluaran...";
+      documents = await Promise.all(
+        uploadResults.map((result, index) =>
+          result.status === "fulfilled"
+            ? result.value
+            : createFirestoreFallbackDocument(preparedFiles[index]!),
+        ),
+      );
+    } else if (preparedFiles.length) {
+      savingMessage.value = "Menyimpan lampiran...";
+      documents = await Promise.all(
+        preparedFiles.map(createFirestoreFallbackDocument),
+      );
+    }
     savingMessage.value = "Menyimpan pengeluaran...";
 
-    await createPengeluaran(
+    const savedExpense = await createPengeluaran(
       {
         ...form.value,
-        keterangan: form.value.keterangan.trim(),
+        id_pengeluaran: idPengeluaran,
+        tanggal_pengeluaran: tanggalPengeluaran,
+        keterangan,
+        dikeluarkan_oleh: dikeluarkanOleh,
+        nominal,
+        qty,
+        doc_pengeluaran: documents,
       },
       props.idPenawaran,
     );
+    expenseSaved = true;
     notificationStore.showSuccess("Pengeluaran berhasil ditambahkan");
     billFiles.value = [];
-    form.value.doc_pengeluaran = [];
+    const savedInvoiceId = savedExpense.invoice_out || form.value.invoice_out;
+    form.value = emptyForm();
+    emit("saved", savedInvoiceId);
     emit("update:modelValue", false);
-    emit("saved", form.value.invoice_out);
   } catch (error) {
     console.error("ERROR CREATE PENGELUARAN:", error);
+
+    if (!expenseSaved && uploadedStoragePaths.length) {
+      // Cleanup tidak boleh menahan UI jika koneksi Storage sedang bermasalah.
+      void Promise.allSettled(
+        uploadedStoragePaths.map((path) => deleteObject(storageRef(storage, path))),
+      ).then((cleanupResults) => {
+        if (cleanupResults.some((result) => result.status === "rejected")) {
+          console.error(
+            "Sebagian lampiran gagal dibersihkan setelah penyimpanan gagal",
+          );
+        }
+      });
+    }
 
     notificationStore.showError(
       error instanceof Error
@@ -375,22 +599,146 @@ async function save() {
   } finally {
     saving.value = false;
     savingMessage.value = "Memproses...";
-    loadingStore.setLoading(false);
   }
 }
 
-function readBillFile(file: File): Promise<string> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(
+      () => reject(new Error(message)),
+      timeoutMs,
+    );
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
+function uploadBillFile(
+  fileRef: ReturnType<typeof storageRef>,
+  file: File,
+  onProgress: (bytesTransferred: number) => void,
+): Promise<void> {
+  const uploadTask = uploadBytesResumable(fileRef, file, {
+    contentType: file.type || "application/octet-stream",
+  });
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let timeoutId = 0;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      callback();
+    };
+    const armStallTimeout = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        finish(() =>
+          reject(
+            new Error(
+              "Upload lampiran berhenti merespons. Periksa koneksi internet lalu coba lagi.",
+            ),
+          ),
+        );
+        uploadTask.cancel();
+      }, FILE_UPLOAD_STALL_TIMEOUT_MS);
+    };
+    armStallTimeout();
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        armStallTimeout();
+        onProgress(snapshot.bytesTransferred);
+      },
+      (error) => finish(() => reject(error)),
+      () => finish(resolve),
+    );
+  });
+}
+
+async function createFirestoreFallbackDocument({
+  originalName,
+  file,
+}: {
+  originalName: string;
+  file: File;
+}): Promise<buktiPengeluaranM> {
+  return {
+    name: originalName,
+    dataUrl: await readFileAsDataUrl(file),
+    size: file.size,
+    contentType: file.type || "application/octet-stream",
+  };
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("File bukti tidak dapat dibaca"));
-    };
+    reader.onload = () =>
+      typeof reader.result === "string"
+        ? resolve(reader.result)
+        : reject(new Error("Lampiran tidak dapat dibaca"));
     reader.onerror = () =>
-      reject(reader.error || new Error("File bukti tidak dapat dibaca"));
-    reader.onabort = () => reject(new Error("Pembacaan file dibatalkan"));
+      reject(reader.error || new Error("Lampiran tidak dapat dibaca"));
+    reader.onabort = () => reject(new Error("Pembacaan lampiran dibatalkan"));
     reader.readAsDataURL(file);
   });
+}
+
+async function optimizeBillImage(file: File): Promise<File> {
+  if (
+    file.size < IMAGE_COMPRESSION_MIN_BYTES ||
+    !file.type.startsWith("image/") ||
+    file.type === "image/gif" ||
+    file.type === "image/svg+xml"
+  ) {
+    return file;
+  }
+
+  let bitmap: ImageBitmap | null = null;
+  try {
+    bitmap = await createImageBitmap(file);
+    const scale = Math.min(
+      1,
+      IMAGE_MAX_EDGE / Math.max(bitmap.width, bitmap.height),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const compressedBlob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/webp", IMAGE_WEBP_QUALITY),
+    );
+    if (!compressedBlob || compressedBlob.size >= file.size) return file;
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "lampiran";
+    return new File([compressedBlob], `${baseName}.webp`, {
+      type: "image/webp",
+      lastModified: file.lastModified,
+    });
+  } catch (error) {
+    console.warn("Kompresi lampiran dilewati:", error);
+    return file;
+  } finally {
+    bitmap?.close();
+  }
 }
 
 </script>
@@ -788,6 +1136,47 @@ function readBillFile(file: File): Promise<string> {
   background: #fff;
 }
 
+.po-file-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.po-file-thumbnail-button {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  background: #f8fafc;
+  cursor: zoom-in;
+}
+
+.po-file-thumbnail-button:disabled {
+  cursor: wait;
+}
+
+.po-file-thumbnail {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.po-file-document {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 5px;
+  background: #f8fafc;
+}
+
 .po-file-name {
   min-width: 0;
   overflow: hidden;
@@ -809,5 +1198,43 @@ function readBillFile(file: File): Promise<string> {
 
 .po-file-remove:hover:not(:disabled) {
   color: #dc2626;
+}
+
+.selected-image-preview-card {
+  overflow: hidden;
+  border-radius: 10px !important;
+}
+
+.selected-image-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 50px;
+  padding: 8px 12px 8px 16px;
+}
+
+.selected-image-preview-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-image-preview-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  padding: 8px !important;
+  background: #0f172a;
+}
+
+.selected-image-preview {
+  display: block;
+  width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
 }
 </style>

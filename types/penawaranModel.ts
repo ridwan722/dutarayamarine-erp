@@ -77,5 +77,6 @@ export interface buktiPengeluaranM {
   size: number;
   contentType: string;
   fileId?: string;
+  storagePath?: string;
 }
 
