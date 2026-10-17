@@ -2,6 +2,7 @@
 import { nextTick } from "vue";
 import { collection, doc, getDocs, runTransaction } from "firebase/firestore";
 import { useCollection, useDocument, useFirestore } from "vuefire";
+import * as XLSX from "xlsx-js-style";
 import { persistPengeluaranDocuments } from "~/composables/useInvoiceAresaDigital";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
 import type {
@@ -361,6 +362,7 @@ const ubahPengeluaranSecaraTransaksional = async (
 };
 
 const savingPdf = ref(false);
+const savingExcel = ref(false);
 
 const loadPdfImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -616,6 +618,203 @@ const formatTanggal = (tanggal: string) => {
     month: "short",
     year: "numeric",
   }).format(date);
+};
+
+const savePengeluaranExcel = async () => {
+  if (savingExcel.value) return;
+  savingExcel.value = true;
+  loadingStore.setLoading(true);
+
+  try {
+    await nextTick();
+
+    const currencyFormat = '"Rp "#,##0;[Red]\\("-Rp "#,##0\\);"-"';
+    const thinBorder = {
+      top: { style: "thin", color: { rgb: "CBD5E1" } },
+      bottom: { style: "thin", color: { rgb: "CBD5E1" } },
+      left: { style: "thin", color: { rgb: "CBD5E1" } },
+      right: { style: "thin", color: { rgb: "CBD5E1" } },
+    };
+    const baseFont = { name: "Calibri", sz: 11 };
+    const styles = {
+      title: {
+        font: { ...baseFont, bold: true, sz: 16, color: { rgb: "0F2B48" } },
+        alignment: { horizontal: "center", vertical: "center" },
+      },
+      subtitle: {
+        font: { ...baseFont, bold: true, color: { rgb: "475569" } },
+        alignment: { horizontal: "center", vertical: "center" },
+      },
+      infoLabel: {
+        font: { ...baseFont, bold: true, color: { rgb: "475569" } },
+        fill: { fgColor: { rgb: "F8FAFC" } },
+        border: thinBorder,
+      },
+      infoValue: {
+        font: baseFont,
+        fill: { fgColor: { rgb: "F8FAFC" } },
+        border: thinBorder,
+      },
+      header: {
+        font: { ...baseFont, bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "0F2B48" } },
+        border: thinBorder,
+        alignment: { horizontal: "center", vertical: "center" },
+      },
+      cell: {
+        font: baseFont,
+        border: thinBorder,
+        alignment: { vertical: "top", wrapText: true },
+      },
+      currency: {
+        font: baseFont,
+        border: thinBorder,
+        alignment: { horizontal: "right", vertical: "top" },
+        numFmt: currencyFormat,
+      },
+      totalLabel: {
+        font: { ...baseFont, bold: true },
+        fill: { fgColor: { rgb: "E2E8F0" } },
+        border: thinBorder,
+        alignment: { horizontal: "right", vertical: "center" },
+      },
+      totalCurrency: {
+        font: { ...baseFont, bold: true },
+        fill: { fgColor: { rgb: "E2E8F0" } },
+        border: thinBorder,
+        alignment: { horizontal: "right", vertical: "center" },
+        numFmt: currencyFormat,
+      },
+    };
+    const tableHeaders = [
+      "No.",
+      "Tanggal",
+      "Keterangan",
+      "Dikeluarkan oleh",
+      "Vendor",
+      "Nominal",
+    ];
+    const dataRows = pengeluaranInvoice.value.map((item, index) => [
+      index + 1,
+      formatTanggal(item.tanggal_pengeluaran),
+      item.keterangan || "-",
+      item.dikeluarkan_oleh || "-",
+      item.nama_vendor || "-",
+      Number(item.nominal || 0),
+    ]);
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["DAFTAR PENGELUARAN"],
+      [String(detailPenawaran.value?.perihal || "Project")],
+      [],
+      ["Nama Client", namaClient.value, "", "No. Invoice", nomorInvoice.value, ""],
+      ["Alamat Client", alamatClient.value, "", "No. Preorder", nomorPreorder.value, ""],
+      ["Vessel", vessel.value, "", "Nilai Invoice", uangMasukInvoice.value, ""],
+      [
+        "No. Penawaran",
+        detailPenawaran.value?.no_penawaran || idPenawaran.value,
+        "",
+        "Jumlah Transaksi",
+        pengeluaranInvoice.value.length,
+        "",
+      ],
+      [],
+      tableHeaders,
+      ...dataRows,
+    ]);
+    const firstDataRow = 10;
+    const totalRow = firstDataRow + dataRows.length;
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        [
+          "",
+          "",
+          "",
+          "",
+          "TOTAL PENGELUARAN",
+          dataRows.length
+            ? {
+                t: "n",
+                f: `SUM(F${firstDataRow}:F${totalRow - 1})`,
+                v: totalPengeluaran.value,
+              }
+            : 0,
+        ],
+      ],
+      { origin: `A${totalRow}` },
+    );
+
+    worksheet["!merges"] = [
+      XLSX.utils.decode_range("A1:F1"),
+      XLSX.utils.decode_range("A2:F2"),
+      ...[4, 5, 6, 7].flatMap((row) => [
+        XLSX.utils.decode_range(`B${row}:C${row}`),
+        XLSX.utils.decode_range(`E${row}:F${row}`),
+      ]),
+      XLSX.utils.decode_range(`A${totalRow}:D${totalRow}`),
+    ];
+    worksheet["!cols"] = [
+      { wch: 7 },
+      { wch: 15 },
+      { wch: 45 },
+      { wch: 22 },
+      { wch: 28 },
+      { wch: 20 },
+    ];
+    worksheet["!rows"] = [{ hpt: 24 }, { hpt: 20 }, null, null, { hpt: 32 }];
+    worksheet["!freeze"] = {
+      xSplit: 0,
+      ySplit: 9,
+      topLeftCell: "A10",
+      activePane: "bottomLeft",
+      state: "frozen",
+    };
+    worksheet["!autofilter"] = {
+      ref: `A9:F${Math.max(9, totalRow - 1)}`,
+    };
+
+    worksheet.A1.s = styles.title;
+    worksheet.A2.s = styles.subtitle;
+    [4, 5, 6, 7].forEach((row) => {
+      ["A", "D"].forEach((column) => {
+        worksheet[`${column}${row}`].s = styles.infoLabel;
+      });
+      ["B", "C", "E", "F"].forEach((column) => {
+        worksheet[`${column}${row}`].s = styles.infoValue;
+      });
+    });
+    worksheet.E6.s = { ...styles.infoValue, numFmt: currencyFormat };
+    tableHeaders.forEach((_, index) => {
+      worksheet[XLSX.utils.encode_cell({ r: 8, c: index })].s = styles.header;
+    });
+    dataRows.forEach((_, index) => {
+      const row = firstDataRow + index;
+      for (let column = 0; column < tableHeaders.length; column += 1) {
+        worksheet[XLSX.utils.encode_cell({ r: row - 1, c: column })].s =
+          column === 5 ? styles.currency : styles.cell;
+      }
+    });
+    for (let column = 0; column < tableHeaders.length; column += 1) {
+      worksheet[XLSX.utils.encode_cell({ r: totalRow - 1, c: column })].s =
+        column === 5 ? styles.totalCurrency : styles.totalLabel;
+    }
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Pengeluaran");
+    const invoiceId =
+      selectedInvoice.value?.id_invoice || selectedInvoiceId.value || "Tanpa-Invoice";
+    const projectTitle = String(detailPenawaran.value?.perihal || idPenawaran.value)
+      .replace(/[\\/:*?"<>|]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+    XLSX.writeFile(workbook, `Pengeluaran - INV-${invoiceId} ${projectTitle}.xlsx`);
+  } catch (error) {
+    console.error("Gagal membuat Excel pengeluaran:", error);
+    notificationStore.showError("Gagal membuat Excel pengeluaran.");
+  } finally {
+    savingExcel.value = false;
+    loadingStore.setLoading(false);
+  }
 };
 
 const searchPengeluaran = ref("");
@@ -1152,7 +1351,7 @@ const previewImage = (dataUrl: string) => {
           <div class="table-title">Daftar Pengeluaran</div>
 
           <div class="table-subtitle">
-            Semua biaya proyek; ringkasan dan PDF mengikuti invoice terpilih
+            Semua biaya proyek; ringkasan, PDF, dan Excel mengikuti invoice terpilih
           </div>
         </div>
 
@@ -1181,6 +1380,20 @@ const previewImage = (dataUrl: string) => {
             @click="savePengeluaranPdf"
           >
             Unduh PDF
+          </v-btn>
+
+          <v-btn
+            color="success"
+            variant="outlined"
+            prepend-icon="mdi-microsoft-excel"
+            size="small"
+            class="table-action table-action-secondary"
+            :loading="savingExcel"
+            :disabled="pending || !detailPenawaran"
+            aria-label="Unduh daftar pengeluaran sebagai Excel"
+            @click="savePengeluaranExcel"
+          >
+            Unduh Excel
           </v-btn>
         </div>
       </div>
@@ -1350,7 +1563,7 @@ const previewImage = (dataUrl: string) => {
               </v-tooltip>
             </div>
 
-            <span v-else class="text-disabled">-</span>
+            <span v-else class="text-disabled"><v-icon size="small" color="red">mdi-close</v-icon></span>
           </template>
 
           <!-- DIKELUARKAN OLEH -->
