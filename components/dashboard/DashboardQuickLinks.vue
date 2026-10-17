@@ -11,7 +11,7 @@ const links = [
 
 <template>
   <nav class="panel shortcuts" aria-label="Menu utama dashboard">
-    <div class="shortcut-heading"><div class="overline">MENU UTAMA</div><h2>Pilih halaman</h2><p>Buka modul ERP yang ingin dikelola.</p></div>
+    <div class="shortcut-heading"><h5>Pilih halaman</h5><p>Buka modul ERP yang ingin dikelola.</p></div>
     <div class="links"><NuxtLink v-for="link in links" :key="link.href" :to="link.href" class="shortcut"><span class="shortcut-icon" :class="link.tone"><v-icon :icon="link.icon" size="19" /></span><span class="shortcut-copy"><strong>{{ link.title }}</strong><small>{{ link.subtitle }}</small></span><v-icon icon="mdi-chevron-right" size="17" class="arrow" /></NuxtLink></div>
   </nav>
 </template>
