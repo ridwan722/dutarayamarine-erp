@@ -763,7 +763,7 @@
                           : "Quotation Date"
                       }}
                     </td>
-                    <td width="10"></td>
+                    <td width="10">:</td>
                     <td>
                       {{ formatTanggal(invoiceDetail.tanggal_penawaran!) }}
                     </td>
@@ -899,6 +899,23 @@
                   </div>
                 </td>
               </tr>
+              <tr v-if="invoiceDetail.dp_persen > 0 || invoiceAmountLabel !== 'Down Payment' || invoiceDetail.pakai_ppn || invoiceDetail.discount_invoice > 0">
+                <td></td>
+                <td></td>
+                <td></td>
+
+                <td class="footer-label">
+                  <span>Discount ({{ discountPercent }}%)</span>
+                </td>
+
+                <td class="footer-value">
+                  <div class="d-flex justify-space-between font-italic">
+                    <span>Rp</span>
+                    <span>{{ rupiah(invoiceDetail.discount_invoice) }}</span>
+                  </div>
+                </td>
+              </tr>
+
 
               <tr v-if="invoiceAmountLabel === 'Balance' && previousBilledSubtotal > 0">
                 <td></td>
@@ -1012,6 +1029,42 @@
               <div class="bank-details">
                 <div>
                   <table class="bank-table">
+
+                     <tbody v-if="invoiceDetail.sign_by == 'Lilis'">
+                      <tr>
+                        <td>
+                          {{
+                            invoiceLanguage === "id" ? "NAMA BANK" : "BANK NAME"
+                          }}
+                        </td>
+                        <td>:</td>
+                        <td>BCA</td>
+                      </tr>
+
+                      <tr>
+                        <td>
+                          {{
+                            invoiceLanguage === "id"
+                              ? "NOMOR REKENING"
+                              : "ACCOUNT NUMBER"
+                          }}
+                        </td>
+                        <td>:</td>
+                        <td>2671 6250 74 </td>
+                      </tr>
+
+                      <tr>
+                        <td>
+                          {{
+                            invoiceLanguage === "id"
+                              ? "ATAS NAMA"
+                              : "BENEFICIARY NAME"
+                          }}
+                        </td>
+                        <td>:</td>
+                        <td>Lilis Trisnawati</td>
+                      </tr>
+                    </tbody>
 
                     <tbody v-if="invoiceDetail.sign_by == 'Seilla Maryana'">
                       <tr>
@@ -1365,6 +1418,15 @@ function tutupDialogDoWr() {
 }
 
 const invoiceDetail = computed(() => invoiceStore.getDetailInvoice);
+
+const discountPercent = computed(() => {
+  const subtotal = Number(invoiceDetail.value.subtotal_invoice || 0);
+  const discount = Number(invoiceDetail.value.discount_invoice || 0);
+
+  return subtotal > 0
+    ? Math.round((discount / subtotal) * 10000) / 100
+    : 0;
+});
 
 const billedSubtotal = (invoice: invoiceM) => {
   const subtotal = Math.max(
