@@ -74,6 +74,121 @@ async function opendialogaddinv() {
 async function opendialogaddpengeluaran() {
   data.dialogAddPengeluaran = true;
 }
+
+const penawaranWrapper = ref<HTMLElement | null>(null);
+const penawaranContent = ref<HTMLElement | null>(null);
+
+const isMobile = ref(false);
+const penawaranScale = ref(1);
+const penawaranHeight = ref(0);
+
+let penawaranObserver: ResizeObserver | null = null;
+
+const updatePenawaranScale = () => {
+  const wrapper = penawaranWrapper.value;
+  const content = penawaranContent.value;
+
+  if (!wrapper || !content) return;
+
+  isMobile.value = window.innerWidth <= 600;
+
+  if (!isMobile.value) {
+    penawaranScale.value = 1;
+    penawaranHeight.value = 0;
+    return;
+  }
+
+  const wrapperWidth = wrapper.clientWidth;
+
+  // Ukur ukuran asli tanpa pengaruh transform
+  const documentWidth = content.scrollWidth;
+  const documentHeight = content.scrollHeight;
+
+  if (!wrapperWidth || !documentWidth) return;
+
+  penawaranScale.value = Math.min(1, wrapperWidth / documentWidth);
+
+  penawaranHeight.value = documentHeight * penawaranScale.value;
+};
+
+onMounted(async () => {
+  await nextTick();
+
+  penawaranObserver = new ResizeObserver(() => {
+    updatePenawaranScale();
+  });
+
+  if (penawaranWrapper.value) {
+    penawaranObserver.observe(penawaranWrapper.value);
+  }
+
+  if (penawaranContent.value) {
+    penawaranObserver.observe(penawaranContent.value);
+  }
+
+  window.addEventListener("resize", updatePenawaranScale);
+
+  updatePenawaranScale();
+});
+
+onBeforeUnmount(() => {
+  penawaranObserver?.disconnect();
+  window.removeEventListener("resize", updatePenawaranScale);
+});
+
+const poWrapper = ref<HTMLElement | null>(null);
+const poContent = ref<HTMLElement | null>(null);
+
+const poScale = ref(1);
+const poHeight = ref(0);
+
+let poObserver: ResizeObserver | null = null;
+
+const updatePoScale = () => {
+  const wrapper = poWrapper.value;
+  const content = poContent.value;
+
+  if (!wrapper || !content) return;
+
+  if (window.innerWidth > 600) {
+    poScale.value = 1;
+    poHeight.value = 0;
+    return;
+  }
+
+  // Mengukur lebar asli Purchase Order
+  const wrapperWidth = wrapper.clientWidth;
+  const documentWidth = content.scrollWidth;
+  const documentHeight = content.scrollHeight;
+
+  if (!wrapperWidth || !documentWidth) return;
+
+  poScale.value = Math.min(1, wrapperWidth / documentWidth);
+  poHeight.value = documentHeight * poScale.value;
+};
+
+onMounted(async () => {
+  await nextTick();
+
+  poObserver = new ResizeObserver(updatePoScale);
+
+  if (poWrapper.value) {
+    poObserver.observe(poWrapper.value);
+  }
+
+  if (poContent.value) {
+    poObserver.observe(poContent.value);
+  }
+
+  window.addEventListener("resize", updatePoScale);
+
+  updatePoScale();
+});
+
+onBeforeUnmount(() => {
+  poObserver?.disconnect();
+  window.removeEventListener("resize", updatePoScale);
+});
 </script>
 
 <template>
@@ -288,12 +403,47 @@ async function opendialogaddpengeluaran() {
             </v-tabs>
           </div>
 
-          <canvas-penawaran :detailpenawaran="detailpenawaran" />
+          <div
+            ref="penawaranWrapper"
+            class="penawaran-wrapper"
+            :style="{
+              height:
+                isMobile && penawaranHeight
+                  ? `${penawaranHeight}px`
+                  : undefined,
+            }"
+          >
+            <div
+              ref="penawaranContent"
+              class="penawaran-content"
+              :style="{
+                transform: isMobile ? `scale(${penawaranScale})` : undefined,
+              }"
+            >
+              <canvas-penawaran :detailpenawaran="detailpenawaran" />
+            </div>
+          </div>
           <v-divider opacity="100" thickness="2" class="mb-5"></v-divider>
-          <canvas-purchaseorder
-            :key="purchaseorderPreviewKey"
-            :detailpenawaran="detailpenawaran"
-          />
+          <div
+            ref="poWrapper"
+            class="po-wrapper"
+            :style="{
+              height: isMobile && poHeight ? `${poHeight}px` : undefined,
+            }"
+          >
+            <div
+              ref="poContent"
+              class="po-content"
+              :style="{
+                transform: isMobile ? `scale(${poScale})` : undefined,
+              }"
+            >
+              <canvas-purchaseorder
+                :key="purchaseorderPreviewKey"
+                :detailpenawaran="detailpenawaran"
+              />
+            </div>
+          </div>
         </main>
       </div>
     </div>
@@ -301,6 +451,44 @@ async function opendialogaddpengeluaran() {
 </template>
 
 <style scoped>
+.po-wrapper {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.po-content {
+  width: 100%;
+  transform-origin: top left;
+}
+
+@media (max-width: 600px) {
+  .po-content {
+    width: max-content;
+    min-width: 100%;
+  }
+}
+.penawaran-wrapper {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.penawaran-content {
+  width: 100%;
+  transform-origin: top left;
+}
+
+@media (max-width: 600px) {
+  .penawaran-content {
+    width: max-content;
+    min-width: 100%;
+  }
+}
 .quotation-page {
   width: 100%;
   min-height: 100vh;
