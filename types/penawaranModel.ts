@@ -12,6 +12,8 @@ export interface penawaranM {
   email: string;
   vessel: string;
 
+  location: string;
+
   tanggal_penawaran: string;
 
   created_at: number;

@@ -175,7 +175,9 @@
             <div class="meta-row">
               <span class="lbl">{{ t.location }}</span>
               <span class="sep">:</span>
-              <span class="val bold-navy">Jakarta</span>
+              <span class="val bold-navy">{{
+                props.detailpenawaran.location
+              }}</span>
             </div>
 
             <div class="meta-row">
@@ -415,7 +417,7 @@
             </p>
             <div class="sig-placeholder"></div>
             <p class="sig-person-name">
-              ( .................................... )
+              ( ................................................ )
             </p>
             <p class="sig-person-role">{{ t.sigRoleRight }}</p>
           </div>
@@ -723,23 +725,176 @@ const loadWatermarkImage = (): Promise<HTMLImageElement> => {
   });
 };
 
+type PdfTextFragment = {
+  text: string;
+  left: number;
+  top: number;
+  height: number;
+  baseline: number;
+  fontSizePx: number;
+  fontWeight: number;
+  isItalic: boolean;
+  color: [number, number, number];
+  alignment: "left" | "center";
+};
+
+const parseCssColor = (value: string): [number, number, number] => {
+  const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  return channels?.length === 3
+    ? [channels[0], channels[1], channels[2]]
+    : [30, 41, 59];
+};
+
+const applyTextTransform = (text: string, transform: string) => {
+  if (transform === "uppercase") return text.toUpperCase();
+  if (transform === "lowercase") return text.toLowerCase();
+  if (transform === "capitalize") {
+    return text.replace(/(^|\s)\S/g, (character) => character.toUpperCase());
+  }
+  return text;
+};
+
+// Split DOM text into its browser-rendered lines. The background is still
+// captured from the DOM, while these fragments are written into jsPDF as real
+// PDF text so they remain sharp and selectable at every zoom level.
+const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
+  const rootRect = root.getBoundingClientRect();
+  const fragments: PdfTextFragment[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+
+  let textNode = walker.nextNode() as Text | null;
+  while (textNode) {
+    const parent = textNode.parentElement;
+    const sourceText = textNode.data;
+    if (
+      parent &&
+      sourceText.trim() &&
+      !parent.closest(".no-print, .drag-icon, .no-print-cell")
+    ) {
+      const style = window.getComputedStyle(parent);
+      const fontSizePx = Number.parseFloat(style.fontSize);
+      if (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity) !== 0 &&
+        fontSizePx > 0 &&
+        parent.getClientRects().length
+      ) {
+        type CharacterRect = { character: string; rect: DOMRect };
+        let currentLine: CharacterRect[] = [];
+        let currentTop: number | null = null;
+        const range = document.createRange();
+
+        const flushLine = () => {
+          const firstVisible = currentLine.findIndex(
+            ({ character }) => !/\s/.test(character),
+          );
+          let lastVisible = currentLine.length - 1;
+          while (
+            lastVisible >= firstVisible &&
+            /\s/.test(currentLine[lastVisible]?.character || "")
+          ) {
+            lastVisible--;
+          }
+
+          if (firstVisible >= 0 && lastVisible >= firstVisible) {
+            const visibleCharacters = currentLine.slice(
+              firstVisible,
+              lastVisible + 1,
+            );
+            const centeredSignatureLine = parent.closest(".sig-person-name");
+            const lineTop = Math.min(
+              ...visibleCharacters.map(({ rect }) => rect.top),
+            );
+            const lineBottom = Math.max(
+              ...visibleCharacters.map(({ rect }) => rect.bottom),
+            );
+            const normalizedText = visibleCharacters
+              .map(({ character }) => character)
+              .join("")
+              .replace(/\s+/g, " ");
+
+            fragments.push({
+              text: applyTextTransform(normalizedText, style.textTransform),
+              left: centeredSignatureLine
+                ? centeredSignatureLine.getBoundingClientRect().left -
+                  rootRect.left +
+                  centeredSignatureLine.getBoundingClientRect().width / 2
+                : visibleCharacters[0].rect.left - rootRect.left,
+              top: lineTop - rootRect.top,
+              height: lineBottom - lineTop,
+              baseline: lineTop - rootRect.top + (lineBottom - lineTop) * 0.8,
+              fontSizePx,
+              fontWeight: Number.parseInt(style.fontWeight, 10) || 400,
+              isItalic: style.fontStyle === "italic",
+              color: parseCssColor(style.color),
+              alignment: centeredSignatureLine ? "center" : "left",
+            });
+          }
+
+          currentLine = [];
+          currentTop = null;
+        };
+
+        for (let index = 0; index < sourceText.length; index++) {
+          const character = sourceText[index];
+          if (character === "\n" || character === "\r") {
+            flushLine();
+            continue;
+          }
+
+          range.setStart(textNode, index);
+          range.setEnd(textNode, index + 1);
+          const rect = range.getBoundingClientRect();
+          if (!rect.width && !rect.height) continue;
+
+          if (currentTop !== null && Math.abs(rect.top - currentTop) > 0.75) {
+            flushLine();
+          }
+          if (currentTop === null) currentTop = rect.top;
+          currentLine.push({ character, rect });
+        }
+        flushLine();
+      }
+    }
+
+    textNode = walker.nextNode() as Text | null;
+  }
+
+  return fragments;
+};
+
 const createPaginatedQuotationPdf = async () => {
   const offerElement = document.getElementById("offer-to-print");
   const letterheadElement = offerElement?.querySelector(".letterhead");
   const contentElement = offerElement?.querySelector(".content-body");
   const footerElement = offerElement?.querySelector(".page-footer");
-  if (!letterheadElement || !contentElement || !footerElement) return null;
+  if (!offerElement || !letterheadElement || !contentElement || !footerElement) {
+    return null;
+  }
 
+  // Measure and capture the exact same print layout. Controls such as the
+  // price-visibility chip must not reserve space in the generated document.
+  offerElement.classList.add("quotation-pdf-capture");
+  void offerElement.offsetHeight;
+
+  try {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas"),
     import("jspdf"),
   ]);
+  await document.fonts?.ready;
+
+  const letterheadRect = letterheadElement.getBoundingClientRect();
+  const contentRect = contentElement.getBoundingClientRect();
+  const letterheadTextFragments = extractPdfTextFragments(letterheadElement);
+  const contentTextFragments = extractPdfTextFragments(contentElement);
+
   const preparePrintClone = (clonedDocument: Document) => {
-    // Keep non-print controls in the layout while hiding them. Page break
-    // positions are measured from the live document, so removing these nodes
-    // would shift the rendered signature block away from its measured position.
+    // The live document uses the same capture class, so these display changes
+    // stay aligned with the positions used by the pagination calculation.
     clonedDocument.querySelectorAll(".no-print, .drag-icon").forEach((element) => {
-      (element as HTMLElement).style.visibility = "hidden";
+      (element as HTMLElement).style.display = "none";
     });
     clonedDocument.querySelectorAll(".no-print-cell").forEach((element) => {
       (element as HTMLElement).style.display = "none";
@@ -760,14 +915,29 @@ const createPaginatedQuotationPdf = async () => {
       .forEach((element) => {
         (element as HTMLElement).style.verticalAlign = "top";
       });
+
+    // Preserve every background, border and image in the canvas layer, but
+    // omit rasterized glyphs. Text is added later as native PDF vectors.
+    clonedDocument
+      .querySelectorAll("#offer-to-print *")
+      .forEach((element) => {
+        const htmlElement = element as HTMLElement;
+        htmlElement.style.setProperty("color", "transparent", "important");
+        htmlElement.style.setProperty(
+          "-webkit-text-fill-color",
+          "transparent",
+          "important",
+        );
+        htmlElement.style.setProperty("text-shadow", "none", "important");
+      });
   };
   const captureOptions = {
-    scale: 2,
+    scale: 3,
     useCORS: true,
     backgroundColor: "#ffffff",
     logging: false,
     onclone: preparePrintClone,
-  }; 
+  };
   const [letterheadCanvas, footerCanvas, contentCanvas, watermarkImage] =
     await Promise.all([
       html2canvas(letterheadElement as HTMLElement, captureOptions),
@@ -776,7 +946,14 @@ const createPaginatedQuotationPdf = async () => {
       loadWatermarkImage(),
     ]);
 
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+    compress: true,
+    putOnlyUsedFonts: true,
+    precision: 4,
+  });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   // Match the 18 mm horizontal padding of .offer-card. Using 12 mm here
@@ -790,27 +967,63 @@ const createPaginatedQuotationPdf = async () => {
     (letterheadCanvas.height * contentWidth) / letterheadCanvas.width;
   const footerHeight = (footerCanvas.height * contentWidth) / footerCanvas.width;
   const contentTop = topMargin + letterheadHeight + 6;
-  const contentBottom = pageHeight - footerMargin - footerHeight - 5;
+  // The footer canvas already owns a 12 mm-high area and places its line in
+  // the middle, so no additional buffer is needed above that reserved area.
+  // This recovers the full 5 mm that previously pushed compact signatures to
+  // a second page while still leaving roughly 6 mm before the visible line.
+  const contentBottom = pageHeight - footerMargin - footerHeight;
   const printableContentHeight = contentBottom - contentTop;
   const pixelsPerMm = contentCanvas.width / contentWidth;
   const pageSliceHeight = Math.floor(printableContentHeight * pixelsPerMm);
 
+  const drawPdfTextFragments = (
+    fragments: PdfTextFragment[],
+    originX: number,
+    originY: number,
+    mmPerCssPixel: number,
+    sourceTop = 0,
+    sourceBottom = Number.POSITIVE_INFINITY,
+  ) => {
+    fragments.forEach((fragment) => {
+      const fragmentMiddle = fragment.top + fragment.height / 2;
+      if (fragmentMiddle < sourceTop || fragmentMiddle >= sourceBottom) return;
+
+      const fontStyle = fragment.isItalic
+        ? fragment.fontWeight >= 600
+          ? "bolditalic"
+          : "italic"
+        : fragment.fontWeight >= 600
+          ? "bold"
+          : "normal";
+      pdf.setFont("helvetica", fontStyle);
+      pdf.setFontSize(
+        fragment.fontSizePx * mmPerCssPixel * (72 / 25.4),
+      );
+      pdf.setTextColor(...fragment.color);
+      pdf.text(
+        fragment.text,
+        originX + fragment.left * mmPerCssPixel,
+        originY + (fragment.baseline - sourceTop) * mmPerCssPixel,
+        { align: fragment.alignment },
+      );
+    });
+  };
+
   // Keep quotation items together. When a row does not fit in the remaining
   // printable area, end the page before the row and place it on the next page.
-  const contentRect = contentElement.getBoundingClientRect();
   const canvasScale = contentCanvas.width / contentRect.width;
-  const safeBoundaries = new Set<number>();
   const keepTogetherRanges: Array<{ top: number; bottom: number }> = [];
   contentElement
     .querySelectorAll(".modern-table tbody tr")
     .forEach((row) => {
       const rect = row.getBoundingClientRect();
-      safeBoundaries.add(
-        Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
-      );
-      safeBoundaries.add(
-        Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
-      );
+      const range = {
+        top: Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
+        bottom: Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
+      };
+      if (range.bottom - range.top <= pageSliceHeight) {
+        keepTogetherRanges.push(range);
+      }
     });
   // Keep the grand total and its amount-in-words note on the same page.
   // Otherwise the total can be stranded at the foot of one page while its
@@ -829,27 +1042,21 @@ const createPaginatedQuotationPdf = async () => {
       bottom: Math.ceil((wordsRect.bottom - contentRect.top) * canvasScale) + 2,
     };
     keepTogetherRanges.push(range);
-    safeBoundaries.add(range.top);
-    safeBoundaries.add(range.bottom);
   }
-  // Keep the terms section intact. Let the signature block flow into the
-  // remaining page space: keeping it together can move the whole block to the
-  // next page and leave a large blank area after the terms.
-  [".closing-paragraph"].forEach((selector) => {
+  // Keep compact document sections intact only when a page break actually
+  // crosses them. A nearby safe boundary must not pull them to the next page.
+  [".closing-paragraph", ".signatures-wrapper"].forEach((selector) => {
     contentElement.querySelectorAll<HTMLElement>(selector).forEach((block) => {
       const rect = block.getBoundingClientRect();
       const range = {
         top: Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
         bottom: Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
       };
-      keepTogetherRanges.push(range);
-      safeBoundaries.add(range.top);
-      safeBoundaries.add(range.bottom);
+      if (range.bottom - range.top <= pageSliceHeight) {
+        keepTogetherRanges.push(range);
+      }
     });
   });
-  const pageBreakBoundaries = Array.from(safeBoundaries)
-    .filter((boundary) => boundary > 0 && boundary < contentCanvas.height)
-    .sort((a, b) => a - b);
 
   const watermarkCanvas = document.createElement("canvas");
   watermarkCanvas.width = 600;
@@ -858,6 +1065,13 @@ const createPaginatedQuotationPdf = async () => {
   );
   const watermarkContext = watermarkCanvas.getContext("2d");
   if (watermarkContext) {
+    watermarkContext.fillStyle = "#ffffff";
+    watermarkContext.fillRect(
+      0,
+      0,
+      watermarkCanvas.width,
+      watermarkCanvas.height,
+    );
     watermarkContext.globalAlpha = 0.105;
     watermarkContext.drawImage(
       watermarkImage,
@@ -868,26 +1082,122 @@ const createPaginatedQuotationPdf = async () => {
     );
   }
 
-  const letterheadImage = letterheadCanvas.toDataURL("image/png");
-  const footerImage = footerCanvas.toDataURL("image/png");
-  const watermarkImageData = watermarkCanvas.toDataURL("image/png");
+  // Preserve sharp text and fine table lines with lossless PNG. The watermark
+  // remains JPEG because its soft transparency does not benefit from PNG and
+  // would otherwise add unnecessary weight to every generated PDF.
+  const toLosslessPdfImage = (canvas: HTMLCanvasElement) =>
+    canvas.toDataURL("image/png");
+  const letterheadImage = toLosslessPdfImage(letterheadCanvas);
+  const footerImage = toLosslessPdfImage(footerCanvas);
+  const watermarkImageData = watermarkCanvas.toDataURL("image/jpeg", 0.92);
   const watermarkWidth = 105;
   const watermarkHeight =
     (watermarkCanvas.height / watermarkCanvas.width) * watermarkWidth;
 
+  const addPageFrame = () => {
+    pdf.addImage(
+      watermarkImageData,
+      "JPEG",
+      (pageWidth - watermarkWidth) / 2,
+      (pageHeight - watermarkHeight) / 2,
+      watermarkWidth,
+      watermarkHeight,
+      "quotation-watermark",
+      "FAST",
+    );
+    pdf.addImage(
+      letterheadImage,
+      "PNG",
+      sideMargin,
+      topMargin,
+      contentWidth,
+      letterheadHeight,
+      "quotation-letterhead",
+      "SLOW",
+    );
+    pdf.addImage(
+      footerImage,
+      "PNG",
+      sideMargin,
+      pageHeight - footerMargin - footerHeight,
+      contentWidth,
+      footerHeight,
+      "quotation-footer",
+      "SLOW",
+    );
+    drawPdfTextFragments(
+      letterheadTextFragments,
+      sideMargin,
+      topMargin,
+      contentWidth / letterheadRect.width,
+      0,
+      letterheadRect.height,
+    );
+  };
+
+  const createContentSlice = (sliceStart: number, sliceHeight: number) => {
+    const sliceCanvas = document.createElement("canvas");
+    sliceCanvas.width = contentCanvas.width;
+    sliceCanvas.height = sliceHeight;
+    sliceCanvas
+      .getContext("2d")
+      ?.drawImage(
+        contentCanvas,
+        0,
+        sliceStart,
+        contentCanvas.width,
+        sliceHeight,
+        0,
+        0,
+        contentCanvas.width,
+        sliceHeight,
+      );
+    return sliceCanvas;
+  };
+
   let sourceY = 0;
   let pageIndex = 0;
   while (sourceY < contentCanvas.height) {
-    let targetY = Math.min(sourceY + pageSliceHeight, contentCanvas.height);
-    if (targetY < contentCanvas.height) {
-      const safeBoundary = pageBreakBoundaries
-        .filter((boundary) => boundary > sourceY && boundary <= targetY)
-        .slice(-1)[0];
-      if (safeBoundary) targetY = safeBoundary;
+    const remainingHeight = contentCanvas.height - sourceY;
+    const finalPageScale = Math.min(1, pageSliceHeight / remainingHeight);
+
+    // Apply the compact fit to the final remainder on any page. This handles
+    // both one-page quotations and multi-page quotations whose signatures
+    // would otherwise be stranded on an almost empty extra page.
+    if (finalPageScale >= 0.92) {
+      if (pageIndex > 0) pdf.addPage();
+
+      const finalPageCanvas = createContentSlice(sourceY, remainingHeight);
+      const fittedContentWidth = contentWidth * finalPageScale;
+      const fittedContentHeight =
+        (remainingHeight / pixelsPerMm) * finalPageScale;
+
+      addPageFrame();
+      pdf.addImage(
+        toLosslessPdfImage(finalPageCanvas),
+        "PNG",
+        sideMargin + (contentWidth - fittedContentWidth) / 2,
+        contentTop,
+        fittedContentWidth,
+        fittedContentHeight,
+        `quotation-content-${pageIndex}`,
+        "SLOW",
+      );
+      drawPdfTextFragments(
+        contentTextFragments,
+        sideMargin + (contentWidth - fittedContentWidth) / 2,
+        contentTop,
+        (contentWidth / contentRect.width) * finalPageScale,
+        sourceY / canvasScale,
+        contentCanvas.height / canvasScale,
+      );
+      break;
     }
-    // If the selected cut still crosses a section that must stay together,
-    // move the cut to that section's start. This is more reliable than relying
-    // on a nearby safe boundary, which may belong to content inside the block.
+
+    let targetY = Math.min(sourceY + pageSliceHeight, contentCanvas.height);
+    // Move the cut only when it crosses a protected section. Previously every
+    // page snapped to the last known boundary, which could leave a large blank
+    // area and unnecessarily move the signatures to a new page.
     const crossingRange = keepTogetherRanges.find(
       (range) =>
         range.top > sourceY &&
@@ -898,54 +1208,26 @@ const createPaginatedQuotationPdf = async () => {
     if (pageIndex > 0) pdf.addPage();
 
     const sliceHeight = targetY - sourceY;
-    const sliceCanvas = document.createElement("canvas");
-    sliceCanvas.width = contentCanvas.width;
-    sliceCanvas.height = sliceHeight;
-    sliceCanvas
-      .getContext("2d")
-      ?.drawImage(
-        contentCanvas,
-        0,
-        sourceY,
-        contentCanvas.width,
-        sliceHeight,
-        0,
-        0,
-        contentCanvas.width,
-        sliceHeight,
-      );
+    const sliceCanvas = createContentSlice(sourceY, sliceHeight);
 
+    addPageFrame();
     pdf.addImage(
-      watermarkImageData,
-      "PNG",
-      (pageWidth - watermarkWidth) / 2,
-      (pageHeight - watermarkHeight) / 2,
-      watermarkWidth,
-      watermarkHeight,
-    );
-    pdf.addImage(
-      letterheadImage,
-      "PNG",
-      sideMargin,
-      topMargin,
-      contentWidth,
-      letterheadHeight,
-    );
-    pdf.addImage(
-      footerImage,
-      "PNG",
-      sideMargin,
-      pageHeight - footerMargin - footerHeight,
-      contentWidth,
-      footerHeight,
-    );
-    pdf.addImage(
-      sliceCanvas.toDataURL("image/png"),
+      toLosslessPdfImage(sliceCanvas),
       "PNG",
       sideMargin,
       contentTop,
       contentWidth,
       sliceHeight / pixelsPerMm,
+      `quotation-content-${pageIndex}`,
+      "SLOW",
+    );
+    drawPdfTextFragments(
+      contentTextFragments,
+      sideMargin,
+      contentTop,
+      contentWidth / contentRect.width,
+      sourceY / canvasScale,
+      targetY / canvasScale,
     );
 
     sourceY = targetY;
@@ -953,6 +1235,9 @@ const createPaginatedQuotationPdf = async () => {
   }
 
   return pdf;
+  } finally {
+    offerElement.classList.remove("quotation-pdf-capture");
+  }
 };
 
 const handlePrint = async () => {
@@ -1267,6 +1552,47 @@ const handleSavePdf = async () => {
 
 .print-only-cell {
   display: none;
+}
+
+.offer-card.quotation-pdf-capture .no-print,
+.offer-card.quotation-pdf-capture .drag-icon,
+.offer-card.quotation-pdf-capture .no-print-cell {
+  display: none !important;
+}
+
+.offer-card.quotation-pdf-capture .print-only-cell {
+  display: table-cell !important;
+}
+
+.offer-card.quotation-pdf-capture .info-grid-card {
+  padding-block: 8px;
+  margin-bottom: 10px;
+}
+
+.offer-card.quotation-pdf-capture .text-salutation {
+  margin-bottom: 8px;
+}
+
+.offer-card.quotation-pdf-capture .description-line {
+  min-height: 1.4em;
+  line-height: 1.4;
+}
+
+.offer-card.quotation-pdf-capture .table-container {
+  margin-bottom: 6px;
+}
+
+.offer-card.quotation-pdf-capture .sig-img-container,
+.offer-card.quotation-pdf-capture .sig-placeholder {
+  height: 60px;
+}
+
+.offer-card.quotation-pdf-capture .sig-image {
+  max-height: 60px;
+}
+
+.offer-card.quotation-pdf-capture .sig-person-role {
+  margin: 2px 0 0;
 }
 
 .closing-paragraph {

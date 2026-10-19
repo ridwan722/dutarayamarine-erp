@@ -441,7 +441,7 @@ const sameTermCondition = (a: any, b: any) => {
 };
 
 const emptyForm = (): invoiceM => ({
-  no_inv: "",
+ no_inv: "",
   id_customer: "",
   nama_customer: "",
   alamat_customer: "",
@@ -449,6 +449,7 @@ const emptyForm = (): invoiceM => ({
   no_telp: "",
   email: "",
   pic: "",
+  location: "",
   tanggal: "",
   perihal: "",
   sign_by: "",
@@ -551,6 +552,7 @@ watch(
       email: props.penawaran.email || "",
       vessel: props.penawaran.vessel || "",
       perihal: props.penawaran.perihal || "",
+      location: props.penawaran.location || "",
       sign_by: props.penawaran.sign_by || "",
       pic: props.penawaran.pic,
       tanggal: moment().format("YYYY-MM-DD"),

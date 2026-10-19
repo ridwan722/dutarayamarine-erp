@@ -182,306 +182,344 @@
   <!-- Dialog Tambah / Edit Quotation -->
   <v-dialog
     v-model="data.dialogTambahPenawaran"
-    max-width="800"
+    max-width="1040"
     scrollable
     :fullscreen="display.mdAndDown.value"
     persistent
+    class="quotation-dialog-overlay"
   >
-    <v-card class="rounded-xl-md overflow-hidden elevation-3 border-0">
-      <v-card-item class="pa-2 bg-primary text-center">
-        <h4 class="font-weight-bold text-body-1">
-          {{ data.penawaranAddEdit === "add" ? "Create" : "Edit" }} Quotation
-        </h4>
-        <!-- <p class="text-caption text-grey-darken-1 m-0">
-          Lengkapi rincian penawaran harga dan item pekerjaan di bawah ini.
-        </p> -->
-      </v-card-item>
+    <v-card class="quotation-dialog-card" elevation="0">
+      <header class="quotation-dialog-header">
+        <div class="quotation-dialog-heading">
+          <div class="quotation-dialog-icon" aria-hidden="true">
+            <v-icon icon="mdi-file-document-edit-outline" size="20" />
+          </div>
+          <div>
+            <h2>
+              {{ data.penawaranAddEdit === "add" ? "Create" : "Edit" }}
+              Quotation
+            </h2>
+            <p>
+          Nomor quotation dibuat otomatis saat disimpan
+            </p>
+          </div>
+        </div>
 
-      <v-card-text class="pa-4">
-        <a-date-picker-new
-          v-model="newPenawaran.tanggal_penawaran"
-          label="Quotation Date"
-        />
-        <v-row class="mt-2">
-          <v-col class="d-flex align-end ga-2">
-            <a-select-new
-              class="flex-grow-1"
+        <div class="quotation-dialog-header-actions">
+          <span class="quotation-status">
+            <span class="quotation-status-dot"></span>
+            {{ newPenawaran.status || "Draft" }}
+          </span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            color="grey-darken-1"
+            aria-label="Tutup dialog quotation"
+            @click="data.dialogTambahPenawaran = false"
+          />
+        </div>
+      </header>
+
+      <v-card-text class="quotation-dialog-body">
+        <section class="quotation-form-section">
+          <div class="quotation-section-header">
+            <div>
+              <span class="quotation-section-index">01</span>
+              <h3>Client Information</h3>
+            </div>
+            <p>Pilih client untuk mengisi detail kontak secara otomatis.</p>
+          </div>
+
+          <div class="quotation-client-picker">
+            <a-date-picker-new
+              class="quotation-date-field"
+              v-model="newPenawaran.tanggal_penawaran"
+              label="Quotation Date"
+            />
+            <a-autocomplete-new
+              class="quotation-client-select"
               v-model="newPenawaran.id_perusahaan"
               label="Client"
-              placeholder="Select"
+              placeholder="Select client | perusahaan - vessel - pic"
               item-title="label"
               item-value="id_customer"
               :items="
-                customerStore.getDataCustomer.map((customer) => ({
-                  ...customer,
-                  label: [customer.nama, customer.vessel]
-                    .filter(Boolean)
-                    .join(' - '),
-                }))
+                customerStore.getDataCustomer
+                  .map((customer) => ({
+                    ...customer,
+                    label: [customer.nama, customer.vessel, customer.pic]
+                      .filter(Boolean)
+                      .join(' - '),
+                  }))
+                  .sort((a, b) =>
+                    a.label.localeCompare(b.label, 'id-ID', {
+                      sensitivity: 'base',
+                    }),
+                  )
               "
             />
             <v-btn
-              class="mb-1 flex-shrink-0 text-none"
+              class="quotation-add-client-btn text-none"
               variant="outlined"
-              color="grey-darken-2"
-              width="28"
-              height="28"
-              min-width="28"
-              rounded="1"
+              color="primary"
+              prepend-icon="mdi-account-plus-outline"
               aria-label="Tambah client"
               @click="opendialogTambahMasterPerusahaan"
             >
-              <v-icon icon="mdi-plus-circle" color="primary" size="15" />
-
+              Add Client
               <v-tooltip activator="parent" location="top">
                 Add New Client
               </v-tooltip>
             </v-btn>
-          </v-col>
-        </v-row>
-        <a-textarea-new
-          class="mt-2"
-          v-model="newPenawaran.alamat_perusahaan"
-          placeholder="Address"
-          disabled
-        />
-        <v-row no-gutters>
-          <v-col cols="6" md="3" class="pa-1">
-            <a-text-field-new
-              v-model="newPenawaran.pic"
-              placeholder="PIC"
-              disabled
+          </div>
+
+          <dl class="quotation-client-details">
+            <div class="quotation-client-detail quotation-client-address">
+              <dt>Address</dt>
+              <dd>{{ newPenawaran.alamat_perusahaan || "—" }}</dd>
+            </div>
+            <div class="quotation-client-detail">
+              <dt>PIC</dt>
+              <dd>{{ newPenawaran.pic || "—" }}</dd>
+            </div>
+            <div class="quotation-client-detail">
+              <dt>Phone Number</dt>
+              <dd>{{ newPenawaran.no_telp || "—" }}</dd>
+            </div>
+            <div class="quotation-client-detail">
+              <dt>Email</dt>
+              <dd>{{ newPenawaran.email || "—" }}</dd>
+            </div>
+            <div class="quotation-client-detail">
+              <dt>Vessel</dt>
+              <dd>{{ newPenawaran.vessel || "—" }}</dd>
+            </div>
+          </dl>
+
+          <a-select-new
+              class="quotation-client-select mt-2"
+              v-model="newPenawaran.location"
+              label="Location"
+              placeholder="Select location"
+              item-title="label"
+              item-value="id_customer"
+              :items="['Batam', 'Jakarta', 'Lamongan']"
             />
-          </v-col>
-          <v-col cols="6" md="3" class="pa-1">
-            <a-text-field-new
-              v-model="newPenawaran.no_telp"
-              placeholder="Phone Number"
-              disabled
+        </section>
+
+        <section class="quotation-currency-section">
+          <div class="quotation-currency-heading">
+            <div>
+              <h3>Transaction Currency</h3>
+              <p>Currency dan subject yang digunakan pada quotation.</p>
+            </div>
+            <a-select-new
+              class="quotation-currency-field"
+              v-model="newPenawaran.currency"
+              :items="[
+                { title: 'IDR', value: 'IDR' },
+                { title: 'USD', value: 'USD' },
+                { title: 'SGD', value: 'SGD' },
+              ]"
             />
-          </v-col>
-          <v-col cols="6" md="3" class="pa-1">
-            <a-text-field-new
-              v-model="newPenawaran.email"
-              placeholder="Email"
-              disabled
+          </div>
+          <div class="quotation-currency-fields">
+            <a-textarea-new
+              v-model="newPenawaran.perihal"
+              label="Subject"
+              placeholder="Quotation subject"
+              rows="2"
             />
-          </v-col>
-          <v-col cols="6" md="3" class="pa-1">
-            <a-text-field-new
-              v-model="newPenawaran.vessel"
-              placeholder="Vessel"
-              disabled
-            />
-          </v-col>
-        </v-row>
+          </div>
+        </section>
 
-        <v-divider class="my-2 border-opacity-50" />
+        <section class="quotation-form-section quotation-items-section">
+          <div class="quotation-section-header quotation-items-header">
+            <div>
+              <span class="quotation-section-index">02</span>
+              <h3>Quotation Items</h3>
+            </div>
+            <v-btn
+              size="small"
+              variant="outlined"
+              color="primary"
+              prepend-icon="mdi-plus"
+              class="quotation-add-row-btn text-none"
+              @click="tambahBarisPenawaran"
+            >
+              Add Item
+            </v-btn>
+          </div>
 
-        <a-textarea-new
-          v-model="newPenawaran.perihal"
-          label="Subject"
-          placeholder="Quotation Subject"
-          rows="2"
-        />
-
-        <a-select-new
-          v-model="newPenawaran.currency"
-          label="Currency"
-          :items="[
-            { title: 'IDR', value: 'IDR' },
-            { title: 'USD', value: 'USD' },
-            { title: 'SGD', value: 'SGD' },
-          ]"
-        />
-
-        <div class="mx-auto text-center mb-3 mt-2">
-          <span class="text-subtitle-2 font-weight-bold text-primary">
-            Rincian Item
-          </span>
-        </div>
-
-        <!-- Loop Item Penawaran -->
-        <v-row
+          <div
           v-for="(item, index) in newPenawaran.penawaran_item"
           :key="index"
-          class="bg-grey-lighten-5 rounded-lg mx-0 mt-0 mb-4 border border-dashed position-relative"
+          class="quotation-line-item"
           @focusin="activeSuggestionIndex = index"
           @focusout="activeSuggestionIndex = null"
         >
-          <v-col cols="10" md="11">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <span class="text-body-1 font-weight-bold text-primary"
-                >#{{ index + 1 }}.</span
+            <div class="quotation-line-item-header">
+              <div>
+                <span class="quotation-line-number">
+                  {{ String(index + 1).padStart(2, "0") }}
+                </span>
+                <span class="quotation-line-title">Item detail</span>
+              </div>
+              <v-btn
+                size="small"
+                variant="outlined"
+                color="error"
+                prepend-icon="mdi-trash-can-outline"
+                class="quotation-delete-item-btn text-none"
+                aria-label="Hapus item quotation"
+                @click="hapusBarisPenawaran(index)"
               >
+                Delete
+                <v-tooltip activator="parent" location="top">
+                  Delete item
+                </v-tooltip>
+              </v-btn>
             </div>
 
             <a-textarea-new
               v-model="item.nama"
               label="Description"
-              placeholder="Description"
+              placeholder="Describe the product, service, or scope of work"
+              rows="2"
             />
 
-            <span
+            <div
               v-if="
                 activeSuggestionIndex === index &&
                 barangSesuaiNama(item.nama).length
               "
-              class="text-grey text-caption mr-1"
+              class="quotation-suggestions"
             >
-              Suggestion (Hpp):
-            </span>
-            <v-chip
-              v-for="(barang, idxBarang) in activeSuggestionIndex === index
-                ? barangSesuaiNama(item.nama)
-                : []"
-              :key="barang.id ?? idxBarang"
-              size="x-small"
-              class="mr-1 mb-1 text-grey"
-            >
-              {{ barang.nama_barang }} : Rp {{ rupiah(barang.harga_hpp) }}
-            </v-chip>
-
-            <div class="d-flex align-center flex-wrap my-2">
-              <a-checkbox
-                label="Barang"
-                :model-value="item.kategori_item === 'Barang'"
-                @update:model-value="setKategoriItem(item, 'Barang', $event)"
-              />
-              <a-checkbox
-                label="Jasa"
-                class="ml-2"
-                :model-value="item.kategori_item === 'Jasa'"
-                @update:model-value="setKategoriItem(item, 'Jasa', $event)"
-              />
-              <a-checkbox
-                label="Barang & Jasa"
-                class="ml-2"
-                :model-value="item.kategori_item === 'Barang & Jasa'"
-                @update:model-value="
-                  setKategoriItem(item, 'Barang & Jasa', $event)
-                "
-              />
-            </div>
-
-            <v-row density="compact" no-gutters>
-              <v-col cols="6" sm="2" class="pa-1">
-                <a-field-number-new
-                  v-model="item.qty"
-                  label="Qty"
-                  placeholder="0"
-                />
-              </v-col>
-              <v-col cols="6" sm="2" class="pa-1">
-                <a-select-new
-                  :items="[
-                    'Unit',
-                    'Pcs',
-                    'Kg',
-                    'Lot',
-                    'Set',
-                    'Meter',
-                    'Box',
-                    'Liter',
-                    'Jerigen',
-                    'Can',
-                    'Pail',
-                  ]"
-                  v-model="item.uom"
-                  label="UOM"
-                  placeholder="Select"
-                />
-              </v-col>
-              <v-col cols="12" sm="2" class="pa-1">
-                <a-field-number-new
-                  v-model="item.harga_hpp"
-                  label="Hpp (Opsional)"
-                  placeholder="0"
-                />
+              <span>HPP history</span>
+              <div>
                 <v-chip
-                  v-if="item.harga_hpp > 0"
-                  v-for="persentase in [10, 20, 30]"
-                  :key="persentase"
+                  v-for="(barang, idxBarang) in barangSesuaiNama(item.nama)"
+                  :key="barang.id ?? idxBarang"
                   size="x-small"
-                  color="green"
-                  class="mr-1 mt-1"
-                  :disabled="!Number(item.harga_hpp)"
-                  @click="terapkanMarkup(item, persentase)"
+                  variant="outlined"
+                  color="grey-darken-1"
                 >
-                  <v-icon start size="small"
-                    >mdi-arrow-up-drop-circle-outline</v-icon
-                  >
-                  {{ persentase }}%
+                  {{ barang.nama_barang }} · Rp
+                  {{ rupiah(barang.harga_hpp) }}
                 </v-chip>
-              </v-col>
-              <v-col cols="12" sm="3" class="pa-1">
-                <a-field-number-new
-                  v-model="item.amount"
-                  :label="`Harga satuan (${currencyLabel(newPenawaran.currency)})`"
-                  placeholder="0"
-                />
-              </v-col>
-              <v-col cols="12" sm="3" class="pa-1">
-                <a-text-field-new
-                  :model-value="
-                    formatCurrency(
-                      Number(item.qty || 0) * Number(item.amount || 0),
-                      newPenawaran.currency,
-                    )
-                  "
-                  label="Subtotal"
-                  placeholder="0"
-                  disabled
-                />
-              </v-col>
-            </v-row>
-          </v-col>
-          <v-col cols="2" md="1">
-            <v-btn
-              icon="mdi-trash-can-outline"
-              size="x-small"
-              variant="outlined"
-              color="error"
-              style="border-radius: 8px; height: 100%"
-              @mouseover="
-                $event.currentTarget.style.backgroundColor = '#ffebee'
-              "
-              @mouseout="
-                $event.currentTarget.style.backgroundColor = 'transparent'
-              "
-              @click="hapusBarisPenawaran(index)"
-            />
-          </v-col>
-        </v-row>
-
-        <div class="text-center">
-          <v-btn
-            size="small"
-            variant="flat"
-            color="primary"
-            prepend-icon="mdi-plus"
-            class="text-none font-weight-semibold rounded-lg"
-            @click="tambahBarisPenawaran"
-          >
-            Tambah Baris
-          </v-btn>
-        </div>
-
-        <v-divider class="my-4 border-opacity-50" />
-
-        <v-card variant="flat" class="quotation-total-card rounded-large pa-4">
-          <div
-            class="d-flex flex-wrap justify-space-between align-center ga-3 mb-3"
-          >
-            <div>
-              <div class="text-subtitle-1 font-weight-bold text-grey-darken-4">
-                Summary
               </div>
             </div>
-            <div class="discount-inputs">
+
+            <div class="quotation-category">
+              <span class="quotation-field-label">Category</span>
+              <div class="quotation-category-options">
+                <a-checkbox
+                  label="Barang"
+                  :model-value="item.kategori_item === 'Barang'"
+                  @update:model-value="
+                    setKategoriItem(item, 'Barang', $event)
+                  "
+                />
+                <a-checkbox
+                  label="Jasa"
+                  :model-value="item.kategori_item === 'Jasa'"
+                  @update:model-value="setKategoriItem(item, 'Jasa', $event)"
+                />
+                <a-checkbox
+                  label="Barang & Jasa"
+                  :model-value="item.kategori_item === 'Barang & Jasa'"
+                  @update:model-value="
+                    setKategoriItem(item, 'Barang & Jasa', $event)
+                  "
+                />
+              </div>
+            </div>
+
+            <div class="quotation-item-fields">
+              <a-field-number-new
+                v-model="item.qty"
+                label="Qty"
+                placeholder="0"
+              />
+              <a-select-new
+                :items="[
+                  'Unit',
+                  'Pcs',
+                  'Kg',
+                  'Lot',
+                  'Set',
+                  'Meter',
+                  'Box',
+                  'Liter',
+                  'Jerigen',
+                  'Can',
+                  'Pail',
+                ]"
+                v-model="item.uom"
+                label="UOM"
+                placeholder="Select"
+              />
+              <div class="quotation-hpp-field">
+                <a-field-number-new
+                  v-model="item.harga_hpp"
+                  label="HPP (Optional)"
+                  placeholder="0"
+                />
+                <div v-if="item.harga_hpp > 0" class="quotation-markup-actions">
+                  <button
+                    v-for="persentase in [10, 20, 30]"
+                    :key="persentase"
+                    type="button"
+                    :disabled="!Number(item.harga_hpp)"
+                    @click="terapkanMarkup(item, persentase)"
+                  >
+                    +{{ persentase }}%
+                  </button>
+                </div>
+              </div>
+              <a-field-number-new
+                v-model="item.amount"
+                :label="`Unit Price (${currencyLabel(newPenawaran.currency)})`"
+                placeholder="0"
+              />
+              <a-text-field-new
+                :model-value="
+                  formatCurrency(
+                    Number(item.qty || 0) * Number(item.amount || 0),
+                    newPenawaran.currency,
+                  )
+                "
+                label="Subtotal"
+                placeholder="0"
+                disabled
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="quotation-add-row-secondary"
+            @click="tambahBarisPenawaran"
+          >
+            <v-icon icon="mdi-plus" size="16" />
+            Add another item
+          </button>
+        </section>
+
+        <div class="quotation-commercial-grid">
+          <section class="quotation-form-section quotation-summary-section">
+            <div class="quotation-section-header">
+              <div>
+                <span class="quotation-section-index">03</span>
+                <h3>Commercial Summary</h3>
+              </div>
+              <p>Nilai quotation dan diskon.</p>
+            </div>
+            <div class="quotation-discount-fields">
               <v-text-field
                 v-model.number="discountPercentPenawaran"
-                label="Diskon (%)"
+                label="Discount (%)"
                 type="number"
                 suffix="%"
                 min="0"
@@ -490,90 +528,81 @@
                 density="compact"
                 variant="outlined"
                 hide-details
-                class="discount-input"
               />
               <v-text-field
                 v-model="discountAmountInput"
-                label="Diskon Nominal"
+                label="Discount Amount"
                 type="text"
                 inputmode="decimal"
                 :prefix="currencyInputPrefix"
                 density="compact"
                 variant="outlined"
                 hide-details
-                class="discount-input"
                 @focus="startEditingDiscountAmount"
                 @blur="finishEditingDiscountAmount"
               />
             </div>
-          </div>
-          <v-divider class="mb-1" />
-          <div class="d-flex justify-space-between align-center text-caption">
-            <span class="text-medium-emphasis">Subtotal</span>
-            <span class="font-weight-medium">
-              {{ formatCurrency(subtotalPenawaran, newPenawaran.currency) }}
-            </span>
-          </div>
-          <div
-            class="d-flex justify-space-between align-center text-caption mb-1"
-          >
-            <span class="text-medium-emphasis">
-              Discount ({{ discountPercentPenawaran }}%)
-            </span>
-            <span class="font-weight-medium text-red font-italic">
-              -
-              {{
-                formatCurrency(discountAmountPenawaran, newPenawaran.currency)
-              }}
-            </span>
-          </div>
-          <v-divider class="mb-1" />
-          <div class="d-flex justify-space-between align-center">
-            <span class="text-subtitle-1 text-grey-darken-4">
-              Total Quotation
-            </span>
-            <span class="text-h6 font-weight-black">
-              {{ formatCurrency(grandTotalPenawaran, newPenawaran.currency) }}
-            </span>
-          </div>
-        </v-card>
 
-        <v-card class="sign-card mt-3 mx-auto" elevation="0">
-          <!-- Header -->
-          <div class="sign-card-header">
-            <div>
-              <div class="sign-card-title">Sign By</div>
-              <div class="sign-card-subtitle">Yang Bertanda Tangan</div>
+            <div class="quotation-totals">
+              <div>
+                <span>Subtotal</span>
+                <strong>
+                  {{ formatCurrency(subtotalPenawaran, newPenawaran.currency) }}
+                </strong>
+              </div>
+              <div>
+                <span>Discount ({{ discountPercentPenawaran }}%)</span>
+                <strong class="quotation-discount-value">
+                  -
+                  {{
+                    formatCurrency(
+                      discountAmountPenawaran,
+                      newPenawaran.currency,
+                    )
+                  }}
+                </strong>
+              </div>
+              <div class="quotation-grand-total">
+                <span>Total Quotation</span>
+                <strong>
+                  {{
+                    formatCurrency(
+                      grandTotalPenawaran,
+                      newPenawaran.currency,
+                    )
+                  }}
+                </strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="quotation-form-section quotation-sign-section">
+            <div class="quotation-section-header">
+              <div>
+                <span class="quotation-section-index">04</span>
+                <h3>Authorization</h3>
+              </div>
+              <p>Penandatangan quotation.</p>
             </div>
 
-            <v-icon size="20" color="grey-darken-1"> mdi-draw-pen </v-icon>
-          </div>
-
-          <v-divider />
-
-          <!-- Content -->
-          <v-card-text class="sign-card-content">
             <a-select-new
               v-model="newPenawaran.sign_by"
+              label="Sign By"
               :items="[
                 'Seilla Maryana',
                 'Leo Adiatmaja Sembiring',
                 'Muhammad Ridwan',
                 'Lilis',
               ]"
-              class="sign-select"
             />
 
-            <!-- Signature -->
-            <div v-if="newPenawaran.sign_by" class="signature-box">
+            <div v-if="newPenawaran.sign_by" class="quotation-signature-preview">
               <div
                 v-if="newPenawaran.sign_by == 'Leo Adiatmaja Sembiring'"
                 class="signature-content"
               >
                 <v-img width="130" height="65" contain src="/ttd_leo.png" />
-
                 <div class="signature-line"></div>
-
                 <div class="signature-name">Leo Adiatmaja Sembiring</div>
               </div>
 
@@ -582,9 +611,7 @@
                 class="signature-content"
               >
                 <v-img width="130" height="65" contain src="/ttd_seilla.png" />
-
                 <div class="signature-line"></div>
-
                 <div class="signature-name">Seilla Maryana</div>
               </div>
 
@@ -593,9 +620,7 @@
                 class="signature-content"
               >
                 <v-img width="130" height="65" contain src="/ttd_ridwan.png" />
-
                 <div class="signature-line"></div>
-
                 <div class="signature-name">Muhammad Ridwan</div>
               </div>
 
@@ -604,137 +629,125 @@
                 class="signature-content"
               >
                 <v-img width="130" height="65" contain />
-
                 <div class="signature-line"></div>
-
                 <div class="signature-name">Lilis</div>
               </div>
             </div>
-          </v-card-text>
-        </v-card>
+          </section>
+        </div>
 
-        <div class="mt-4">
-          <span class="text-caption">
-            <strong>TERMS &amp; CONDITIONS:</strong>
-          </span>
+        <section class="quotation-form-section quotation-terms-section">
+          <div class="quotation-section-header quotation-terms-header">
+            <div>
+              <span class="quotation-section-index">05</span>
+              <h3>Terms &amp; Conditions</h3>
+            </div>
+            <span class="quotation-selected-count">
+              {{ (newPenawaran.termCondition ?? []).length }} selected
+            </span>
+          </div>
 
-          <div class="d-flex align-center">
+          <div class="quotation-term-search">
+            <v-icon icon="mdi-magnify" size="17" />
             <a-text-field-new
               v-model="termConditionSearch"
-              placeholder="Cari term&condition"
+              placeholder="Search terms and conditions"
             />
             <v-btn
               v-if="termConditionSearch"
-              class="ml-2 mb-2"
-              icon="mdi-close-circle"
-              size="24"
+              icon="mdi-close"
+              size="x-small"
               variant="text"
-              color="red"
-              density="compact"
+              color="grey-darken-1"
               aria-label="Hapus pencarian term dan condition"
               @click="termConditionSearch = ''"
             />
           </div>
 
-          <table
-            style="
-              width: 100%;
-              border-collapse: collapse;
-              font-size: 11px;
-              border: 1px solid #9ca3af;
-            "
-          >
-            <tbody>
-              <tr
-                v-for="(item, index) in sortedTermConditions"
-                :key="item.id ?? index"
-              >
-                <td
-                  style="
-                    width: 25px;
-                    padding: 3px 5px;
-                    vertical-align: top;
-                    text-align: center;
-                    border: 1px solid #9ca3af;
-                  "
+          <div class="quotation-terms-table-wrap">
+            <table class="quotation-terms-table">
+              <thead>
+                <tr>
+                  <th scope="col">No.</th>
+                  <th scope="col">Select</th>
+                  <th scope="col">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(item, index) in sortedTermConditions"
+                  :key="item.id ?? index"
                 >
-                  {{ index + 1 }}.
-                </td>
-
-                <td
-                  style="
-                    width: 30px;
-
-                    border: 1px solid #9ca3af;
-                  "
-                >
-                  <v-checkbox
-                    v-model="newPenawaran.termCondition"
-                    :value="{ id: item.id ?? '', nama_term: item.nama_term }"
-                    :value-comparator="sameTermCondition"
-                    density="compact"
-                    hide-details
-                    color="primary"
-                    style="
-                      margin: -6px 0 0 0;
-                      padding: 0;
-                      transform: scale(0.7);
-                      transform-origin: center;
-                    "
-                  />
-                </td>
-
-                <td
-                  style="
-                    padding: 4px 6px;
-                    vertical-align: top;
-                    line-height: 1.4;
-                    border: 1px solid #9ca3af;
-                  "
-                >
-                  {{ item.nama_term }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                  <td>{{ index + 1 }}</td>
+                  <td>
+                    <v-checkbox
+                      v-model="newPenawaran.termCondition"
+                      :value="{ id: item.id ?? '', nama_term: item.nama_term }"
+                      :value-comparator="sameTermCondition"
+                      density="compact"
+                      hide-details
+                      color="primary"
+                      class="quotation-term-checkbox"
+                    />
+                  </td>
+                  <td>{{ item.nama_term }}</td>
+                </tr>
+                <tr v-if="!sortedTermConditions.length">
+                  <td colspan="3" class="quotation-terms-empty">
+                    No terms found.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </v-card-text>
 
-      <v-divider />
-      <v-card-actions class="pa-4">
-        <v-spacer class="hidden-xs-only" />
-        <v-btn
-          size="small"
-          variant="outlined"
-          color="grey-darken-1"
-          class="flex-grow-1 flex-sm-grow-0"
-          @click="data.dialogTambahPenawaran = false"
-        >
-          Cancel
-        </v-btn>
-        <v-btn
-          size="small"
-          color="primary"
-          variant="flat"
-          class="font-weight-bold flex-grow-1 flex-sm-grow-0"
-          @click="simpanPenawaranDialog"
-        >
-          {{ data.penawaranAddEdit === "add" ? "Save Quotation" : "Edit" }}
-        </v-btn>
-      </v-card-actions>
+      <footer class="quotation-dialog-footer">
+        <p>
+          Pastikan client, item, dan nilai quotation sudah sesuai sebelum
+          disimpan.
+        </p>
+        <div>
+          <v-btn
+            size="small"
+            variant="outlined"
+            color="grey-darken-1"
+            class="text-none quotation-cancel-btn"
+            @click="data.dialogTambahPenawaran = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            size="small"
+            color="primary"
+            variant="flat"
+            class="text-none quotation-save-btn"
+            prepend-icon="mdi-content-save-outline"
+            @click="simpanPenawaranDialog"
+          >
+            {{
+              data.penawaranAddEdit === "add"
+                ? "Save Quotation"
+                : "Save Changes"
+            }}
+          </v-btn>
+        </div>
+      </footer>
     </v-card>
   </v-dialog>
 
   <!-- Header & Top Action -->
-  <div
-    class="d-flex flex-column flex-sm-row justify-space-between align-start align-sm-center mb-4 gap-2"
-  >
-    <h1 class="text-h5 font-weight-bold my-0">Quotation</h1>
+  <div class="quotation-page-heading">
+    <div>
+      <h1>Quotation</h1>
+      <p>Manage quotation, client, status, and transaction value.</p>
+    </div>
     <v-btn
       color="primary"
       variant="flat"
       size="small"
-      class="text-capitalize w-100 w-sm-auto"
+      class="quotation-create-btn text-none"
       prepend-icon="mdi-plus"
       @click="openDialogTambahPenawaran"
     >
@@ -743,48 +756,54 @@
   </div>
 
   <!-- Main Table Card -->
-  <v-card class="border rounded-lg" flat>
-    <v-card-title class="pa-3 pa-sm-4">
-      <div class="d-flex align-center gap-2">
-        <div class="flex-grow-1" style="display: flex; align-items: center">
+  <v-card class="quotation-list-card" flat>
+    <div class="quotation-list-toolbar">
+      <div class="quotation-list-search">
+        <v-icon icon="mdi-magnify" size="17" />
+        <div class="quotation-list-search-field">
           <a-text-field-new
             v-model="data.searchPenawaran"
-            placeholder="Cari semua kolom penawaran"
+            placeholder="Cari nomor, client, subject, atau status"
           />
-          <v-btn
-            v-if="data.searchPenawaran"
-            icon
-            size="x-small"
-            variant="text"
-            color="red"
-            aria-label="Hapus pencarian"
-            class="mb-2"
-            @click="kosonginPencarian"
-          >
-            <v-icon size="20">mdi-close-circle-outline</v-icon>
-          </v-btn>
         </div>
         <v-btn
+          v-if="data.searchPenawaran"
+          icon="mdi-close"
           size="x-small"
-          class="border mb-2"
-          @click="tariksemua"
           variant="text"
+          color="grey-darken-1"
+          aria-label="Hapus pencarian"
+          @click="kosonginPencarian"
+        />
+      </div>
+
+      <div class="quotation-list-tools">
+        <span class="quotation-result-count">
+          {{ penawaranTampilTersaring.length }} quotation
+        </span>
+        <v-btn
+          size="small"
+          class="quotation-toolbar-btn text-none"
+          @click="tariksemua"
+          variant="outlined"
+          prepend-icon="mdi-filter-variant"
         >
-          Get All Status
+          All Status
         </v-btn>
         <v-btn
-          size="23"
-          variant="outlined"
-          class="border flex-shrink-0 mb-2"
+          icon="mdi-refresh"
+          size="small"
+          variant="text"
+          class="quotation-refresh-btn"
+          aria-label="Refresh quotation"
           @click="refreshData"
         >
-          <v-icon size="15" icon="mdi-refresh" />
           <v-tooltip activator="parent" location="top">
             Refresh Data
           </v-tooltip>
         </v-btn>
       </div>
-    </v-card-title>
+    </div>
 
     <v-divider />
 
@@ -796,18 +815,21 @@
       density="compact"
       :sort-by="[{ key: 'created_at', order: 'desc' }]"
       :hover="true"
-      class="text-no-wrap"
+      hide-default-footer
+      class="quotation-list-table"
     >
-      <template v-slot:item.no="{ index }"> {{ index + 1 }}</template>
+      <template v-slot:item.no="{ index }">
+        <span class="quotation-row-index">{{ index + 1 }}</span>
+      </template>
 
       <template v-slot:item.no_penawaran="{ item }">
-        <div class="text-center">
-          <NuxtLink :to="'/admin/penawaran/' + item.id" class="quotation-link">
-            <span class="quotation-badge">
-              {{ item.no_penawaran }}
-            </span>
-          </NuxtLink>
-        </div>
+        <NuxtLink
+          :to="'/admin/penawaran/' + item.id"
+          class="quotation-reference"
+        >
+          {{ item.no_penawaran }}
+          <v-icon icon="mdi-arrow-top-right" size="12" />
+        </NuxtLink>
       </template>
 
       <template v-slot:item.perihal="{ item }">
@@ -817,18 +839,37 @@
       </template>
 
       <template v-slot:item.nama_perusahaan="{ item }">
-        <div style="display: flex; align-items: center">
-          <v-icon color="primary" class="mb-1 mr-2">mdi-domain</v-icon>
-          {{ item.nama_perusahaan }}
+        <div class="quotation-client-cell">
+          <div class="quotation-client-name">
+            {{ item.nama_perusahaan || "-" }}
+          </div>
+          <div class="quotation-client-meta">
+            <span>
+              <v-icon icon="mdi-ferry" size="12" />
+              {{ item.vessel || "-" }}
+            </span>
+            <i aria-hidden="true"></i>
+            <span>
+              <v-icon icon="mdi-account-outline" size="12" />
+              {{ item.pic || "-" }}
+            </span>
+            <i aria-hidden="true"></i>
+            <span>
+              <v-icon icon="mdi-map-marker-outline" size="12" />
+              {{ item.location || "-" }}
+            </span>
+          </div>
         </div>
       </template>
 
       <template v-slot:item.tanggal_penawaran="{ item }">
-        {{ rubahtanggallengkap(item.tanggal_penawaran) }}
+        <span class="quotation-date-cell">
+          {{ rubahtanggallengkap(item.tanggal_penawaran) }}
+        </span>
       </template>
 
       <template v-slot:item.grand_total="{ item }">
-        <strong>{{
+        <strong class="quotation-amount-cell">{{
           formatCurrency(item.grand_total_penawaran, item.currency)
         }}</strong>
       </template>
@@ -837,98 +878,82 @@
         <v-chip
           size="x-small"
           :color="statusColor(item.status)"
-          variant="flat"
-          class="font-weight-bold"
+          variant="tonal"
+          class="quotation-table-status"
         >
+          <v-icon start icon="mdi-circle" size="6" />
           {{ item.status }}
         </v-chip>
       </template>
 
       <template v-slot:item.aksi="{ item }">
-        <div class="d-flex justify-center align-center">
-          <v-btn
-            :disabled="item.status == 'Cancel'"
-            size="28"
-            variant="tonal"
-            color="info"
-            class="rounded-lg mr-1"
-            :to="'/admin/penawaran/' + item.id"
-          >
-            <v-icon size="16" icon="mdi-eye" />
-            <v-tooltip activator="parent" location="top"
-              >Detail Penawaran</v-tooltip
+        <div class="quotation-row-actions">
+          <v-menu location="bottom end">
+            <template #activator="{ props: menuProps }">
+              <v-btn
+                v-bind="menuProps"
+                icon="mdi-dots-horizontal"
+                size="small"
+                variant="text"
+                color="grey-darken-1"
+                class="quotation-action-trigger"
+                aria-label="Buka menu aksi quotation"
+              />
+            </template>
+
+            <v-list
+              density="compact"
+              min-width="205"
+              class="quotation-action-menu"
             >
-          </v-btn>
-
-          <v-btn
-            :disabled="item.status !== 'Draft'"
-            size="28"
-            variant="tonal"
-            color="warning"
-            class="rounded-lg mr-1"
-            @click="openDialogEditPenawaran(item)"
-          >
-            <v-icon size="16" icon="mdi-pencil-outline" />
-            <v-tooltip activator="parent" location="top"
-              >Edit Penawaran</v-tooltip
-            >
-          </v-btn>
-
-          <v-btn
-            :disabled="item.status !== 'Draft'"
-            size="28"
-            variant="tonal"
-            color="grey"
-            class="rounded-lg"
-            @click="hapusPenawaran(item)"
-          >
-            <v-icon size="16" icon="mdi-trash-can-outline" />
-            <v-tooltip activator="parent" location="top">Hapus</v-tooltip>
-          </v-btn>
-
-          <v-divider vertical class="ml-2"></v-divider>
-
-          <v-btn
-            v-if="item.status !== 'Cancel'"
-            size="28"
-            variant="tonal"
-            color="error"
-            class="rounded-lg ml-2"
-            :disabled="item.status !== 'Draft'"
-            @click="ubahstatuscancel(item)"
-          >
-            <v-icon size="16" icon="mdi-alpha-x-circle-outline" />
-            <v-tooltip activator="parent" location="top"
-              >Cancel Penawaran</v-tooltip
-            >
-          </v-btn>
-
-          <!-- KEMBALIKAN -->
-          <v-btn
-            v-if="item.status === 'Cancel'"
-            size="28"
-            variant="tonal"
-            color="error"
-            class="rounded-lg ml-2"
-            @click="backtodraft(item)"
-          >
-            <v-icon size="16" icon="mdi-keyboard-return" />
-            <v-tooltip activator="parent" location="top"
-              >Kembalikan menjadi Draft</v-tooltip
-            >
-          </v-btn>
+              <v-list-item
+                :to="'/admin/penawaran/' + item.id"
+                :disabled="item.status == 'Cancel'"
+                prepend-icon="mdi-eye-outline"
+                title="Detail quotation"
+              />
+              <v-list-item
+                :disabled="item.status !== 'Draft'"
+                prepend-icon="mdi-pencil-outline"
+                title="Edit quotation"
+                @click="openDialogEditPenawaran(item)"
+              />
+              <v-divider class="my-1" />
+              <v-list-item
+                :disabled="item.status !== 'Draft'"
+                prepend-icon="mdi-trash-can-outline"
+                title="Delete quotation"
+                class="quotation-menu-danger"
+                @click="hapusPenawaran(item)"
+              />
+              <v-list-item
+                v-if="item.status !== 'Cancel'"
+                :disabled="item.status !== 'Draft'"
+                prepend-icon="mdi-alpha-x-circle-outline"
+                title="Cancel quotation"
+                class="quotation-menu-danger"
+                @click="ubahstatuscancel(item)"
+              />
+              <v-list-item
+                v-if="item.status === 'Cancel'"
+                prepend-icon="mdi-keyboard-return"
+                title="Return to Draft"
+                @click="backtodraft(item)"
+              />
+            </v-list>
+          </v-menu>
         </div>
       </template>
 
       <template v-slot:no-data>
-        <div class="py-8 text-center text-grey-darken-1">
+        <div class="quotation-empty-state">
           <v-icon
-            size="48"
+            size="34"
             color="grey-lighten-1"
             class="mb-2"
             icon="mdi-file-document-edit-outline"
           />
-          <div class="text-body-1">Belum ada data Penawaran</div>
+          <div>Belum ada data quotation</div>
         </div>
       </template>
     </v-data-table>
@@ -990,14 +1015,57 @@ const data = reactive({
   editOriginalTermconditionId: "",
   editOriginalBarangId: "",
   headPenawaran: [
-    { title: "No", value: "no", width: "10px" },
-    { title: "Date", value: "tanggal_penawaran", sortable: true },
-    { title: "Quotation Ref No", value: "no_penawaran", sortable: true },
-    { title: "Client", value: "nama_perusahaan", sortable: true },
-    { title: "Subject", value: "perihal", sortable: true, width: "220px" },
-    { title: "Total Amount", value: "grand_total", sortable: true },
-    { title: "Status", value: "status", sortable: true },
-    { title: "Aksi", align: "center" as const, value: "aksi", width: "120px" },
+    {
+      title: "No",
+      value: "no",
+      width: "48px",
+      align: "center" as const,
+      sortable: false,
+    },
+    {
+      title: "Date",
+      value: "tanggal_penawaran",
+      width: "116px",
+      sortable: true,
+    },
+    {
+      title: "Quotation Ref",
+      value: "no_penawaran",
+      width: "168px",
+      sortable: true,
+    },
+    {
+      title: "Client",
+      value: "nama_perusahaan",
+      width: "270px",
+      sortable: true,
+    },
+    {
+      title: "Subject",
+      value: "perihal",
+      width: "240px",
+      sortable: true,
+    },
+    {
+      title: "Total Amount",
+      value: "grand_total",
+      width: "155px",
+      align: "end" as const,
+      sortable: true,
+    },
+    {
+      title: "Status",
+      value: "status",
+      width: "104px",
+      sortable: true,
+    },
+    {
+      title: "Action",
+      align: "center" as const,
+      value: "aksi",
+      width: "58px",
+      sortable: false,
+    },
   ],
 });
 
@@ -1139,6 +1207,7 @@ function emptyPenawaran(): penawaranM {
     alamat_perusahaan: "",
     no_telp: "",
     email: "",
+    location: "",
     tanggal_penawaran: moment().format("YYYY-MM-DD"),
     created_at: 0,
     created_by: "",
@@ -1494,8 +1563,16 @@ async function simpanPenawaranDialog() {
     !newPenawaran.value.tanggal_penawaran ||
     !newPenawaran.value.perihal.trim()
   ) {
-    return notificationStore.showError("Tanggal dan perihal wajib diisi");
+    return notificationStore.showError("Location wajib diisi");
   }
+
+  if (
+    !newPenawaran.value.location ||
+    !newPenawaran.value.location.trim()
+  ) {
+    return notificationStore.showError("Location wajib diisi");
+  }
+
   // if (
   //   !newPenawaran.value.penawaran_item.length ||
   //   newPenawaran.value.penawaran_item.some(
@@ -1610,123 +1687,339 @@ async function refreshData() {
 </script>
 
 <style scoped>
-.quotation-link {
+.quotation-page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.quotation-page-heading h1 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.quotation-page-heading p {
+  margin: 3px 0 0;
+  color: #7b8490;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.quotation-create-btn {
+  height: 34px !important;
+  padding-inline: 14px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-radius: 5px !important;
+  box-shadow: none !important;
+}
+
+.quotation-list-card {
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025) !important;
+}
+
+.quotation-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 58px;
+  padding: 11px 14px;
+}
+
+.quotation-list-search {
+  display: flex;
+  flex: 1 1 390px;
+  align-items: center;
+  gap: 7px;
+  max-width: 460px;
+  height: 34px;
+  padding: 0 5px 0 10px;
+  color: #8993a0;
+  background: #ffffff;
+  border: 1px solid #d6dbe1;
+  border-radius: 5px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.quotation-list-search:focus-within {
+  border-color: #7da5cc;
+  box-shadow: 0 0 0 2px rgba(49, 95, 140, 0.08);
+}
+
+.quotation-list-search-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.quotation-list-search :deep(.form-group),
+.quotation-list-search :deep(.input-wrapper) {
+  height: 32px;
+}
+
+.quotation-list-search :deep(.input-field) {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 5px 0 !important;
+  overflow: hidden;
+  font-size: 11px !important;
+  line-height: 20px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  resize: none;
+}
+
+.quotation-list-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.quotation-result-count {
+  margin-right: 5px;
+  color: #858f9b;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.quotation-toolbar-btn {
+  height: 30px !important;
+  padding-inline: 10px !important;
+  color: #526171 !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-color: #d6dbe1 !important;
+  border-radius: 4px !important;
+}
+
+.quotation-refresh-btn {
+  width: 30px !important;
+  height: 30px !important;
+  color: #65717f !important;
+  border-radius: 4px !important;
+}
+
+.quotation-list-table {
+  color: #344050;
+  font-size: 11px;
+}
+
+.quotation-list-table :deep(table) {
+  min-width: 1160px;
+}
+
+.quotation-list-table :deep(.v-data-table__th) {
+  height: 37px !important;
+  padding: 0 12px !important;
+  color: #697586 !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.055em !important;
+  text-transform: uppercase;
+  background: #f7f8fa !important;
+  border-bottom: 1px solid #dfe3e8 !important;
+}
+
+.quotation-list-table :deep(.v-data-table-header__content) {
+  gap: 3px;
+}
+
+.quotation-list-table :deep(.v-data-table__td) {
+  height: 54px !important;
+  padding: 8px 12px !important;
+  line-height: 1.35;
+  vertical-align: middle;
+  border-bottom-color: #edf0f2 !important;
+}
+
+.quotation-list-table :deep(tbody tr) {
+  transition: background-color 0.12s ease;
+}
+
+.quotation-list-table :deep(tbody tr:hover > td) {
+  background: #fafbfd !important;
+}
+
+.quotation-row-index {
+  color: #9aa3ae;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-reference {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #285f91;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.quotation-reference:hover {
+  color: #174a79;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .subject-cell {
-  display: block;
-  max-width: 220px;
-  min-width: 200px;
-  white-space: normal;
+  display: -webkit-box;
+  min-width: 180px;
+  max-width: 250px;
+  overflow: hidden;
+  color: #556170;
+  line-height: 1.42;
   overflow-wrap: anywhere;
-  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.quotation-badge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 6px;
-  background: #f1f5f9;
-  color: #2563eb;
-  font-size: 13px;
+.quotation-client-cell {
+  min-width: 230px;
+  max-width: 285px;
+}
+
+.quotation-client-name {
+  overflow: hidden;
+  color: #273444;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.2px;
-  border: 1px solid #dbeafe;
-  transition: all 0.1s ease;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.quotation-badge:hover {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #2563eb;
-  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
-  transform: translateY(-1px);
-}
-
-.quotation-total-card {
-  background: linear-gradient(135deg, #f4f8ff 0%, #f8fafc 100%);
-  border: 1px solid #dbe5f2;
-}
-
-.discount-inputs {
+.quotation-client-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  width: min(100%, 360px);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #7a8592;
+  font-size: 9.5px;
+  white-space: nowrap;
 }
 
-.discount-input {
-  flex: 1 1 150px;
+.quotation-client-meta span {
+  display: inline-flex;
   min-width: 0;
+  max-width: 96px;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quotation-client-meta span:first-child {
+  max-width: 105px;
+}
+
+.quotation-client-meta i {
+  flex: 0 0 3px;
+  width: 3px;
+  height: 3px;
+  background: #eaecee;
+  border-radius: 50%;
+}
+
+.quotation-date-cell {
+  color: #556170;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.quotation-amount-cell {
+  display: block;
+  color: #273444;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.quotation-table-status {
+  height: 22px !important;
+  padding-inline: 8px !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.015em !important;
+  border-radius: 4px !important;
+}
+
+.quotation-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quotation-action-trigger {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+}
+
+.quotation-action-trigger:hover {
+  color: #26384b !important;
+  background: #eef1f4 !important;
+}
+
+.quotation-action-menu {
+  padding: 4px !important;
+  border: 1px solid #dfe3e8;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12) !important;
+}
+
+.quotation-action-menu :deep(.v-list-item) {
+  min-height: 32px !important;
+  padding-inline: 9px !important;
+  border-radius: 4px !important;
+}
+
+.quotation-action-menu :deep(.v-list-item-title) {
+  font-size: 10.5px !important;
+  font-weight: 500;
+}
+
+.quotation-action-menu :deep(.v-list-item__prepend > .v-icon) {
+  margin-inline-end: 9px !important;
+  font-size: 16px !important;
+}
+
+.quotation-menu-danger:not(.v-list-item--disabled) {
+  color: #b44949 !important;
+}
+
+.quotation-empty-state {
+  padding: 44px 16px;
+  color: #8a949f;
+  font-size: 11px;
+  text-align: center;
 }
 
 .gap-2 {
   gap: 8px;
-}
-
-.sign-card {
-  width: 100%;
-  max-width: 380px;
-  background: #ffffff;
-  border: 1px solid #e1e5ea;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.sign-card-header {
-  min-height: 62px;
-  padding: 7px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.sign-card-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1f2937;
-  letter-spacing: 0.2px;
-}
-
-.sign-card-subtitle {
-  margin-top: 2px;
-  font-size: 11px;
-  color: #8a929d;
-}
-
-.sign-card-content {
-  padding: 18px;
-}
-
-.field-label {
-  margin-bottom: 7px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #5f6874;
-  letter-spacing: 0.2px;
-}
-
-.sign-select {
-  margin-bottom: 14px;
-}
-
-/* Signature area */
-.signature-box {
-  margin-top: 8px;
-  padding: 16px 14px 14px;
-  background: #fafbfc;
-  border: 1px solid #e5e8ec;
-  border-radius: 8px;
-}
-
-.signature-label {
-  margin-bottom: 8px;
-  font-size: 9px;
-  font-weight: 700;
-  color: #9aa1aa;
-  letter-spacing: 1px;
-  text-align: center;
 }
 
 .signature-content {
@@ -1747,5 +2040,850 @@ async function refreshData() {
   font-weight: 600;
   color: #303740;
   text-align: center;
+}
+
+/* Quotation form dialog */
+.quotation-dialog-card {
+  color: #1f2937;
+  background: #f5f6f8;
+  border: 1px solid #d9dee5;
+  border-radius: 10px !important;
+  overflow: hidden;
+}
+
+.quotation-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 72px;
+  padding: 14px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #dfe3e8;
+}
+
+.quotation-dialog-heading,
+.quotation-dialog-header-actions,
+.quotation-dialog-heading > div:last-child {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.quotation-dialog-heading {
+  gap: 12px;
+}
+
+.quotation-dialog-heading > div:last-child {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.quotation-dialog-heading h2 {
+  margin: 0;
+  color: #202833;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.quotation-dialog-heading p {
+  max-width: 520px;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: #7a8491;
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quotation-dialog-icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #315f8c;
+  background: #eef3f8;
+  border: 1px solid #dce6ef;
+  border-radius: 6px;
+}
+
+.quotation-dialog-header-actions {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.quotation-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 10px;
+  color: #586474;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f7f8fa;
+  border: 1px solid #dfe3e8;
+  border-radius: 4px;
+}
+
+.quotation-status-dot {
+  width: 6px;
+  height: 6px;
+  background: #d8972e;
+  border-radius: 50%;
+}
+
+.quotation-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px !important;
+  background: #f5f6f8;
+}
+
+.quotation-form-section {
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #dfe3e8;
+  border-radius: 7px;
+}
+
+.quotation-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.quotation-section-header > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.quotation-section-header h3 {
+  margin: 0;
+  color: #27313d;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.quotation-section-header p {
+  margin: 3px 0 0;
+  color: #8a939f;
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.quotation-section-index {
+  display: inline-grid;
+  width: 24px;
+  height: 22px;
+  place-items: center;
+  color: #566575;
+  font-size: 9px;
+  font-weight: 700;
+  background: #f1f3f5;
+  border: 1px solid #e0e4e8;
+  border-radius: 4px;
+}
+
+.quotation-client-picker {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) auto;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.quotation-date-field {
+  min-width: 0;
+}
+
+.quotation-client-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.quotation-add-client-btn {
+  flex: 0 0 auto;
+  height: 32px !important;
+  padding-inline: 13px !important;
+  font-size: 11px !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
+}
+
+.quotation-client-details {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.7fr) repeat(4, minmax(100px, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #dfe3e8;
+  border: 1px solid #dfe3e8;
+  border-radius: 5px;
+}
+
+.quotation-client-detail {
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 11px;
+  background: #fafbfc;
+}
+
+.quotation-client-detail dt {
+  margin-bottom: 3px;
+  color: #828c98;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.quotation-client-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #354150;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.quotation-currency-section {
+  padding: 13px 18px;
+  background: #ffffff;
+  border: 1px solid #dfe3e8;
+  border-radius: 7px;
+}
+
+.quotation-currency-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 13px;
+}
+
+.quotation-currency-heading > div:first-child {
+  min-width: 0;
+}
+
+.quotation-currency-section h3 {
+  margin: 0;
+  color: #27313d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quotation-currency-section p {
+  margin: 2px 0 0;
+  color: #8a939f;
+  font-size: 10px;
+}
+
+.quotation-currency-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.quotation-currency-field {
+  flex: 0 0 160px;
+  width: 160px;
+}
+
+.quotation-items-section {
+  padding: 0;
+}
+
+.quotation-items-header {
+  align-items: center;
+  margin: 0;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e4e7eb;
+}
+
+.quotation-add-row-btn {
+  height: 30px !important;
+  padding-inline: 11px !important;
+  font-size: 10px !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
+}
+
+.quotation-line-item {
+  margin: 14px 18px 0;
+  padding: 14px;
+  background: #fbfcfd;
+  border: 1px solid #dfe3e8;
+  border-radius: 6px;
+}
+
+.quotation-line-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 26px;
+  margin: -3px 0 10px;
+}
+
+.quotation-line-item-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quotation-delete-item-btn {
+  min-width: 76px;
+  height: 28px !important;
+  padding-inline: 9px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
+}
+
+.quotation-line-number {
+  min-width: 25px;
+  color: #315f8c;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-line-title {
+  color: #687482;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.quotation-suggestions {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.quotation-suggestions > span {
+  flex: 0 0 auto;
+  padding-top: 4px;
+  color: #7a8491;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.quotation-suggestions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.quotation-category {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 13px 0;
+}
+
+.quotation-field-label {
+  color: #495057;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.quotation-category-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.quotation-item-fields {
+  display: grid;
+  grid-template-columns:
+    minmax(66px, 0.55fr) minmax(90px, 0.75fr) minmax(150px, 1.2fr)
+    minmax(155px, 1.25fr) minmax(165px, 1.3fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.quotation-markup-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.quotation-markup-actions button {
+  min-width: 42px;
+  height: 23px;
+  padding: 0 7px;
+  color: #21764b;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  background: #f3faf6;
+  border: 1px solid #bddfc9;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.quotation-markup-actions button:hover:not(:disabled) {
+  color: #155e3a;
+  background: #e6f5ec;
+  border-color: #81bf98;
+}
+
+.quotation-markup-actions button:focus-visible,
+.quotation-add-row-secondary:focus-visible {
+  outline: 2px solid rgba(24, 103, 192, 0.3);
+  outline-offset: 2px;
+}
+
+.quotation-markup-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.quotation-add-row-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: calc(100% - 36px);
+  min-height: 34px;
+  margin: 12px 18px 16px;
+  color: #4f6377;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px dashed #b8c2cc;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.quotation-add-row-secondary:hover {
+  color: #245b8f;
+  background: #f7fafc;
+  border-color: #7f9db9;
+}
+
+.quotation-commercial-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.quotation-summary-section,
+.quotation-sign-section {
+  min-width: 0;
+}
+
+.quotation-discount-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.quotation-discount-fields :deep(.v-field) {
+  border-radius: 4px;
+}
+
+.quotation-discount-fields :deep(.v-field__input) {
+  min-height: 38px;
+  padding-block: 6px;
+  font-size: 12px;
+}
+
+.quotation-discount-fields :deep(.v-label) {
+  font-size: 11px;
+}
+
+.quotation-totals {
+  border-top: 1px solid #e1e5ea;
+}
+
+.quotation-totals > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 35px;
+  color: #697585;
+  font-size: 11px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.quotation-totals strong {
+  color: #303a46;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.quotation-totals .quotation-discount-value {
+  color: #b54747;
+}
+
+.quotation-totals .quotation-grand-total {
+  min-height: 48px;
+  color: #263443;
+  border-bottom: 0;
+}
+
+.quotation-grand-total span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quotation-grand-total strong {
+  color: #173f66;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.quotation-signature-preview {
+  display: grid;
+  min-height: 112px;
+  margin-top: 12px;
+  padding: 12px;
+  place-items: center;
+  background: #fafbfc;
+  border: 1px solid #e1e5ea;
+  border-radius: 5px;
+}
+
+.quotation-terms-header {
+  align-items: center;
+}
+
+.quotation-selected-count {
+  padding: 4px 8px;
+  color: #596777;
+  font-size: 10px;
+  font-weight: 600;
+  background: #f2f4f6;
+  border: 1px solid #e0e4e8;
+  border-radius: 4px;
+}
+
+.quotation-term-search {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  max-width: 460px;
+  margin-bottom: 12px;
+  padding-left: 9px;
+  color: #7b8794;
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+.quotation-term-search :deep(.input-field) {
+  display: block;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 5px 0 !important;
+  overflow: hidden;
+  line-height: 20px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  resize: none;
+}
+
+.quotation-term-search :deep(.form-group),
+.quotation-term-search :deep(.input-wrapper) {
+  height: 32px;
+}
+
+.quotation-terms-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #dfe3e8;
+  border-radius: 5px;
+}
+
+.quotation-terms-table {
+  width: 100%;
+  color: #485462;
+  font-size: 11px;
+  border-collapse: collapse;
+}
+
+.quotation-terms-table th {
+  height: 32px;
+  padding: 7px 10px;
+  color: #657281;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  background: #f5f6f8;
+  border-bottom: 1px solid #dfe3e8;
+}
+
+.quotation-terms-table th:first-child,
+.quotation-terms-table td:first-child {
+  width: 44px;
+  text-align: center;
+}
+
+.quotation-terms-table th:nth-child(2),
+.quotation-terms-table td:nth-child(2) {
+  width: 58px;
+  padding: 0;
+  text-align: center;
+}
+
+.quotation-terms-table td {
+  min-height: 38px;
+  padding: 6px 10px;
+  line-height: 1.45;
+  vertical-align: middle;
+  border-bottom: 1px solid #e8ebee;
+}
+
+.quotation-terms-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.quotation-terms-table tbody tr:hover {
+  background: #fafbfc;
+}
+
+.quotation-term-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 38px;
+  margin: 0;
+}
+
+.quotation-term-checkbox :deep(.v-input__control),
+.quotation-term-checkbox :deep(.v-selection-control) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.quotation-term-checkbox :deep(.v-selection-control) {
+  min-height: 38px;
+}
+
+.quotation-terms-empty {
+  height: 72px;
+  color: #8b95a1;
+  text-align: center !important;
+}
+
+.quotation-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 64px;
+  padding: 12px 20px;
+  background: #ffffff;
+  border-top: 1px solid #dfe3e8;
+}
+
+.quotation-dialog-footer p {
+  margin: 0;
+  color: #7b8591;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.quotation-dialog-footer > div {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.quotation-cancel-btn,
+.quotation-save-btn {
+  min-width: 104px;
+  height: 34px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
+}
+
+.quotation-save-btn {
+  min-width: 142px;
+}
+
+.quotation-dialog-card :deep(.input-field),
+.quotation-dialog-card :deep(.date-input-wrapper) {
+  border-radius: 4px;
+}
+
+@media (max-width: 959px) {
+  .quotation-dialog-card {
+    border: 0;
+    border-radius: 0 !important;
+  }
+
+  .quotation-dialog-body {
+    padding: 14px !important;
+  }
+
+  .quotation-item-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quotation-client-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quotation-client-address {
+    grid-column: 1 / -1;
+  }
+
+  .quotation-commercial-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 599px) {
+  .quotation-dialog-header {
+    min-height: 64px;
+    padding: 11px 12px;
+  }
+
+  .quotation-dialog-heading {
+    gap: 9px;
+  }
+
+  .quotation-dialog-icon {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .quotation-dialog-heading h2 {
+    font-size: 14px;
+  }
+
+  .quotation-dialog-heading p,
+  .quotation-status {
+    display: none;
+  }
+
+  .quotation-dialog-body {
+    gap: 10px;
+    padding: 10px !important;
+  }
+
+  .quotation-form-section {
+    padding: 14px;
+  }
+
+  .quotation-section-header {
+    margin-bottom: 13px;
+  }
+
+  .quotation-section-header p {
+    display: none;
+  }
+
+  .quotation-client-details,
+  .quotation-item-fields,
+  .quotation-discount-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .quotation-subject-field,
+  .quotation-client-address {
+    grid-column: auto;
+  }
+
+  .quotation-client-picker {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .quotation-currency-section {
+    padding: 13px 14px;
+  }
+
+  .quotation-currency-heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .quotation-currency-field {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .quotation-add-client-btn {
+    align-self: flex-start;
+  }
+
+  .quotation-items-header {
+    padding: 13px 14px;
+  }
+
+  .quotation-line-item {
+    margin: 10px 10px 0;
+    padding: 12px;
+  }
+
+  .quotation-category {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .quotation-category-options {
+    gap: 10px 16px;
+  }
+
+  .quotation-add-row-secondary {
+    width: calc(100% - 20px);
+    margin: 10px;
+  }
+
+  .quotation-dialog-footer {
+    align-items: stretch;
+    padding: 10px 12px;
+  }
+
+  .quotation-dialog-footer p {
+    display: none;
+  }
+
+  .quotation-dialog-footer > div {
+    display: grid;
+    flex: 1;
+    grid-template-columns: 1fr 1.25fr;
+  }
+
+  .quotation-cancel-btn,
+  .quotation-save-btn {
+    width: 100%;
+    min-width: 0;
+  }
 }
 </style>
