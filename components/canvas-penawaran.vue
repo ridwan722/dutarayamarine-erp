@@ -873,6 +873,16 @@ const createPaginatedQuotationPdf = async () => {
     return null;
   }
 
+  // On small screens the page preview is scaled down by its parent so the A4
+  // sheet fits inside the viewport. getBoundingClientRect() and html2canvas
+  // both include that ancestor transform, while getComputedStyle().fontSize
+  // (used for the native PDF text layer) does not. Capture at the original A4
+  // scale so the canvas and text layers use the same coordinate system.
+  const previewContainer = offerElement.closest<HTMLElement>(
+    ".penawaran-content",
+  );
+  previewContainer?.classList.add("quotation-pdf-unscaled");
+
   // Measure and capture the exact same print layout. Controls such as the
   // price-visibility chip must not reserve space in the generated document.
   offerElement.classList.add("quotation-pdf-capture");
@@ -931,8 +941,21 @@ const createPaginatedQuotationPdf = async () => {
         htmlElement.style.setProperty("text-shadow", "none", "important");
       });
   };
+  // Native PDF text remains sharp independently of canvas resolution. A
+  // slightly smaller canvas on phones avoids Safari/Chrome mobile canvas and
+  // memory limits without reducing text quality.
+  const isSmallViewport = window.matchMedia("(max-width: 600px)").matches;
+  const requestedCaptureScale = isSmallViewport ? 2 : 3;
+  const maxContentCanvasPixels = isSmallViewport ? 12_000_000 : 40_000_000;
+  const safeContentScale = Math.sqrt(
+    maxContentCanvasPixels / (contentRect.width * contentRect.height),
+  );
+  const captureScale = Math.max(
+    1,
+    Math.min(requestedCaptureScale, safeContentScale),
+  );
   const captureOptions = {
-    scale: 3,
+    scale: captureScale,
     useCORS: true,
     backgroundColor: "#ffffff",
     logging: false,
@@ -1237,6 +1260,7 @@ const createPaginatedQuotationPdf = async () => {
   return pdf;
   } finally {
     offerElement.classList.remove("quotation-pdf-capture");
+    previewContainer?.classList.remove("quotation-pdf-unscaled");
   }
 };
 
@@ -1302,6 +1326,12 @@ const handleSavePdf = async () => {
     sans-serif;
   color: #1e293b;
   box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+:global(.penawaran-content.quotation-pdf-unscaled) {
+  transform: none !important;
 }
 
 .watermark {
