@@ -531,7 +531,7 @@ export function useDashboardAnalytics() {
         id: `cash-${item.id}`,
         title: item.keterangan || "Transaksi kas",
         description: item.type === "in" ? "Kas masuk" : "Kas keluar",
-        type: "Petty cash",
+        type: "Keuangan kantor",
         icon: item.type === "in" ? "mdi-cash-plus" : "mdi-wallet-outline",
         tone: item.type === "in" ? "green" : "rose",
         href: "/admin/petty-cash",

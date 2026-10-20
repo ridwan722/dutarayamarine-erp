@@ -647,21 +647,36 @@
             </span>
           </div>
 
-          <div class="quotation-term-search">
-            <v-icon icon="mdi-magnify" size="17" />
-            <a-text-field-new
-              v-model="termConditionSearch"
-              placeholder="Search terms and conditions"
-            />
+          <div class="quotation-term-controls">
+            <div class="quotation-term-search">
+              <v-icon icon="mdi-magnify" size="17" />
+              <a-text-field-new
+                v-model="termConditionSearch"
+                placeholder="Cari atau tulis term baru"
+                @keydown.enter.prevent="tambahTermConditionDariPencarian"
+              />
+              <v-btn
+                v-if="termConditionSearch"
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                color="grey-darken-1"
+                aria-label="Hapus pencarian term dan condition"
+                @click="termConditionSearch = ''"
+              />
+            </div>
             <v-btn
-              v-if="termConditionSearch"
-              icon="mdi-close"
-              size="x-small"
-              variant="text"
-              color="grey-darken-1"
-              aria-label="Hapus pencarian term dan condition"
-              @click="termConditionSearch = ''"
-            />
+              size="small"
+              color="primary"
+              variant="outlined"
+              prepend-icon="mdi-plus"
+              class="quotation-term-add-btn text-none"
+              :disabled="!canAddTermCondition"
+              :loading="savingTermCondition"
+              @click="tambahTermConditionDariPencarian"
+            >
+              {{ existingTermCondition ? "Sudah Ada" : "Tambah T&C" }}
+            </v-btn>
           </div>
 
           <div class="quotation-terms-table-wrap">
@@ -694,7 +709,10 @@
                 </tr>
                 <tr v-if="!sortedTermConditions.length">
                   <td colspan="3" class="quotation-terms-empty">
-                    No terms found.
+                    <strong>Term tidak ditemukan.</strong>
+                    <span v-if="canAddTermCondition">
+                      Klik “Tambah T&amp;C” untuk menyimpannya ke master.
+                    </span>
                   </td>
                 </tr>
               </tbody>
@@ -969,6 +987,7 @@ import type { ConfirmationDialog } from "#components";
 import type { penawaranM } from "~/types/penawaranModel";
 import type { barangM } from "~/types/barangModel";
 import type { customerM } from "~/types/customerModel";
+import type { termconditionM } from "~/types/termconditionModel";
 
 definePageMeta({
   layout: "admin",
@@ -1255,26 +1274,33 @@ function currencyLabel(currency?: string) {
 }
 
 const sortedTermConditions = computed(() => {
-  const search = termConditionSearch.value.trim().toLocaleLowerCase();
+  const search = normalizeTermCondition(termConditionSearch.value)
+    .toLocaleLowerCase("id-ID");
   const selectedTerms = newPenawaran.value.termCondition ?? [];
   return termconditionStore.getDataTermcondition
     .filter((term) =>
-      term.nama_term.toLocaleLowerCase().includes(search),
+      normalizeTermCondition(term.nama_term)
+        .toLocaleLowerCase("id-ID")
+        .includes(search),
     )
     .sort((a, b) => {
-      const aSelected = selectedTerms.some((selected) =>
+      const aSelectedIndex = selectedTerms.findIndex((selected) =>
         sameTermCondition(selected, {
           id: a.id ?? "",
           nama_term: a.nama_term,
         }),
       );
-      const bSelected = selectedTerms.some((selected) =>
+      const bSelectedIndex = selectedTerms.findIndex((selected) =>
         sameTermCondition(selected, {
           id: b.id ?? "",
           nama_term: b.nama_term,
         }),
       );
 
+      const aSelected = aSelectedIndex !== -1;
+      const bSelected = bSelectedIndex !== -1;
+
+      if (aSelected && bSelected) return aSelectedIndex - bSelectedIndex;
       if (aSelected !== bSelected) return aSelected ? -1 : 1;
       return a.nama_term.localeCompare(b.nama_term, "id-ID");
     });
@@ -1296,6 +1322,76 @@ function generateNoPenawaran(): string {
 
 const newPenawaran = ref<penawaranM>(emptyPenawaran());
 const termConditionSearch = ref("");
+const savingTermCondition = ref(false);
+
+function normalizeTermCondition(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+const existingTermCondition = computed(() => {
+  const search = normalizeTermCondition(termConditionSearch.value)
+    .toLocaleLowerCase("id-ID");
+  if (!search) return undefined;
+
+  return termconditionStore.getDataTermcondition.find(
+    (term) =>
+      normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID") ===
+      search,
+  );
+});
+
+const canAddTermCondition = computed(
+  () =>
+    Boolean(normalizeTermCondition(termConditionSearch.value)) &&
+    !existingTermCondition.value &&
+    !savingTermCondition.value,
+);
+
+async function tambahTermConditionDariPencarian() {
+  if (savingTermCondition.value) return;
+
+  const termName = normalizeTermCondition(termConditionSearch.value);
+  if (!termName) {
+    return notificationStore.showError("Term & Condition tidak boleh kosong");
+  }
+  if (existingTermCondition.value) {
+    return notificationStore.showInfo("Term & Condition sudah ada di master");
+  }
+
+  savingTermCondition.value = true;
+  try {
+    const payload: termconditionM = {
+      nama_term: termName,
+      createdAt: moment().unix(),
+      createdBy: userStore.getEmail,
+    };
+    await termconditionStore.addTermconditionAct(payload);
+
+    const normalizedName = termName.toLocaleLowerCase("id-ID");
+    const addedTerm = termconditionStore.getDataTermcondition.find(
+      (term) =>
+        normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID") ===
+        normalizedName,
+    );
+    if (!addedTerm) return;
+
+    newPenawaran.value.termCondition ??= [];
+    const selectedTerm = {
+      id: addedTerm.id ?? "",
+      nama_term: addedTerm.nama_term,
+    };
+    if (
+      !newPenawaran.value.termCondition.some((term) =>
+        sameTermCondition(term, selectedTerm),
+      )
+    ) {
+      newPenawaran.value.termCondition.push(selectedTerm);
+    }
+    termConditionSearch.value = "";
+  } finally {
+    savingTermCondition.value = false;
+  }
+}
 
 function sameTermCondition(
   left: NonNullable<penawaranM["termCondition"]>[number],
@@ -2581,13 +2677,21 @@ async function refreshData() {
   border-radius: 4px;
 }
 
+.quotation-term-controls {
+  display: flex;
+  max-width: 680px;
+  margin-bottom: 12px;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .quotation-term-search {
   display: grid;
+  min-width: 0;
   grid-template-columns: 18px minmax(0, 1fr) auto;
+  flex: 1 1 auto;
   align-items: center;
   gap: 7px;
-  max-width: 460px;
-  margin-bottom: 12px;
   padding-left: 9px;
   color: #7b8794;
   background: #ffffff;
@@ -2610,6 +2714,17 @@ async function refreshData() {
 .quotation-term-search :deep(.form-group),
 .quotation-term-search :deep(.input-wrapper) {
   height: 32px;
+}
+
+.quotation-term-add-btn {
+  flex: 0 0 auto;
+  min-width: 118px;
+  height: 34px !important;
+  padding-inline: 11px !important;
+  font-size: 9px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
 }
 
 .quotation-terms-table-wrap {
@@ -2692,6 +2807,22 @@ async function refreshData() {
   height: 72px;
   color: #8b95a1;
   text-align: center !important;
+}
+
+.quotation-terms-empty strong,
+.quotation-terms-empty span {
+  display: block;
+}
+
+.quotation-terms-empty strong {
+  color: #687582;
+  font-size: 10px;
+}
+
+.quotation-terms-empty span {
+  margin-top: 3px;
+  color: #929ca6;
+  font-size: 8px;
 }
 
 .quotation-dialog-footer {
@@ -2863,6 +2994,16 @@ async function refreshData() {
   .quotation-add-row-secondary {
     width: calc(100% - 20px);
     margin: 10px;
+  }
+
+  .quotation-term-controls {
+    max-width: none;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quotation-term-add-btn {
+    width: 100%;
   }
 
   .quotation-dialog-footer {

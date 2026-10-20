@@ -159,7 +159,7 @@ const logout = async () => {
         <div class="nav-icon-wrapper">
           <v-icon size="20">mdi-cash-multiple</v-icon>
         </div>
-        <span class="nav-title-flyout">Kas</span>
+        <span class="nav-title-flyout">Keuangan Kantor</span>
       </v-list-item>
 
       <v-list-item

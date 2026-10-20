@@ -1,158 +1,329 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import moment from "moment";
+import * as XLSX from "xlsx-js-style";
 import { usepettyCashStore } from "~/stores/pettyCashStore";
 import { useUserStore } from "~/stores/userStore";
-import * as XLSX from "xlsx-js-style";
-import type { PettyCashCategory, PettyCashType } from "~/types/pettyCashModel";
-const isLoading = ref(true);
-definePageMeta({
-  layout: "admin",
-});
+import type {
+  OfficeTransactionCategory,
+  PettyCashCategory,
+  PettyCashType,
+} from "~/types/pettyCashModel";
 
-onMounted(async () => {
-  try {
-    isLoading.value = true;
+definePageMeta({ layout: "admin" });
 
-    await pettyCashStore.tarikDataPettyCashAct();
-  } finally {
-    isLoading.value = false;
-  }
-  form.value.tanggal = moment().format("YYYY-MM-DD");
-});
+interface CategoryOption {
+  value: OfficeTransactionCategory;
+  type: PettyCashType;
+  icon: string;
+  tone: "blue" | "violet" | "amber" | "green" | "rose" | "slate";
+}
 
 interface Transaction {
   createdAt: number;
   id: string;
   date: string;
-  category: PettyCashCategory;
+  category: OfficeTransactionCategory;
   description: string;
-  dikeluarkan_oleh: string;
+  responsible: string;
   amount: number;
   type: PettyCashType;
   images: string[];
+  itemName: string;
+  quantity: number;
+  unit: string;
+  assetLocation: string;
 }
+
+interface OfficeTransactionForm {
+  type: PettyCashType;
+  category: OfficeTransactionCategory;
+  amount: number | null;
+  description: string;
+  responsible: string;
+  images: string[];
+  date: string;
+  itemName: string;
+  quantity: number;
+  unit: string;
+  assetLocation: string;
+}
+
+const categoryOptions: CategoryOption[] = [
+  { value: "Setoran Modal", type: "in", icon: "mdi-bank-transfer-in", tone: "green" },
+  { value: "Pendapatan Lainnya", type: "in", icon: "mdi-cash-plus", tone: "green" },
+  { value: "Pengembalian Dana", type: "in", icon: "mdi-cash-refund", tone: "blue" },
+  { value: "Aset & Inventaris", type: "out", icon: "mdi-laptop", tone: "violet" },
+  { value: "Peralatan Kantor", type: "out", icon: "mdi-printer-outline", tone: "blue" },
+  { value: "Operasional Kantor", type: "out", icon: "mdi-office-building-cog-outline", tone: "slate" },
+  { value: "Utilitas", type: "out", icon: "mdi-flash-outline", tone: "amber" },
+  { value: "Transportasi", type: "out", icon: "mdi-car-outline", tone: "blue" },
+  { value: "Konsumsi", type: "out", icon: "mdi-food-outline", tone: "amber" },
+  { value: "Perawatan & Perbaikan", type: "out", icon: "mdi-tools", tone: "violet" },
+  { value: "Sewa", type: "out", icon: "mdi-home-city-outline", tone: "slate" },
+  { value: "Gaji & Tunjangan", type: "out", icon: "mdi-account-cash-outline", tone: "green" },
+  { value: "Pajak & Administrasi", type: "out", icon: "mdi-file-document-outline", tone: "rose" },
+  { value: "Lainnya", type: "out", icon: "mdi-dots-horizontal-circle-outline", tone: "slate" },
+];
 
 const pettyCashStore = usepettyCashStore();
 const userStore = useUserStore();
 
-const filterCategory = ref<string>("all");
-
-const isModalOpen = ref<boolean>(false);
-const isTopupHistoryOpen = ref<boolean>(false);
-const isInfoCardOpen = ref<boolean>(false);
-const modalType = ref<"topup" | "expense">("topup");
+const isLoading = ref(true);
+const isModalOpen = ref(false);
+const isEditMode = ref(false);
+const editingId = ref<string | null>(null);
+const isUploadingImages = ref(false);
+const isSaving = ref(false);
 const activePreviewImage = ref<string | null>(null);
 
-const isEditMode = ref<boolean>(false);
-const editingId = ref<string | null>(null);
+const selectedMonth = ref("all");
+const selectedYear = ref(moment().format("YYYY"));
+const filterType = ref<"all" | PettyCashType>("all");
+const filterCategory = ref<"all" | OfficeTransactionCategory>("all");
+const searchQuery = ref("");
 
-const form = ref({
-  category: "Kredit" as PettyCashCategory,
-  amount: null as number | null,
+const createEmptyForm = (
+  type: PettyCashType = "out",
+): OfficeTransactionForm => ({
+  type,
+  category: type === "in" ? "Setoran Modal" : "Operasional Kantor",
+  amount: null,
   description: "",
-  dikeluarkan_oleh: "",
-  images: [] as string[],
-  tanggal: "",
-  isMealAllowance: false,
+  responsible: "",
+  images: [],
+  date: moment().format("YYYY-MM-DD"),
+  itemName: "",
+  quantity: 1,
+  unit: "Unit",
+  assetLocation: "Kantor",
 });
+
+const form = ref<OfficeTransactionForm>(createEmptyForm());
+
+onMounted(async () => {
+  try {
+    isLoading.value = true;
+    await pettyCashStore.tarikDataPettyCashAct();
+  } finally {
+    isLoading.value = false;
+  }
+});
+
+function normalizeCategory(
+  category: PettyCashCategory | undefined,
+  type: PettyCashType,
+): OfficeTransactionCategory {
+  if (category === "Debet") return "Setoran Modal";
+  if (category === "Kredit") return "Operasional Kantor";
+  const option = categoryOptions.find((item) => item.value === category);
+  if (option) return option.value;
+  return type === "in" ? "Pendapatan Lainnya" : "Lainnya";
+}
 
 const transactions = computed<Transaction[]>(() =>
   pettyCashStore.getDataPettyCash.map((item) => {
     const timestamp = Number(item.createdAt || 0);
-
+    const type: PettyCashType = item.type === "in" ? "in" : "out";
     return {
       id: item.id || `${timestamp}-${item.tanggal}-${item.amount}`,
       createdAt: timestamp,
-      date: item.tanggal,
-      category: item.kategori,
-      description: item.keterangan,
-      dikeluarkan_oleh: item.dikeluarkan_oleh || "",
+      date: item.tanggal || "",
+      category: normalizeCategory(item.kategori, type),
+      description: item.keterangan || "",
+      responsible: item.dikeluarkan_oleh || "",
       amount: Number(item.amount || 0),
-      type: item.type,
+      type,
       images: Array.isArray(item.bukti)
         ? item.bukti
         : item.bukti
           ? [item.bukti]
           : [],
+      itemName: item.nama_item || "",
+      quantity: Number(item.qty || 0),
+      unit: item.satuan || "",
+      assetLocation: item.lokasi_aset || "",
     };
   }),
 );
 
-const selectedMonth = ref<string>("all");
-const selectedYear = ref<string>(moment().format("YYYY"));
-
 const availableYears = computed(() => {
-  const currentYear = moment().year();
-  const years: string[] = [];
-
-  for (let y = currentYear + 1; y >= currentYear - 3; y--) {
-    years.push(y.toString());
-  }
-
-  return years;
-});
-
-const transactionsByMonth = computed(() => {
-  return transactions.value.filter((t) => {
-    const [year, month] = t.date.split("-");
-
-    const matchYear =
-      selectedYear.value === "all" || year === selectedYear.value;
-    const matchMonth =
-      selectedMonth.value === "all" || month === selectedMonth.value;
-
-    return matchYear && matchMonth;
+  const years = new Set<string>([
+    moment().subtract(3, "year").format("YYYY"),
+    moment().subtract(2, "year").format("YYYY"),
+    moment().subtract(1, "year").format("YYYY"),
+    moment().format("YYYY"),
+    moment().add(1, "year").format("YYYY"),
+  ]);
+  transactions.value.forEach((transaction) => {
+    const year = transaction.date?.slice(0, 4);
+    if (year) years.add(year);
   });
+  return [...years].sort((a, b) => Number(b) - Number(a));
 });
+
+const transactionsByPeriod = computed(() =>
+  transactions.value.filter((transaction) => {
+    const [year, month] = transaction.date.split("-");
+    const matchesYear =
+      selectedYear.value === "all" || year === selectedYear.value;
+    const matchesMonth =
+      selectedMonth.value === "all" || month === selectedMonth.value;
+    return matchesYear && matchesMonth;
+  }),
+);
 
 const totalIn = computed(() =>
-  transactionsByMonth.value
-    .filter((t) => t.type === "in")
-    .reduce((sum, t) => sum + t.amount, 0),
+  transactionsByPeriod.value
+    .filter((transaction) => transaction.type === "in")
+    .reduce((total, transaction) => total + transaction.amount, 0),
 );
-
 const totalOut = computed(() =>
-  transactionsByMonth.value
-    .filter((t) => t.type === "out")
-    .reduce((sum, t) => sum + t.amount, 0),
+  transactionsByPeriod.value
+    .filter((transaction) => transaction.type === "out")
+    .reduce((total, transaction) => total + transaction.amount, 0),
+);
+const netCashFlow = computed(() => totalIn.value - totalOut.value);
+const totalAssetSpending = computed(() =>
+  transactionsByPeriod.value
+    .filter(
+      (transaction) =>
+        transaction.type === "out" &&
+        transaction.category === "Aset & Inventaris",
+    )
+    .reduce((total, transaction) => total + transaction.amount, 0),
 );
 
-const actualRealBalance = computed(() => totalIn.value - totalOut.value);
-
-const compareDateDescending = (a: Transaction, b: Transaction) =>
-  b.date.localeCompare(a.date);
-
-const compareDateAscending = (a: Transaction, b: Transaction) =>
-  a.date.localeCompare(b.date);
-
-const filteredTransactions = computed(() => {
-  let result = transactionsByMonth.value;
-  if (filterCategory.value !== "all") {
-    result = result.filter((t) => t.category === filterCategory.value);
-  }
-  return [...result].sort(compareDateDescending);
+const categoryBreakdown = computed(() => {
+  const totals = new Map<OfficeTransactionCategory, number>();
+  transactionsByPeriod.value
+    .filter((transaction) => transaction.type === "out")
+    .forEach((transaction) => {
+      totals.set(
+        transaction.category,
+        (totals.get(transaction.category) || 0) + transaction.amount,
+      );
+    });
+  return [...totals.entries()]
+    .map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: totalOut.value ? (amount / totalOut.value) * 100 : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
 });
 
-const topupTransactions = computed(() =>
-  transactions.value
-    .filter((t) => t.category === "Debet")
-    .sort(compareDateDescending),
+const filteredTransactions = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase("id-ID");
+  return transactionsByPeriod.value
+    .filter(
+      (transaction) =>
+        filterType.value === "all" || transaction.type === filterType.value,
+    )
+    .filter(
+      (transaction) =>
+        filterCategory.value === "all" ||
+        transaction.category === filterCategory.value,
+    )
+    .filter((transaction) => {
+      if (!query) return true;
+      return [
+        transaction.description,
+        transaction.category,
+        transaction.itemName,
+        transaction.responsible,
+      ].some((value) => value.toLocaleLowerCase("id-ID").includes(query));
+    })
+    .sort(
+      (a, b) =>
+        b.date.localeCompare(a.date) || b.createdAt - a.createdAt,
+    );
+});
+
+const availableFormCategories = computed(() =>
+  categoryOptions
+    .filter((category) => category.type === form.value.type)
+    .map((category) => category.value),
+);
+const isAssetTransaction = computed(
+  () =>
+    form.value.type === "out" && form.value.category === "Aset & Inventaris",
+);
+const hasActiveFilters = computed(
+  () =>
+    selectedMonth.value !== "all" ||
+    selectedYear.value !== moment().format("YYYY") ||
+    filterType.value !== "all" ||
+    filterCategory.value !== "all" ||
+    Boolean(searchQuery.value),
 );
 
-const isUploadingImages = ref(false);
-const isSaving = ref(false);
+function categoryMeta(category: OfficeTransactionCategory) {
+  return (
+    categoryOptions.find((item) => item.value === category) ||
+    categoryOptions[categoryOptions.length - 1]
+  );
+}
+
+function setTransactionType(type: PettyCashType) {
+  form.value.type = type;
+  if (!availableFormCategories.value.includes(form.value.category)) {
+    form.value.category =
+      type === "in" ? "Setoran Modal" : "Operasional Kantor";
+  }
+}
+
+function openModal(type: PettyCashType = "out") {
+  isEditMode.value = false;
+  editingId.value = null;
+  form.value = createEmptyForm(type);
+  isModalOpen.value = true;
+}
+
+function openEditModal(transaction: Transaction) {
+  uploadStore().setReset();
+  isEditMode.value = true;
+  editingId.value = transaction.id;
+  form.value = {
+    type: transaction.type,
+    category: transaction.category,
+    amount: transaction.amount,
+    description: transaction.description,
+    responsible: transaction.responsible,
+    images: [...transaction.images],
+    date: transaction.date,
+    itemName: transaction.itemName,
+    quantity: transaction.quantity || 1,
+    unit: transaction.unit || "Unit",
+    assetLocation: transaction.assetLocation || "Kantor",
+  };
+  isModalOpen.value = true;
+}
+
+function closeModal() {
+  if (isSaving.value) return;
+  isModalOpen.value = false;
+  uploadStore().setReset();
+}
+
+function resetFilters() {
+  selectedMonth.value = "all";
+  selectedYear.value = moment().format("YYYY");
+  filterType.value = "all";
+  filterCategory.value = "all";
+  searchQuery.value = "";
+}
 
 const handleImageUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   const files = Array.from(target.files || []);
   if (!files.length) return;
-
   isUploadingImages.value = true;
   try {
     form.value.images.push(...(await Promise.all(files.map(readImageFile))));
   } catch (error) {
-    console.error("Gagal membaca bukti petty cash", error);
+    console.error("Gagal membaca bukti transaksi kantor", error);
     useNotificationStore().showError("Gambar bukti tidak dapat dibaca");
   } finally {
     isUploadingImages.value = false;
@@ -174,78 +345,55 @@ function readImageFile(file: File): Promise<string> {
   });
 }
 
-const removeImage = (index: number) => form.value.images.splice(index, 1);
+function removeImage(index: number) {
+  form.value.images.splice(index, 1);
+}
+function previewImage(imageUrl: string) {
+  activePreviewImage.value = imageUrl;
+}
 
-const openModal = (type: "topup" | "expense") => {
-  isEditMode.value = false;
-  editingId.value = null;
-  modalType.value = type;
-  form.value.category = type === "topup" ? "Debet" : "Kredit";
-  form.value.amount = 0;
-  form.value.description = "";
-  form.value.dikeluarkan_oleh = "Seilla";
-  form.value.images = [];
-  form.value.isMealAllowance = false;
-  isModalOpen.value = true;
-};
-
-const openEditModal = (tx: Transaction) => {
-  uploadStore().setReset();
-  isEditMode.value = true;
-  editingId.value = tx.id;
-  modalType.value = tx.type === "in" ? "topup" : "expense";
-  form.value.category = tx.category;
-  form.value.amount = tx.amount;
-  form.value.tanggal = tx.date;
-  form.value.description = tx.description;
-  form.value.dikeluarkan_oleh = tx.dikeluarkan_oleh;
-  form.value.images = [...tx.images];
-  form.value.isMealAllowance = false;
-  isModalOpen.value = true;
-};
-
-const closeModal = () => {
-  isModalOpen.value = false;
-  uploadStore().setReset();
-};
-const openTopupHistoryModal = () => {
-  isTopupHistoryOpen.value = true;
-};
-const closeTopupHistoryModal = () => {
-  isTopupHistoryOpen.value = false;
-};
-const openInfoCardModal = () => {
-  isInfoCardOpen.value = true;
-};
-const closeInfoCardModal = () => {
-  isInfoCardOpen.value = false;
-};
-const previewImage = (imgUrl: string) => {
-  activePreviewImage.value = imgUrl;
-};
-
-const handleSubmit = async () => {
+async function handleSubmit() {
   if (isSaving.value || isUploadingImages.value) return;
-  if (!form.value.amount || !form.value.description) return;
-
-  let finalAmount = form.value.amount;
-  if (modalType.value === "expense" && form.value.isMealAllowance) {
-    finalAmount += 15000;
+  if (!form.value.date) {
+    return useNotificationStore().showError("Tanggal transaksi wajib diisi");
+  }
+  if (!form.value.amount || form.value.amount <= 0) {
+    return useNotificationStore().showError("Nominal transaksi wajib diisi");
+  }
+  if (!form.value.category || !form.value.description.trim()) {
+    return useNotificationStore().showError(
+      "Kategori dan keterangan transaksi wajib diisi",
+    );
+  }
+  if (!form.value.responsible.trim()) {
+    return useNotificationStore().showError(
+      "Penanggung jawab transaksi wajib diisi",
+    );
+  }
+  if (isAssetTransaction.value && !form.value.itemName.trim()) {
+    return useNotificationStore().showError(
+      "Nama barang atau aset wajib diisi",
+    );
   }
 
   const payload = {
-    amount: finalAmount,
-    keterangan: form.value.description,
-    dikeluarkan_oleh: form.value.dikeluarkan_oleh,
+    amount: Number(form.value.amount),
+    keterangan: form.value.description.trim(),
+    dikeluarkan_oleh: form.value.responsible.trim(),
     bukti: form.value.images,
-    type: (modalType.value === "topup" ? "in" : "out") as PettyCashType,
-    tanggal: form.value.tanggal,
+    type: form.value.type,
+    tanggal: form.value.date,
     kategori: form.value.category,
+    nama_item: isAssetTransaction.value ? form.value.itemName.trim() : "",
+    qty: isAssetTransaction.value ? Number(form.value.quantity || 0) : 0,
+    satuan: isAssetTransaction.value ? form.value.unit.trim() : "",
+    lokasi_aset: isAssetTransaction.value
+      ? form.value.assetLocation.trim()
+      : "",
   };
 
   isSaving.value = true;
   useloadingStore().setLoading(true);
-
   await nextTick();
   try {
     let saved = false;
@@ -254,7 +402,7 @@ const handleSubmit = async () => {
         id: editingId.value,
         ...payload,
         updatedAt: moment().unix(),
-        updatedBy: useUserStore().getEmail || "",
+        updatedBy: userStore.getEmail || "",
       });
     } else {
       saved = await pettyCashStore.addPettyCashAct({
@@ -263,660 +411,504 @@ const handleSubmit = async () => {
         createdBy: userStore.getEmail || "",
       });
     }
-    if (saved) closeModal();
+    if (saved) {
+      isModalOpen.value = false;
+      uploadStore().setReset();
+    }
   } finally {
     isSaving.value = false;
     useloadingStore().setLoading(false);
   }
-};
+}
 
-async function deletePettyCash(id: string) {
-  if (confirm("Apakah Anda yakin ingin menghapus transaksi ini?")) {
+async function deleteTransaction(id: string) {
+  if (confirm("Hapus transaksi keuangan kantor ini?")) {
     await pettyCashStore.deletePettyCashAct(id);
   }
 }
 
-const formatNumber = (num: number): string => num.toLocaleString("id-ID");
+const formatNumber = (value: number) =>
+  Number(value || 0).toLocaleString("id-ID");
+const formatCurrency = (value: number) => `Rp ${formatNumber(value)}`;
+const formatDate = (date: string) =>
+  date ? moment(date, "YYYY-MM-DD").format("DD MMM YYYY") : "—";
 
-const copyRekening = async () => {
-  try {
-    await navigator.clipboard.writeText("586-573-7332");
-  } catch (err) {
-    console.error("Gagal menyalin nomor rekening", err);
-  }
-};
-
-const downloadExcel = () => {
+function periodLabel() {
   const monthNames = [
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
   ];
-  const period =
-    selectedMonth.value !== "all" && selectedYear.value !== "all"
-      ? `${monthNames[Number(selectedMonth.value) - 1]} ${selectedYear.value}`
-      : selectedYear.value !== "all"
-        ? `Tahun ${selectedYear.value}`
-        : "Semua Periode";
-  const reportTransactions = transactionsByMonth.value
-    .filter(
-      (tx) =>
-        filterCategory.value === "all" || tx.category === filterCategory.value,
-    )
-    .sort(compareDateAscending);
+  if (selectedMonth.value !== "all" && selectedYear.value !== "all") {
+    return `${monthNames[Number(selectedMonth.value) - 1]} ${selectedYear.value}`;
+  }
+  if (selectedYear.value !== "all") return `Tahun ${selectedYear.value}`;
+  return "Semua Periode";
+}
 
-  const currencyFormat = '"Rp "#,##0;[Red]\\("-Rp "#,##0\\);"-"';
-  const thinBorder = {
-    top: { style: "thin", color: { rgb: "CBD5E1" } },
-    bottom: { style: "thin", color: { rgb: "CBD5E1" } },
-    left: { style: "thin", color: { rgb: "CBD5E1" } },
-    right: { style: "thin", color: { rgb: "CBD5E1" } },
-  };
-  const totalBorder = {
-    ...thinBorder,
-    top: { style: "thin", color: { rgb: "1E3A8A" } },
-    bottom: { style: "double", color: { rgb: "1E3A8A" } },
-  };
-  const baseFont = { name: "Calibri", sz: 11 };
-  const styles = {
-    title: {
-      font: { ...baseFont, bold: true, sz: 16, color: { rgb: "1E3A8A" } },
-    },
-    subtitle: { font: { ...baseFont, italic: true, color: { rgb: "475569" } } },
-    summaryLabel: {
-      font: { ...baseFont, bold: true, sz: 9, color: { rgb: "64748B" } },
-      fill: { fgColor: { rgb: "F8FAFC" } },
-      alignment: { horizontal: "center", vertical: "center" },
-    },
-    summaryValue: {
-      font: { ...baseFont, bold: true, sz: 14, color: { rgb: "1E3A8A" } },
-      fill: { fgColor: { rgb: "F8FAFC" } },
-      alignment: { horizontal: "center", vertical: "center" },
-      numFmt: currencyFormat,
-    },
-    header: {
-      font: { ...baseFont, bold: true, color: { rgb: "FFFFFF" } },
-      fill: { fgColor: { rgb: "1E3A8A" } },
-      border: thinBorder,
-      alignment: { horizontal: "center", vertical: "center" },
-    },
-    cellCenter: {
-      font: baseFont,
-      border: thinBorder,
-      alignment: { horizontal: "center", vertical: "center" },
-    },
-    cellLeft: {
-      font: baseFont,
-      border: thinBorder,
-      alignment: { horizontal: "left", vertical: "center" },
-    },
-    currency: {
-      font: baseFont,
-      border: thinBorder,
-      alignment: { horizontal: "right", vertical: "center" },
-      numFmt: currencyFormat,
-    },
-    totalLabel: {
-      font: { ...baseFont, bold: true },
-      fill: { fgColor: { rgb: "E2E8F0" } },
-      border: totalBorder,
-      alignment: { horizontal: "right", vertical: "center" },
-    },
-    totalCurrency: {
-      font: { ...baseFont, bold: true },
-      fill: { fgColor: { rgb: "E2E8F0" } },
-      border: totalBorder,
-      alignment: { horizontal: "right", vertical: "center" },
-      numFmt: currencyFormat,
-    },
-  };
-
-  const worksheet = XLSX.utils.aoa_to_sheet([
-    ["REKAPAN KAS PT. DUTA RAYA MARINE"],
-    [`Periode: ${period} (Urutan Terlama ke Terbaru)`],
-    [],
-    [
-      "TOTAL DEBET (MASUK)",
-      "",
-      "TOTAL KREDIT (KELUAR)",
-      "",
-      "SISA SALDO AKHIR",
-    ],
-    ["", "", "", "", ""],
-    [],
-    ["No", "Tanggal", "Kategori", "Keterangan", "DEBET", "KREDIT", "SALDO"],
+function downloadExcel() {
+  const reportTransactions = [...filteredTransactions.value].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  const rows = reportTransactions.map((transaction, index) => [
+    index + 1,
+    transaction.date,
+    transaction.type === "in" ? "Pemasukan" : "Pengeluaran",
+    transaction.category,
+    transaction.description,
+    transaction.itemName,
+    transaction.quantity || "",
+    transaction.unit,
+    transaction.assetLocation,
+    transaction.responsible,
+    transaction.type === "in" ? transaction.amount : 0,
+    transaction.type === "out" ? transaction.amount : 0,
   ]);
-  const firstDataRow = 8;
-  let runningBalance = 0;
-  let totalDebit = 0;
-  let totalCredit = 0;
-
-  reportTransactions.forEach((transaction, index) => {
-    const row = firstDataRow + index;
-    const debit = transaction.type === "in" ? transaction.amount : 0;
-    const credit = transaction.type === "out" ? transaction.amount : 0;
-    runningBalance += debit - credit;
-    totalDebit += debit;
-    totalCredit += credit;
-    XLSX.utils.sheet_add_aoa(
-      worksheet,
-      [
-        [
-          index + 1,
-          transaction.date,
-          transaction.category,
-          transaction.description,
-          debit,
-          credit,
-          {
-            t: "n",
-            f: index === 0 ? `E${row}-F${row}` : `G${row - 1}+E${row}-F${row}`,
-            v: runningBalance,
-          },
-        ],
-      ],
-      { origin: `A${row}` },
-    );
-  });
-
-  const totalRow = firstDataRow + reportTransactions.length;
-  const lastDataRow = totalRow - 1;
-  const hasTransactions = reportTransactions.length > 0;
-  XLSX.utils.sheet_add_aoa(
-    worksheet,
+  const reportIn = reportTransactions
+    .filter((transaction) => transaction.type === "in")
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const reportOut = reportTransactions
+    .filter((transaction) => transaction.type === "out")
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    ["LAPORAN KEUANGAN KANTOR PT. DUTA RAYA MARINE"],
+    [`Periode: ${periodLabel()}`],
+    [],
     [
-      [
-        "",
-        "",
-        "",
-        "TOTAL",
-        hasTransactions
-          ? {
-              t: "n",
-              f: `SUM(E${firstDataRow}:E${lastDataRow})`,
-              v: totalDebit,
-            }
-          : 0,
-        hasTransactions
-          ? {
-              t: "n",
-              f: `SUM(F${firstDataRow}:F${lastDataRow})`,
-              v: totalCredit,
-            }
-          : 0,
-        hasTransactions
-          ? { t: "n", f: `G${lastDataRow}`, v: runningBalance }
-          : 0,
-      ],
+      "No", "Tanggal", "Jenis", "Kategori", "Keterangan", "Item / Aset",
+      "Qty", "Satuan", "Lokasi", "Penanggung Jawab", "Pemasukan",
+      "Pengeluaran",
     ],
-    { origin: `A${totalRow}` },
-  );
-  XLSX.utils.sheet_add_aoa(
-    worksheet,
-    [
-      [
-        { t: "n", f: `E${totalRow}`, v: totalDebit },
-        "",
-        { t: "n", f: `F${totalRow}`, v: totalCredit },
-        "",
-        { t: "n", f: `G${totalRow}`, v: runningBalance },
-      ],
-    ],
-    { origin: "A5" },
-  );
-
+    ...rows,
+    [],
+    ["", "", "", "", "", "", "", "", "", "TOTAL", reportIn, reportOut],
+    ["", "", "", "", "", "", "", "", "", "SELISIH", reportIn - reportOut, ""],
+  ]);
   worksheet["!merges"] = [
-    XLSX.utils.decode_range("A4:B4"),
-    XLSX.utils.decode_range("C4:D4"),
-    XLSX.utils.decode_range("E4:G4"),
-    XLSX.utils.decode_range("A5:B5"),
-    XLSX.utils.decode_range("C5:D5"),
-    XLSX.utils.decode_range("E5:G5"),
+    XLSX.utils.decode_range("A1:L1"),
+    XLSX.utils.decode_range("A2:L2"),
   ];
-  worksheet["!cols"] = [
-    { wch: 6 },
-    { wch: 14 },
-    { wch: 23 },
-    { wch: 55 },
-    { wch: 18 },
-    { wch: 18 },
-    { wch: 18 },
-  ];
-  worksheet["!rows"] = [{ hpt: 21 }, null, null, null, { hpt: 19 }];
   worksheet["!freeze"] = {
     xSplit: 0,
-    ySplit: 7,
-    topLeftCell: "A8",
+    ySplit: 4,
+    topLeftCell: "A5",
     activePane: "bottomLeft",
     state: "frozen",
   };
-
-  const applyRowStyle = (row: number, isAlternate: boolean) => {
-    const fill = isAlternate ? { fgColor: { rgb: "F1F5F9" } } : undefined;
-    ["A", "B"].forEach((column) => {
-      worksheet[`${column}${row}`].s = {
-        ...styles.cellCenter,
-        ...(fill && { fill }),
-      };
-    });
-    ["C", "D"].forEach((column) => {
-      worksheet[`${column}${row}`].s = {
-        ...styles.cellLeft,
-        ...(fill && { fill }),
-      };
-    });
-    ["E", "F", "G"].forEach((column) => {
-      worksheet[`${column}${row}`].s = {
-        ...styles.currency,
-        ...(fill && { fill }),
-      };
-    });
+  worksheet["!cols"] = [
+    { wch: 6 }, { wch: 14 }, { wch: 13 }, { wch: 24 }, { wch: 42 },
+    { wch: 24 }, { wch: 8 }, { wch: 10 }, { wch: 18 }, { wch: 20 },
+    { wch: 18 }, { wch: 18 },
+  ];
+  const headerStyle = {
+    font: { bold: true, color: { rgb: "FFFFFF" } },
+    fill: { fgColor: { rgb: "173F66" } },
+    alignment: { horizontal: "center", vertical: "center" },
   };
-
-  worksheet.A1.s = styles.title;
-  worksheet.A2.s = styles.subtitle;
-  ["A", "C", "E"].forEach((column) => {
-    worksheet[`${column}4`].s = styles.summaryLabel;
-    worksheet[`${column}5`].s = styles.summaryValue;
-  });
-  ["B", "D", "F", "G"].forEach((column) => {
-    worksheet[`${column}4`] = {
-      t: "z",
-      s: { fill: { fgColor: { rgb: "F8FAFC" } } },
-    };
-    worksheet[`${column}5`] = {
-      t: "z",
-      s: { fill: { fgColor: { rgb: "F8FAFC" } } },
-    };
-  });
-  ["A", "B", "C", "D", "E", "F", "G"].forEach((column) => {
-    worksheet[`${column}7`].s = styles.header;
-    worksheet[`${column}${totalRow}`].s =
-      column === "D" ? styles.totalLabel : styles.totalCurrency;
-  });
-  reportTransactions.forEach((_, index) =>
-    applyRowStyle(firstDataRow + index, index % 2 === 1),
-  );
-
+  const currencyFormat = '"Rp "#,##0;[Red]\-"Rp "#,##0';
+  worksheet.A1.s = { font: { bold: true, sz: 16, color: { rgb: "173F66" } } };
+  worksheet.A2.s = { font: { italic: true, color: { rgb: "64748B" } } };
+  for (let column = 0; column < 12; column++) {
+    worksheet[XLSX.utils.encode_cell({ r: 3, c: column })].s = headerStyle;
+  }
+  for (let row = 4; row < 4 + rows.length; row++) {
+    [10, 11].forEach((column) => {
+      const cell = XLSX.utils.encode_cell({ r: row, c: column });
+      if (worksheet[cell]) worksheet[cell].z = currencyFormat;
+    });
+  }
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(
-    workbook,
-    worksheet,
-    `Kas ${period}`.slice(0, 31),
-  );
-  XLSX.writeFile(workbook, `Laporan Kas DRM - ${period}.xlsx`);
-};
-
-const isCurrentMonth = (dateString: string): boolean => {
-  if (!dateString) return false;
-
-  const txDate = moment(dateString, "YYYY-MM-DD");
-  const now = moment();
-
-  return txDate.isSame(now, "month");
-};
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Keuangan Kantor");
+  XLSX.writeFile(workbook, `Laporan Keuangan Kantor DRM - ${periodLabel()}.xlsx`);
+}
 </script>
 
 <template>
-  <v-btn
-    variant="text"
-    color="grey-darken-3"
-    prepend-icon="mdi-arrow-left"
-    @click="$router.go(-1)"
-    class="text-capitalize font-weight-bold mb-2"
-  >
-    Kembali
-  </v-btn>
+  <div class="office-finance-page">
+    <v-btn
+      variant="text"
+      color="grey-darken-3"
+      prepend-icon="mdi-arrow-left"
+      class="back-button text-none"
+      @click="$router.go(-1)"
+    >
+      Kembali
+    </v-btn>
 
-  <div class="petty-cash-container">
-    <div class="pc-header">
-      <div class="header-info">
-        <h1 class="pc-title">Kas Management</h1>
-        <p class="pc-subtitle">
-          Pantau saldo, pengeluaran operasional, dan riwayat klaim kas.
+    <header class="finance-hero">
+      <div class="finance-hero-copy">
+        <span class="finance-eyebrow">Office Finance</span>
+        <h1>Keuangan Kantor</h1>
+        <p>
+          Catat seluruh pemasukan dan pengeluaran perusahaan, termasuk
+          pembelian aset, inventaris, dan kebutuhan operasional kantor.
         </p>
       </div>
-
-      <div class="pc-action-buttons">
-        <button @click="openInfoCardModal" class="btn btn-outline">
-          <v-icon size="18">mdi-bank-outline</v-icon>
-          <span class="btn-text">Rekening</span>
-        </button>
-        <button @click="openTopupHistoryModal" class="btn btn-outline">
-          <v-icon size="18">mdi-history</v-icon>
-          <span class="btn-text">Riwayat Debet</span>
-        </button>
-        <button @click="openModal('topup')" class="btn btn-success">
-          <v-icon size="18">mdi-plus-circle-outline</v-icon>
-          <span class="btn-text">Top Up</span>
-        </button>
-        <button @click="openModal('expense')" class="btn btn-primary">
-          <v-icon size="18">mdi-minus-circle-outline</v-icon>
-          <span class="btn-text">Create Pengeluaran</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="pc-metrics-grid">
-      <template v-if="isLoading">
-        <div class="metric-card card-balance">
-          <div class="metric-header">
-            <v-skeleton-loader type="text" width="60%" class="bg-transparent" />
-            <v-skeleton-loader type="avatar" size="32" class="bg-transparent" />
-          </div>
-          <v-skeleton-loader
-            type="heading"
-            width="80%"
-            class="bg-transparent mt-2"
-          />
-        </div>
-
-        <div class="metric-card card-in">
-          <div class="metric-header">
-            <v-skeleton-loader type="text" width="60%" />
-            <v-skeleton-loader type="avatar" size="32" />
-          </div>
-          <v-skeleton-loader type="heading" width="70%" class="mt-2" />
-        </div>
-
-        <div class="metric-card card-out">
-          <div class="metric-header">
-            <v-skeleton-loader type="text" width="60%" />
-            <v-skeleton-loader type="avatar" size="32" />
-          </div>
-          <v-skeleton-loader type="heading" width="70%" class="mt-2" />
-        </div>
-      </template>
-
-      <template v-else>
-        <div class="metric-card card-balance">
-          <div class="metric-header">
-            <span class="metric-label label-light"
-              >Sisa Saldo Kas Saat Ini</span
-            >
-            <div class="card-icon-badge">
-              <v-icon size="20" color="white">mdi-wallet-outline</v-icon>
-            </div>
-          </div>
-          <p class="metric-value value-large text-white">
-            Rp {{ formatNumber(actualRealBalance) }}
-          </p>
-        </div>
-
-        <div class="metric-card card-in">
-          <div class="metric-header">
-            <span class="metric-label">Total Masuk Keseluruhan</span>
-            <div class="icon-circle text-emerald">
-              <v-icon size="18">mdi-arrow-down-left</v-icon>
-            </div>
-          </div>
-          <p class="metric-value text-emerald">
-            Rp {{ formatNumber(totalIn) }}
-          </p>
-        </div>
-
-        <div class="metric-card card-out">
-          <div class="metric-header">
-            <span class="metric-label">Total Keluar Keseluruhan</span>
-            <div class="icon-circle text-rose">
-              <v-icon size="18">mdi-arrow-up-right</v-icon>
-            </div>
-          </div>
-          <p class="metric-value text-rose">Rp {{ formatNumber(totalOut) }}</p>
-        </div>
-      </template>
-    </div>
-
-    <div class="month-filter-card">
-      <div class="filter-label-group">
-        <v-icon size="18" color="#64748b">mdi-calendar-month-outline</v-icon>
-        <span class="month-filter-label">Periode Transaksi</span>
-      </div>
-      <div class="select-wrapper">
-        <select v-model="selectedMonth" class="form-select month-select">
-          <option value="all">Semua Bulan</option>
-          <option value="01">Januari</option>
-          <option value="02">Februari</option>
-          <option value="03">Maret</option>
-          <option value="04">April</option>
-          <option value="05">Mei</option>
-          <option value="06">Juni</option>
-          <option value="07">Juli</option>
-          <option value="08">Agustus</option>
-          <option value="09">September</option>
-          <option value="10">Oktober</option>
-          <option value="11">November</option>
-          <option value="12">Desember</option>
-        </select>
-        <v-icon class="select-icon" size="18">mdi-chevron-down</v-icon>
-      </div>
-
-      <div class="select-wrapper">
-        <select v-model="selectedYear" class="form-select month-select">
-          <option value="all">Semua Tahun</option>
-          <option v-for="year in availableYears" :key="year" :value="year">
-            {{ year }}
-          </option>
-        </select>
-        <v-icon class="select-icon" size="18">mdi-chevron-down</v-icon>
-      </div>
-    </div>
-
-    <div class="pc-main-card">
-      <div class="card-header-bar">
-        <div class="card-title-group">
-          <h3 class="table-title">Riwayat Transaksi</h3>
-          <span class="badge-count">
-            {{ filteredTransactions.length }} Transaksi
-          </span>
-        </div>
-
-        <!-- Kanan -->
-        <div style="display: flex; align-items: center">
-          <v-tooltip text="Download Excel" location="top">
-            <template #activator="{ props }">
-              <v-btn
-                v-bind="props"
-                icon
-                variant="text"
-                color="success"
-                @click="downloadExcel"
-              >
-                <v-icon>mdi-file-excel</v-icon>
-              </v-btn>
-            </template>
-          </v-tooltip>
-
-          <div class="filter-wrapper select-wrapper">
-            <select v-model="filterCategory" class="form-select">
-              <option value="all">Semua Kategori</option>
-              <option value="Debet">Debet Saldo</option>
-              <option value="Kredit">Kredit</option>
-            </select>
-
-            <v-icon class="select-icon" size="18"> mdi-chevron-down </v-icon>
-          </div>
-        </div>
-      </div>
-
-      <div class="mobile-list-view">
-        <div v-if="filteredTransactions.length === 0" class="table-empty">
-          <v-icon size="36" color="#cbd5e1">mdi-receipt-text-outline</v-icon>
-          <p>Belum ada data transaksi pada periode ini.</p>
-        </div>
-
-        <div
-          v-for="tx in filteredTransactions"
-          :key="tx.id"
-          class="mobile-tx-card"
+      <div class="finance-hero-actions">
+        <v-btn
+          variant="outlined"
+          color="grey-darken-1"
+          prepend-icon="mdi-file-excel-outline"
+          class="text-none export-button"
+          @click="downloadExcel"
         >
-          <div class="mobile-card-row">
-            <span class="badge-date">{{ tx.date }}</span>
-            <span
-              class="badge"
-              :class="{
-                'badge-topup': tx.category === 'Debet',
+          Export Excel
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          prepend-icon="mdi-plus"
+          class="text-none create-button"
+          @click="openModal('out')"
+        >
+          Catat Transaksi
+        </v-btn>
+      </div>
+    </header>
 
-                'badge-kantor': tx.category === 'Kredit',
-              }"
-            >
-              {{ tx.category }}
+    <section class="metric-grid" aria-label="Ringkasan keuangan kantor">
+      <template v-if="isLoading">
+        <div v-for="index in 4" :key="index" class="metric-card">
+          <v-skeleton-loader type="text, heading" />
+        </div>
+      </template>
+      <template v-else>
+        <article class="metric-card metric-card--net">
+          <div class="metric-card-heading">
+            <span>Selisih Periode</span>
+            <span class="metric-icon">
+              <v-icon icon="mdi-chart-timeline-variant" size="19" />
             </span>
           </div>
+          <strong>{{ formatCurrency(netCashFlow) }}</strong>
+          <small>{{ periodLabel() }}</small>
+        </article>
+        <article class="metric-card">
+          <div class="metric-card-heading">
+            <span>Total Pemasukan</span>
+            <span class="metric-icon metric-icon--green">
+              <v-icon icon="mdi-arrow-down-left" size="19" />
+            </span>
+          </div>
+          <strong class="metric-value--green">{{ formatCurrency(totalIn) }}</strong>
+          <small>Transaksi dana masuk</small>
+        </article>
+        <article class="metric-card">
+          <div class="metric-card-heading">
+            <span>Total Pengeluaran</span>
+            <span class="metric-icon metric-icon--rose">
+              <v-icon icon="mdi-arrow-up-right" size="19" />
+            </span>
+          </div>
+          <strong class="metric-value--rose">{{ formatCurrency(totalOut) }}</strong>
+          <small>Seluruh biaya kantor</small>
+        </article>
+        <article class="metric-card">
+          <div class="metric-card-heading">
+            <span>Belanja Aset</span>
+            <span class="metric-icon metric-icon--violet">
+              <v-icon icon="mdi-laptop" size="19" />
+            </span>
+          </div>
+          <strong>{{ formatCurrency(totalAssetSpending) }}</strong>
+          <small>Aset &amp; inventaris periode ini</small>
+        </article>
+      </template>
+    </section>
 
-          <div class="mobile-card-desc">{{ tx.description }}</div>
-
-          <div class="mobile-card-footer">
-            <div class="mobile-amount-box">
-              <span class="amount-label">Nominal</span>
-              <div
-                class="tx-amount"
-                :class="tx.type === 'in' ? 'text-emerald' : 'text-rose'"
-              >
-                {{ tx.type === "in" ? "+" : "-" }} Rp
-                {{ formatNumber(tx.amount) }}
+    <section class="finance-overview-grid">
+      <article class="category-overview-card">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">Expense allocation</span>
+            <h2>Pengeluaran per Kategori</h2>
+          </div>
+          <span class="section-count">{{ categoryBreakdown.length }} kategori</span>
+        </div>
+        <div v-if="categoryBreakdown.length" class="category-breakdown-list">
+          <div
+            v-for="item in categoryBreakdown"
+            :key="item.category"
+            class="category-breakdown-item"
+          >
+            <span
+              class="category-icon"
+              :class="`category-icon--${categoryMeta(item.category).tone}`"
+            >
+              <v-icon :icon="categoryMeta(item.category).icon" size="17" />
+            </span>
+            <div class="category-breakdown-main">
+              <div>
+                <span>{{ item.category }}</span>
+                <strong>{{ formatCurrency(item.amount) }}</strong>
+              </div>
+              <div class="category-progress-track">
+                <span :style="{ width: `${item.percentage}%` }"></span>
               </div>
             </div>
-
-            <div class="mobile-card-actions">
-              <v-btn
-                v-for="image in tx.images"
-                :key="image"
-                icon
-                variant="flat"
-                color="#f1f5f9"
-                density="comfortable"
-                size="small"
-                @click="previewImage(image)"
-              >
-                <v-icon size="18" color="#475569">mdi-image-outline</v-icon>
-              </v-btn>
-              <v-btn
-                icon="mdi-pencil-outline"
-                variant="flat"
-                color="#eff6ff"
-                size="small"
-                density="comfortable"
-                @click="openEditModal(tx)"
-              />
-              <v-btn
-                icon="mdi-delete-outline"
-                variant="flat"
-                color="#fef2f2"
-                size="small"
-                density="comfortable"
-                @click="deletePettyCash(tx.id)"
-              />
-            </div>
+            <span class="category-percentage">{{ item.percentage.toFixed(1) }}%</span>
           </div>
         </div>
+        <div v-else class="overview-empty">
+          <v-icon icon="mdi-chart-donut" size="28" />
+          <span>Belum ada pengeluaran pada periode ini.</span>
+        </div>
+      </article>
+
+      <article class="period-card">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">Reporting period</span>
+            <h2>Periode Laporan</h2>
+          </div>
+          <v-icon icon="mdi-calendar-month-outline" size="21" />
+        </div>
+        <div class="period-fields">
+          <label>
+            <span>Bulan</span>
+            <select v-model="selectedMonth">
+              <option value="all">Semua Bulan</option>
+              <option value="01">Januari</option><option value="02">Februari</option>
+              <option value="03">Maret</option><option value="04">April</option>
+              <option value="05">Mei</option><option value="06">Juni</option>
+              <option value="07">Juli</option><option value="08">Agustus</option>
+              <option value="09">September</option><option value="10">Oktober</option>
+              <option value="11">November</option><option value="12">Desember</option>
+            </select>
+          </label>
+          <label>
+            <span>Tahun</span>
+            <select v-model="selectedYear">
+              <option value="all">Semua Tahun</option>
+              <option v-for="year in availableYears" :key="year" :value="year">
+                {{ year }}
+              </option>
+            </select>
+          </label>
+        </div>
+        <div class="period-summary">
+          <div><span>Transaksi</span><strong>{{ transactionsByPeriod.length }}</strong></div>
+          <div><span>Kategori Aktif</span><strong>{{ categoryBreakdown.length }}</strong></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="transaction-panel">
+      <div class="transaction-panel-header">
+        <div>
+          <span class="section-kicker">Office ledger</span>
+          <div class="transaction-title-row">
+            <h2>Daftar Transaksi</h2>
+            <span>{{ filteredTransactions.length }} data</span>
+          </div>
+        </div>
+        <v-btn
+          icon="mdi-file-excel-outline"
+          variant="text"
+          color="success"
+          aria-label="Export transaksi ke Excel"
+          @click="downloadExcel"
+        />
       </div>
 
-      <div class="table-responsive desktop-table-view">
-        <table class="pc-table">
+      <div class="transaction-toolbar">
+        <label class="search-field">
+          <v-icon icon="mdi-magnify" size="18" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Cari keterangan, kategori, aset, atau PIC..."
+          />
+        </label>
+        <label class="toolbar-select">
+          <span>Jenis</span>
+          <select v-model="filterType">
+            <option value="all">Semua Jenis</option>
+            <option value="in">Pemasukan</option>
+            <option value="out">Pengeluaran</option>
+          </select>
+        </label>
+        <label class="toolbar-select toolbar-select--category">
+          <span>Kategori</span>
+          <select v-model="filterCategory">
+            <option value="all">Semua Kategori</option>
+            <option
+              v-for="category in categoryOptions"
+              :key="category.value"
+              :value="category.value"
+            >
+              {{ category.value }}
+            </option>
+          </select>
+        </label>
+        <button
+          v-if="hasActiveFilters"
+          type="button"
+          class="clear-filter-button"
+          @click="resetFilters"
+        >
+          <v-icon icon="mdi-filter-remove-outline" size="17" /> Reset
+        </button>
+      </div>
+
+      <div class="transaction-mobile-list">
+        <div v-if="!filteredTransactions.length" class="empty-state">
+          <v-icon icon="mdi-text-box-search-outline" size="38" />
+          <strong>Belum ada transaksi</strong>
+          <span>Sesuaikan filter atau tambahkan transaksi kantor baru.</span>
+        </div>
+        <article
+          v-for="transaction in filteredTransactions"
+          :key="transaction.id"
+          class="transaction-mobile-card"
+        >
+          <div class="mobile-card-heading">
+            <span
+              class="category-icon"
+              :class="`category-icon--${categoryMeta(transaction.category).tone}`"
+            >
+              <v-icon :icon="categoryMeta(transaction.category).icon" size="17" />
+            </span>
+            <div>
+              <strong>{{ transaction.description }}</strong>
+              <span>{{ formatDate(transaction.date) }} · {{ transaction.category }}</span>
+            </div>
+            <span
+              class="transaction-type-badge"
+              :class="`transaction-type-badge--${transaction.type}`"
+            >
+              {{ transaction.type === "in" ? "Masuk" : "Keluar" }}
+            </span>
+          </div>
+          <div v-if="transaction.itemName" class="mobile-asset-info">
+            <v-icon icon="mdi-package-variant-closed" size="15" />
+            {{ transaction.itemName }} · {{ transaction.quantity }}
+            {{ transaction.unit }} · {{ transaction.assetLocation }}
+          </div>
+          <div class="mobile-card-meta">
+            <span>PIC: {{ transaction.responsible || "—" }}</span>
+            <strong
+              :class="transaction.type === 'in' ? 'transaction-amount--in' : 'transaction-amount--out'"
+            >
+              {{ transaction.type === "in" ? "+" : "-" }}
+              {{ formatCurrency(transaction.amount) }}
+            </strong>
+          </div>
+          <div class="mobile-card-actions">
+            <button
+              v-for="(image, imageIndex) in transaction.images"
+              :key="`${transaction.id}-${imageIndex}`"
+              type="button"
+              aria-label="Lihat bukti transaksi"
+              @click="previewImage(image)"
+            >
+              <v-icon icon="mdi-image-outline" size="17" />
+            </button>
+            <button type="button" @click="openEditModal(transaction)">
+              <v-icon icon="mdi-pencil-outline" size="17" />
+            </button>
+            <button
+              type="button"
+              class="mobile-delete-button"
+              @click="deleteTransaction(transaction.id)"
+            >
+              <v-icon icon="mdi-delete-outline" size="17" />
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <div class="transaction-table-wrap">
+        <table class="transaction-table">
           <thead>
             <tr>
-              <th style="max-width: 20px">No.</th>
-              <th>Tanggal</th>
-              <th>Kategori</th>
-              <th>Keterangan / Keperluan</th>
-              <th>Bukti</th>
-              <th class="text-right">Nominal</th>
-              <th>Dikeluarkan Oleh</th>
-              <th class="text-center">Aksi</th>
+              <th>No.</th><th>Tanggal</th><th>Jenis</th><th>Kategori</th>
+              <th>Detail Transaksi</th><th>Bukti</th><th>Penanggung Jawab</th>
+              <th>Nominal</th><th>Aksi</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="filteredTransactions.length === 0">
-              <td colspan="6" class="table-empty">
-                <v-icon size="40" color="#cbd5e1" class="mb-2"
-                  >mdi-text-box-remove-outline</v-icon
-                >
-                <div>Belum ada data transaksi pada periode ini.</div>
+            <tr v-if="!filteredTransactions.length">
+              <td colspan="9">
+                <div class="empty-state">
+                  <v-icon icon="mdi-text-box-search-outline" size="38" />
+                  <strong>Belum ada transaksi</strong>
+                  <span>Sesuaikan filter atau tambahkan transaksi kantor baru.</span>
+                </div>
               </td>
             </tr>
             <tr
-              v-for="(tx, index) in filteredTransactions"
-              :key="tx.id"
-              class="table-row"
+              v-for="(transaction, index) in filteredTransactions"
+              :key="transaction.id"
             >
-              <td class="text-nowrap" style="max-width: 20px">
-                {{ index + 1 }}.
-              </td>
-              <td class="text-muted text-nowrap font-mono">
-                {{ rubahtanggalharilengkappettycash(tx.date) }}
-              </td>
+              <td class="table-number">{{ index + 1 }}</td>
+              <td class="table-date">{{ formatDate(transaction.date) }}</td>
               <td>
                 <span
-                  class="badge"
-                  :class="{
-                    'badge-topup': tx.category === 'Debet',
-
-                    'badge-kantor': tx.category === 'Kredit',
-                  }"
+                  class="transaction-type-badge"
+                  :class="`transaction-type-badge--${transaction.type}`"
                 >
-                  {{ tx.category }}
+                  {{ transaction.type === "in" ? "Masuk" : "Keluar" }}
                 </span>
               </td>
-              <td style="max-width: 250px">{{ tx.description }}</td>
-              <td style="max-width: 220px">
-                <div v-if="tx.images.length" class="proof-links">
-                  <v-tooltip
-                    v-for="(image, imageIndex) in tx.images"
-                    :key="image"
-                    text="Pratinjau Gambar"
-                    location="top"
+              <td>
+                <div class="table-category">
+                  <span
+                    class="category-icon"
+                    :class="`category-icon--${categoryMeta(transaction.category).tone}`"
                   >
-                    <template #activator="{ props }">
-                      <button
-                        v-bind="props"
-                        class="btn-image-preview"
-                        @click="previewImage(image)"
-                      >
-                        <v-icon size="20">mdi-image-outline</v-icon>
-                        <!-- <span>{{ imageIndex === 0 ? "Lihat" : `Bukti ${imageIndex + 1}` }}</span> -->
-                      </button>
-                    </template>
-                  </v-tooltip>
+                    <v-icon :icon="categoryMeta(transaction.category).icon" size="16" />
+                  </span>
+                  <span>{{ transaction.category }}</span>
                 </div>
-                <span v-else class="text-muted italic text-xs">-</span>
-              </td>
-              <td
-                class="text-right tx-amount"
-                :class="tx.type === 'in' ? 'text-emerald' : 'text-rose'"
-              >
-                {{ tx.type === "in" ? "+" : "-" }} Rp
-                {{ formatNumber(tx.amount) }}
               </td>
               <td>
-                {{ tx.dikeluarkan_oleh }}
+                <div class="transaction-detail-cell">
+                  <strong>{{ transaction.description }}</strong>
+                  <span v-if="transaction.itemName">
+                    {{ transaction.itemName }} · {{ transaction.quantity }} {{ transaction.unit }}
+                    <template v-if="transaction.assetLocation">· {{ transaction.assetLocation }}</template>
+                  </span>
+                </div>
               </td>
-              <td class="text-center">
-                <div class="table-action-btns">
+              <td>
+                <div v-if="transaction.images.length" class="proof-buttons">
+                  <button
+                    v-for="(image, imageIndex) in transaction.images"
+                    :key="`${transaction.id}-proof-${imageIndex}`"
+                    type="button"
+                    :aria-label="`Lihat bukti ${imageIndex + 1}`"
+                    @click="previewImage(image)"
+                  >
+                    <v-icon icon="mdi-image-outline" size="17" /> {{ imageIndex + 1 }}
+                  </button>
+                </div>
+                <span v-else class="table-empty-value">—</span>
+              </td>
+              <td>{{ transaction.responsible || "—" }}</td>
+              <td
+                class="transaction-amount"
+                :class="transaction.type === 'in' ? 'transaction-amount--in' : 'transaction-amount--out'"
+              >
+                {{ transaction.type === "in" ? "+" : "-" }}
+                {{ formatCurrency(transaction.amount) }}
+              </td>
+              <td>
+                <div class="table-actions">
                   <v-btn
-                    :disabled="!isCurrentMonth(tx.date)"
                     icon="mdi-pencil-outline"
                     variant="text"
                     color="primary"
                     size="small"
-                    @click="openEditModal(tx)"
+                    aria-label="Edit transaksi"
+                    @click="openEditModal(transaction)"
                   />
                   <v-btn
-                    :disabled="!isCurrentMonth(tx.date)"
                     icon="mdi-delete-outline"
                     variant="text"
                     color="error"
                     size="small"
-                    @click="deletePettyCash(tx.id)"
+                    aria-label="Hapus transaksi"
+                    @click="deleteTransaction(transaction.id)"
                   />
                 </div>
               </td>
@@ -924,1322 +916,1282 @@ const isCurrentMonth = (dateString: string): boolean => {
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
 
-    <div v-if="isModalOpen" class="modal-backdrop">
-      <div class="modal-content">
-        <div class="modal-header">
-          <div class="modal-title-box">
-            <h3>
-              {{
-                isEditMode
-                  ? "Edit Transaksi"
-                  : modalType === "topup"
-                    ? "Debet Saldo Kas"
-                    : "Catat Pengeluaran Kas"
-              }}
-            </h3>
-            <p class="modal-subtitle">Isi rincian transaksi dengan benar</p>
+    <div v-if="isModalOpen" class="transaction-dialog-backdrop">
+      <div
+        class="transaction-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transaction-dialog-title"
+      >
+        <header class="transaction-dialog-header">
+          <div class="transaction-dialog-heading">
+            <span class="transaction-dialog-icon">
+              <v-icon icon="mdi-cash-register" size="20" />
+            </span>
+            <div>
+              <h2 id="transaction-dialog-title">
+                {{ isEditMode ? "Edit Transaksi" : "Catat Transaksi Kantor" }}
+              </h2>
+              <p>Lengkapi informasi transaksi dan bukti pendukung.</p>
+            </div>
           </div>
-          <button :disabled="isSaving" @click="closeModal" class="btn-close">
-            &times;
+          <button
+            type="button"
+            class="dialog-close-button"
+            :disabled="isSaving"
+            aria-label="Tutup dialog transaksi"
+            @click="closeModal"
+          >
+            <v-icon icon="mdi-close" size="20" />
           </button>
-        </div>
+        </header>
 
-        <form @submit.prevent="handleSubmit" class="modal-form">
-          <a-date-picker-new v-model="form.tanggal" label="Tanggal" />
+        <form
+          class="transaction-form"
+          @submit.prevent="handleSubmit"
+        >
+          <div
+            class="transaction-form-body"
+            :class="{ 'transaction-form-body--asset': isAssetTransaction }"
+          >
+          <section class="form-section form-section--primary">
+            <div class="form-section-heading">
+              <div><span>01</span><h3>Informasi Transaksi</h3></div>
+              <p>Tentukan jenis, kategori, tanggal, dan nominal.</p>
+            </div>
+            <div class="transaction-type-switch">
+              <button
+                type="button"
+                :class="{ active: form.type === 'out' }"
+                @click="setTransactionType('out')"
+              >
+                <v-icon icon="mdi-arrow-up-right" size="17" /> Pengeluaran
+              </button>
+              <button
+                type="button"
+                :class="{ active: form.type === 'in' }"
+                @click="setTransactionType('in')"
+              >
+                <v-icon icon="mdi-arrow-down-left" size="17" /> Pemasukan
+              </button>
+            </div>
+            <div class="form-grid form-grid--three">
+              <a-date-picker-new v-model="form.date" label="Tanggal" />
+              <a-select-new
+                v-model="form.category"
+                :items="availableFormCategories"
+                label="Kategori"
+                placeholder="Pilih kategori"
+              />
+              <a-field-number-new
+                v-model="form.amount"
+                label="Nominal (IDR)"
+                placeholder="0"
+              />
+            </div>
+          </section>
 
-          <a-field-number-new v-model="form.amount" label="Nominal" />
+          <section class="form-section form-section--detail">
+            <div class="form-section-heading">
+              <div><span>02</span><h3>Detail Transaksi</h3></div>
+              <p>Tambahkan keperluan dan penanggung jawab transaksi.</p>
+            </div>
+            <a-textarea-new
+              v-model="form.description"
+              label="Keterangan / Keperluan"
+              placeholder="Contoh: Pembelian HP untuk inventory tim operasional"
+              rows="2"
+            />
+            <div class="form-grid form-grid-spaced">
+              <a-text-field-new
+                v-model="form.responsible"
+                label="Penanggung Jawab"
+                placeholder="Nama PIC transaksi"
+              />
+            </div>
+          </section>
 
-          <a-textarea-new
-            v-model="form.description"
-            label="Keterangan / Keperluan"
-          />
+          <section
+            v-if="isAssetTransaction"
+            class="form-section form-section--asset asset-section"
+          >
+            <div class="form-section-heading">
+              <div><span>03</span><h3>Detail Aset &amp; Inventaris</h3></div>
+              <p>Data ini membantu identifikasi barang milik kantor.</p>
+            </div>
+            <div class="asset-notice">
+              <v-icon icon="mdi-information-outline" size="18" />
+              <span>
+                Catat nama barang, jumlah, dan lokasi penempatan agar mudah
+                ditelusuri sebagai inventaris kantor.
+              </span>
+            </div>
+            <div class="form-grid asset-grid">
+              <a-text-field-new
+                v-model="form.itemName"
+                label="Nama Barang / Aset"
+                placeholder="Contoh: Samsung Galaxy S24"
+              />
+              <a-field-number-new v-model="form.quantity" label="Qty" placeholder="1" />
+              <a-select-new
+                v-model="form.unit"
+                :items="['Unit', 'Pcs', 'Set', 'Lot', 'Box']"
+                label="Satuan"
+              />
+              <a-text-field-new
+                v-model="form.assetLocation"
+                label="Lokasi / Pengguna"
+                placeholder="Contoh: Kantor Batam / Ridwan"
+              />
+            </div>
+          </section>
 
-          <a-select-new
-            v-model="form.dikeluarkan_oleh"
-            :items="['Seilla', 'Ridwan']"
-            label="Dikeluarkan oleh"
-          />
-
-          <div class="form-group">
-            <label class="form-label"
-              >Upload Bukti <span class="text-muted">(Opsional)</span></label
-            >
-            <div class="upload-wrapper">
+          <section class="form-section form-section--proof">
+            <div class="form-section-heading">
+              <div>
+                <span>{{ isAssetTransaction ? "04" : "03" }}</span>
+                <h3>Bukti Transaksi</h3>
+              </div>
+              <p>Unggah nota, invoice, atau bukti pembayaran.</p>
+            </div>
+            <label class="proof-upload-box">
               <input
                 type="file"
                 accept="image/*"
                 multiple
-                class="form-control"
                 :disabled="isUploadingImages || isSaving"
                 @change="handleImageUpload"
               />
-              <small v-if="isUploadingImages" class="text-muted"
-                >Menyiapkan gambar...</small
-              >
-            </div>
-            <div v-if="form.images.length" class="proof-preview-list mt-2">
+              <span class="proof-upload-icon">
+                <v-icon icon="mdi-tray-arrow-up" size="20" />
+              </span>
+              <span>
+                <strong>
+                  {{ isUploadingImages ? "Menyiapkan gambar..." : "Pilih bukti transaksi" }}
+                </strong>
+                <small>Format gambar, dapat memilih lebih dari satu file</small>
+              </span>
+            </label>
+            <div v-if="form.images.length" class="proof-preview-grid">
               <div
                 v-for="(image, index) in form.images"
-                :key="image"
-                class="image-preview-card"
+                :key="`${index}-${image.slice(-20)}`"
+                class="proof-preview-card"
               >
-                <img :src="image" :alt="`Bukti ${index + 1}`" />
+                <img :src="image" :alt="`Bukti transaksi ${index + 1}`" />
                 <button
                   type="button"
-                  class="btn-remove-image"
                   :disabled="isSaving"
+                  :aria-label="`Hapus bukti ${index + 1}`"
                   @click="removeImage(index)"
                 >
-                  &times;
+                  <v-icon icon="mdi-close" size="15" />
                 </button>
               </div>
             </div>
+          </section>
           </div>
 
-          <div class="modal-footer">
-            <button
-              type="button"
-              :disabled="isSaving"
-              @click="closeModal"
-              class="btn btn-secondary"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              :disabled="isSaving || isUploadingImages"
-              class="btn"
-              :class="modalType === 'topup' ? 'btn-success' : 'btn-primary'"
-            >
-              {{
-                isSaving
-                  ? "Menyimpan..."
-                  : isEditMode
-                    ? "Simpan Perubahan"
-                    : "Simpan Transaksi"
-              }}
-            </button>
-          </div>
+          <footer class="transaction-dialog-footer">
+            <p>Pastikan kategori dan nominal sudah sesuai sebelum disimpan.</p>
+            <div>
+              <v-btn
+                variant="outlined"
+                color="grey-darken-1"
+                size="small"
+                class="text-none dialog-cancel-button"
+                :disabled="isSaving"
+                @click="closeModal"
+              >
+                Batal
+              </v-btn>
+              <v-btn
+                type="submit"
+                color="primary"
+                variant="flat"
+                size="small"
+                prepend-icon="mdi-content-save-outline"
+                class="text-none dialog-save-button"
+                :disabled="isSaving || isUploadingImages"
+              >
+                {{ isEditMode ? "Simpan Perubahan" : "Simpan Transaksi" }}
+              </v-btn>
+            </div>
+          </footer>
         </form>
-      </div>
-    </div>
-
-    <div v-if="isTopupHistoryOpen" class="modal-backdrop">
-      <div class="modal-content modal-large">
-        <div class="modal-header">
-          <div class="modal-title-box">
-            <h3>Riwayat Debet Masuk</h3>
-            <p class="modal-subtitle">
-              Daftar penambahan kas masuk yang tercatat
-            </p>
-          </div>
-          <button @click="closeTopupHistoryModal" class="btn-close">
-            &times;
-          </button>
-        </div>
-        <div class="modal-body-scroll">
-          <div class="mobile-list-view">
-            <div
-              v-for="tx in topupTransactions"
-              :key="tx.id"
-              class="mobile-tx-card"
-            >
-              <div class="mobile-card-row">
-                <span class="badge-date">{{ tx.date }}</span>
-                <span class="text-emerald font-semibold"
-                  >+ Rp {{ formatNumber(tx.amount) }}</span
-                >
-              </div>
-              <div class="mobile-card-desc">{{ tx.description }}</div>
-              <div v-if="tx.images.length" class="proof-preview-list mt-2">
-                <img
-                  v-for="image in tx.images"
-                  :key="image"
-                  :src="image"
-                  @click="previewImage(image)"
-                  class="table-thumb"
-                  alt="Bukti Transfer"
-                />
-              </div>
-              <div class="mobile-card-actions-row">
-                <v-btn
-                  icon="mdi-pencil-outline"
-                  variant="text"
-                  color="primary"
-                  size="small"
-                  @click="openEditModal(tx)"
-                />
-                <v-btn
-                  icon="mdi-delete-outline"
-                  variant="text"
-                  color="error"
-                  size="small"
-                  @click="deletePettyCash(tx.id)"
-                />
-              </div>
-            </div>
-          </div>
-
-          <table class="pc-table desktop-table-view">
-            <thead>
-              <tr>
-                <th>Tanggal</th>
-                <th>Keterangan Pengisian</th>
-                <th>Bukti Transfer</th>
-                <th class="text-right">Nominal</th>
-                <th class="text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="tx in topupTransactions" :key="tx.id">
-                <td class="text-muted font-mono">{{ tx.date }}</td>
-                <td class="font-medium">{{ tx.description }}</td>
-                <td>
-                  <div v-if="tx.images.length" class="proof-preview-list">
-                    <img
-                      v-for="image in tx.images"
-                      :key="image"
-                      :src="image"
-                      @click="previewImage(image)"
-                      class="table-thumb"
-                      alt="Bukti"
-                    />
-                  </div>
-                  <span v-else class="text-muted italic text-xs">Kosong</span>
-                </td>
-                <td class="text-right text-emerald tx-amount">
-                  + Rp {{ formatNumber(tx.amount) }}
-                </td>
-                <td class="text-center">
-                  <div class="table-action-btns">
-                    <v-btn
-                      icon="mdi-pencil-outline"
-                      variant="text"
-                      color="primary"
-                      size="small"
-                      @click="openEditModal(tx)"
-                    />
-                    <v-btn
-                      icon="mdi-delete-outline"
-                      variant="text"
-                      color="error"
-                      size="small"
-                      @click="deletePettyCash(tx.id)"
-                    />
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="isInfoCardOpen"
-      class="modal-backdrop"
-      @click="isInfoCardOpen = false"
-    >
-      <div class="info-card-container" @click.stop>
-        <div class="bank-card">
-          <div class="bank-card-header">
-            <div class="bank-logo-icon">
-              <v-icon color="white" size="24">mdi-bank</v-icon>
-            </div>
-            <span class="bank-title">REKENING OPERASIONAL</span>
-          </div>
-          <div class="bank-card-body">
-            <div class="holder-name">Leo Adiatmaja Sembiring</div>
-            <div class="account-number-group">
-              <span class="acc-number">586-573-7332</span>
-              <button class="btn-copy" @click="copyRekening">
-                <v-icon size="16">mdi-content-copy</v-icon>
-                <span>Salin</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="info-tap-hint">
-          <v-icon size="16" color="#94a3b8">mdi-gesture-tap</v-icon>
-          <span>Ketuk di mana saja di luar untuk menutup</span>
-        </div>
       </div>
     </div>
 
     <div
       v-if="activePreviewImage"
+      class="proof-lightbox"
       @click="activePreviewImage = null"
-      class="lightbox-backdrop"
     >
-      <div class="lightbox-content">
-        <img :src="activePreviewImage" alt="Preview Bukti" />
-        <p class="lightbox-caption">Ketuk di mana saja untuk menutup</p>
-      </div>
+      <button type="button" aria-label="Tutup preview">
+        <v-icon icon="mdi-close" size="22" />
+      </button>
+      <img :src="activePreviewImage" alt="Preview bukti transaksi" />
+      <span>Klik area gelap untuk menutup</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-.skeleton-card {
-  pointer-events: none;
-}
+* { box-sizing: border-box; }
 
-.skeleton-bone {
-  background: #e0e0e0;
-  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 37%, #e0e0e0 63%);
-  background-size: 400% 100%;
-  animation: skeleton-loading 1.4s ease infinite;
-  border-radius: 6px;
-}
-
-.skeleton-label {
-  width: 60%;
-  height: 16px;
-}
-
-.skeleton-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-}
-
-.skeleton-value {
-  width: 75%;
-  height: 28px;
-  margin-top: 12px;
-}
-
-@keyframes skeleton-loading {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0 50%;
-  }
-}
-
-.petty-cash-container {
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
-  padding: 16px;
-  max-width: 1280px;
-  margin: 0 auto;
-  background-color: #f8fafc;
-  min-height: 100vh;
-  color: #1e293b;
-  box-sizing: border-box;
-}
-
-@media (min-width: 768px) {
-  .petty-cash-container {
-    padding: 8px;
-  }
-}
-
-.pc-header {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-bottom: 20px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-@media (min-width: 992px) {
-  .pc-header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-
-.pc-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.02em;
-  margin: 0;
-}
-
-@media (min-width: 768px) {
-  .pc-title {
-    font-size: 26px;
-  }
-}
-
-.pc-subtitle {
-  font-size: 13px;
-  color: #64748b;
-  margin: 4px 0 0 0;
-}
-
-.pc-action-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+.office-finance-page {
   width: 100%;
+  max-width: 1500px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 8px 14px 28px;
+  color: #243142;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-@media (min-width: 640px) {
-  .pc-action-buttons {
-    display: flex;
-    width: auto;
-    align-items: center;
-  }
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  font-size: 13px;
+.back-button {
+  margin-bottom: 8px;
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0 !important;
+}
+
+.finance-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 22px 24px;
+  background: #ffffff;
+  border: 1px solid #dfe4ea;
   border-radius: 10px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.btn:active {
-  transform: translateY(1px);
+.finance-hero-copy { min-width: 0; }
+
+.finance-eyebrow,
+.section-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: #6f7d8c;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1.3;
+  text-transform: uppercase;
 }
 
-.btn-primary {
-  background-color: #2563eb;
-  color: #ffffff;
-}
-.btn-primary:hover {
-  background-color: #1d4ed8;
-}
-
-.btn-success {
-  background-color: #10b981;
-  color: #ffffff;
-}
-.btn-success:hover {
-  background-color: #059669;
+.finance-hero h1 {
+  margin: 0;
+  color: #202a36;
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
 }
 
-.btn-outline {
-  background-color: #ffffff;
-  color: #334155;
-  border-color: #cbd5e1;
-}
-.btn-outline:hover {
-  background-color: #f1f5f9;
-  border-color: #94a3b8;
+.finance-hero p {
+  max-width: 720px;
+  margin: 6px 0 0;
+  color: #75808d;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
-.btn-secondary {
-  background-color: #f1f5f9;
-  color: #475569;
-}
-.btn-secondary:hover {
-  background-color: #e2e8f0;
+.finance-hero-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 9px;
 }
 
-.pc-metrics-grid {
+.export-button,
+.create-button {
+  height: 36px !important;
+  padding-inline: 15px !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  border-radius: 5px !important;
+}
+
+.metric-grid {
   display: grid;
-  grid-template-columns: repeat(1, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-@media (min-width: 640px) {
-  .pc-metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 992px) {
-  .pc-metrics-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .metric-card {
+  min-width: 0;
+  min-height: 126px;
+  padding: 17px 18px;
   background: #ffffff;
-  padding: 20px;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.02),
-    0 10px 15px -3px rgba(0, 0, 0, 0.02);
+  border: 1px solid #dfe4ea;
+  border-radius: 8px;
+}
+
+.metric-card--net {
+  color: #ffffff;
+  background: #20364d;
+  border-color: #20364d;
+}
+
+.metric-card-heading {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.metric-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.card-balance {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border: none;
-  box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.3);
-}
-
-@media (min-width: 640px) and (max-width: 991px) {
-  .card-balance {
-    grid-column: span 2;
-  }
-}
-
-.metric-header {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-}
-
-.metric-label {
-  font-size: 12px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+  color: #738091;
+  font-size: 9px;
   font-weight: 700;
+  letter-spacing: 0.065em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
 }
 
-.label-light {
-  color: #94a3b8;
-}
+.metric-card--net .metric-card-heading { color: #bac8d8; }
 
-.card-icon-badge {
-  background: rgba(255, 255, 255, 0.12);
-  padding: 8px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-circle {
+.metric-icon {
+  display: grid;
+  flex: 0 0 32px;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.icon-circle.text-emerald {
-  background: #ecfdf5;
-}
-.icon-circle.text-rose {
-  background: #fff1f2;
-}
-
-.metric-value {
-  font-size: 22px;
-  font-weight: 800;
-  margin: 0;
-  letter-spacing: -0.02em;
-}
-
-@media (min-width: 768px) {
-  .metric-value {
-    font-size: 26px;
-  }
-}
-
-.value-large {
-  font-size: 28px;
-}
-
-.month-filter-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px 18px;
-  margin-bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-@media (min-width: 576px) {
-  .month-filter-card {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-
-.filter-label-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.month-filter-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-}
-
-.select-wrapper {
-  position: relative;
-  display: inline-block;
-  width: 100%;
-  min-width: 200px;
-}
-
-@media (min-width: 576px) {
-  .select-wrapper {
-    width: auto;
-  }
-}
-
-.form-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 36px 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1e293b;
-  width: 100%;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.form-select:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.month-select {
-  color: #2563eb;
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
-}
-
-.select-icon {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: #64748b;
-}
-
-.pc-main-card {
-  background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  overflow: hidden;
-}
-
-.card-header-bar {
-  padding: 16px 20px;
-  border-bottom: 1px solid #f1f5f9;
-  background-color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-@media (min-width: 576px) {
-  .card-header-bar {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-}
-
-.card-title-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.table-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
-.badge-count {
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.desktop-table-view {
-  display: none;
-}
-
-.mobile-list-view {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-}
-
-@media (min-width: 768px) {
-  .mobile-list-view {
-    display: none;
-  }
-  .desktop-table-view {
-    display: block;
-  }
-}
-
-.table-responsive {
-  overflow-x: auto;
-}
-
-.pc-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 13px;
-}
-
-.pc-table th {
-  background-color: #f8fafc;
-  padding: 14px 20px;
-  color: #64748b;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.pc-table td {
-  padding: 16px 20px;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
-  color: #334155;
-}
-
-.table-row {
-  transition: background-color 0.15s ease;
-}
-
-.table-row:hover {
-  background-color: #f8fafc;
-}
-
-.table-empty {
-  padding: 48px 24px;
-  text-align: center;
-  color: #94a3b8;
-  font-size: 14px;
-}
-
-.table-action-btns {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.btn-image-preview {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  padding: 4px 8px;
+  place-items: center;
+  color: #e8eef5;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
-.btn-image-preview:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+.metric-icon--green { color: #24865b; background: #e9f7f0; }
+.metric-icon--rose { color: #b44f5d; background: #fcedef; }
+.metric-icon--violet { color: #6f5a9d; background: #f1eef8; }
+
+.metric-card > strong {
+  display: block;
+  overflow: hidden;
+  color: #243142;
+  font-size: clamp(17px, 1.8vw, 23px);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.proof-links,
-.proof-preview-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.metric-card--net > strong { color: #ffffff; }
+.metric-card .metric-value--green { color: #25815a; }
+.metric-card .metric-value--rose { color: #b44f5d; }
+
+.metric-card small {
+  display: block;
+  margin-top: 6px;
+  color: #8b96a2;
+  font-size: 9px;
+}
+.metric-card--net small { color: #aebdcd; }
+
+.finance-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(290px, 0.7fr);
+  gap: 12px;
+  margin-top: 12px;
 }
 
-.image-preview-card {
-  position: relative;
-}
-
-.btn-remove-image {
-  position: absolute;
-  top: -7px;
-  right: -7px;
-  width: 20px;
-  height: 20px;
-  border: 0;
-  border-radius: 50%;
-  background: #ef4444;
-  color: white;
-  cursor: pointer;
-  line-height: 18px;
-}
-
-.mobile-tx-card {
+.category-overview-card,
+.period-card,
+.transaction-panel {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  border: 1px solid #dfe4ea;
+  border-radius: 8px;
 }
 
-.mobile-card-row {
+.category-overview-card,
+.period-card { padding: 17px 18px; }
+
+.section-heading {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.section-heading h2,
+.transaction-panel-header h2 {
+  margin: 0;
+  color: #27313d;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.section-count,
+.transaction-title-row > span {
+  padding: 4px 8px;
+  color: #647181;
+  font-size: 9px;
+  font-weight: 650;
+  background: #f3f5f7;
+  border: 1px solid #e2e6ea;
+  border-radius: 4px;
+}
+
+.category-breakdown-list { display: grid; gap: 10px; }
+
+.category-breakdown-item {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 42px;
   align-items: center;
+  gap: 9px;
 }
 
-.badge-date {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  font-family: monospace;
+.category-icon {
+  display: inline-grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 5px;
 }
 
-.mobile-card-desc {
-  font-size: 14px;
+.category-icon--blue { color: #356b98; background: #edf4fa; }
+.category-icon--violet { color: #755fa0; background: #f2eff8; }
+.category-icon--amber { color: #9a6b22; background: #fbf4e8; }
+.category-icon--green { color: #34775a; background: #eaf6f0; }
+.category-icon--rose { color: #a94e5c; background: #fbeef0; }
+.category-icon--slate { color: #59697a; background: #eff2f5; }
+
+.category-breakdown-main { min-width: 0; }
+
+.category-breakdown-main > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+  color: #4e5c6c;
+  font-size: 10px;
+}
+
+.category-breakdown-main strong {
+  color: #303b48;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.category-progress-track {
+  height: 4px;
+  overflow: hidden;
+  background: #edf0f3;
+  border-radius: 999px;
+}
+
+.category-progress-track span {
+  display: block;
+  min-width: 3px;
+  height: 100%;
+  background: #527da4;
+  border-radius: inherit;
+}
+
+.category-percentage {
+  color: #778391;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.overview-empty {
+  display: flex;
+  min-height: 114px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: #929ca7;
+  font-size: 10px;
+}
+
+.period-card .section-heading > .v-icon { color: #708093; }
+
+.period-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.period-fields label,
+.toolbar-select { display: flex; flex-direction: column; gap: 5px; }
+
+.period-fields label > span,
+.toolbar-select > span {
+  color: #7b8693;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.period-fields select,
+.toolbar-select select {
+  width: 100%;
+  height: 34px;
+  padding: 0 28px 0 9px;
+  color: #354353;
+  font: inherit;
+  font-size: 10px;
   font-weight: 600;
-  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #cfd6dd;
+  border-radius: 4px;
+  outline: none;
+}
+
+.period-fields select:focus,
+.toolbar-select select:focus {
+  border-color: #6f94b8;
+  box-shadow: 0 0 0 2px rgba(49, 95, 140, 0.1);
+}
+
+.period-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 14px;
+  overflow: hidden;
+  background: #dfe4e9;
+  border: 1px solid #dfe4e9;
+  border-radius: 5px;
+}
+
+.period-summary > div {
+  display: flex;
+  min-height: 48px;
+  padding: 8px 10px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  background: #f8f9fb;
+}
+
+.period-summary span {
+  color: #818b96;
+  font-size: 8px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.period-summary strong { margin-top: 2px; color: #344250; font-size: 15px; }
+
+.transaction-panel { margin-top: 12px; overflow: hidden; }
+
+.transaction-panel-header {
+  display: flex;
+  min-height: 64px;
+  padding: 13px 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #e4e8ec;
+}
+
+.transaction-title-row { display: flex; align-items: center; gap: 9px; }
+
+.transaction-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 145px minmax(190px, 230px) auto;
+  align-items: end;
+  gap: 9px;
+  padding: 11px 18px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e4e8ec;
+}
+
+.search-field {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  color: #7d8996;
+  background: #ffffff;
+  border: 1px solid #cfd6dd;
+  border-radius: 4px;
+}
+
+.search-field:focus-within {
+  border-color: #6f94b8;
+  box-shadow: 0 0 0 2px rgba(49, 95, 140, 0.1);
+}
+
+.search-field input {
+  width: 100%;
+  min-width: 0;
+  color: #344250;
+  font: inherit;
+  font-size: 10px;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.search-field input::placeholder { color: #9aa3ad; }
+
+.clear-filter-button {
+  display: inline-flex;
+  height: 34px;
+  padding: 0 11px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #697686;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid #cfd6dd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.transaction-table-wrap { overflow-x: auto; }
+
+.transaction-table {
+  width: 100%;
+  min-width: 1180px;
+  color: #465463;
+  font-size: 10px;
+  border-collapse: collapse;
+}
+
+.transaction-table th {
+  height: 34px;
+  padding: 7px 9px;
+  color: #687584;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-align: left;
+  text-transform: uppercase;
+  background: #f4f6f8;
+  border-bottom: 1px solid #dfe4e9;
+}
+
+.transaction-table td {
+  padding: 9px;
+  vertical-align: middle;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.transaction-table tbody tr:last-child td { border-bottom: 0; }
+.transaction-table tbody tr:hover { background: #fafbfc; }
+
+.transaction-table th:first-child,
+.transaction-table td:first-child { width: 42px; text-align: center; }
+
+.transaction-table th:nth-child(8),
+.transaction-table td:nth-child(8) { text-align: right; }
+
+.transaction-table th:last-child,
+.transaction-table td:last-child { width: 78px; text-align: center; }
+
+.table-number,
+.table-date {
+  color: #758190;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.transaction-type-badge {
+  display: inline-flex;
+  min-height: 22px;
+  padding: 0 7px;
+  align-items: center;
+  color: #657282;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: 4px;
+}
+
+.transaction-type-badge--in { color: #287252; background: #eef8f3; border-color: #cce8da; }
+.transaction-type-badge--out { color: #a04956; background: #fcf1f2; border-color: #efd4d8; }
+
+.table-category {
+  display: flex;
+  min-width: 150px;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.transaction-detail-cell {
+  display: flex;
+  max-width: 290px;
+  min-width: 150px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.transaction-detail-cell strong {
+  overflow-wrap: anywhere;
+  color: #334150;
+  font-weight: 650;
   line-height: 1.4;
 }
 
-.mobile-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding-top: 10px;
-  border-top: 1px dashed #e2e8f0;
-}
+.transaction-detail-cell span { color: #87919d; font-size: 9px; line-height: 1.4; }
 
-.mobile-amount-box {
-  display: flex;
-  flex-direction: column;
-}
+.proof-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
 
-.amount-label {
-  font-size: 10px;
-  color: #94a3b8;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.mobile-card-actions {
-  display: flex;
+.proof-buttons button {
+  display: inline-flex;
+  height: 26px;
+  padding: 0 7px;
   align-items: center;
-  gap: 6px;
-}
-
-.mobile-card-actions-row {
-  display: flex;
-  justify-content: flex-end;
   gap: 4px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed #e2e8f0;
+  color: #536577;
+  font: inherit;
+  font-size: 9px;
+  background: #f5f7f9;
+  border: 1px solid #d7dde3;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
-.badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 20px;
+.table-empty-value { color: #a1a9b2; }
+
+.transaction-amount {
+  min-width: 128px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.badge-topup {
-  background-color: #ecfdf5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
-}
+.transaction-amount--in { color: #2c7957; }
+.transaction-amount--out { color: #b14e5b; }
+.table-actions { display: flex; align-items: center; justify-content: center; gap: 1px; }
 
-.badge-jalan {
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-}
-
-.badge-kantor {
-  background-color: #fffbeb;
-  color: #b45309;
-  border: 1px solid #fde68a;
-}
-
-.badge-listrik {
-  background-color: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fca5a5;
-}
-
-.text-right {
-  text-align: right;
-}
-.text-center {
+.empty-state {
+  display: flex;
+  min-height: 150px;
+  padding: 24px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  color: #929ca7;
   text-align: center;
 }
-.text-emerald {
-  color: #10b981;
-}
-.text-rose {
-  color: #f43f5e;
-}
-.text-white {
-  color: #ffffff;
-}
-.text-muted {
-  color: #94a3b8;
-}
-.text-xs {
-  font-size: 11px;
-}
-.font-mono {
-  font-family: monospace;
-}
 
-.text-emerald {
-  color: #10b981 !important;
-}
+.empty-state strong { color: #677483; font-size: 11px; }
+.empty-state span { font-size: 9px; }
+.transaction-mobile-list { display: none; }
 
-.text-rose {
-  color: #f43f5e !important;
-}
-
-.table-thumb {
-  width: 64px;
-  height: 44px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  display: block;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.table-thumb:hover {
-  opacity: 0.8;
-}
-
-.modal-backdrop {
+.transaction-dialog-backdrop {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  z-index: 0;
+  padding: 24px;
+  background: rgba(22, 29, 37, 0.5);
 }
 
-.modal-content {
-  background: #ffffff;
-  border-radius: 20px;
-  max-width: 500px;
+.transaction-dialog {
+  display: flex;
   width: 100%;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  overflow: hidden;
-  display: flex;
+  max-width: 960px;
+  max-height: calc(100vh - 48px);
   flex-direction: column;
-  max-height: 90vh;
-  animation: modalFadeIn 0.2s ease-out;
+  overflow: hidden;
+  color: #243142;
+  background: #f5f6f8;
+  border: 1px solid #d9dee5;
+  border-radius: 10px;
+  box-shadow: 0 20px 55px rgba(20, 30, 43, 0.22);
 }
 
-.modal-large {
-  max-width: 760px;
-}
-
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.modal-header {
-  padding: 18px 24px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #f1f5f9;
+.transaction-dialog-header {
   display: flex;
-  justify-content: space-between;
+  flex: 0 0 auto;
+  min-height: 58px;
+  padding: 10px 14px;
   align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #dfe3e8;
 }
 
-.modal-title-box h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+.transaction-dialog-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
 }
 
-.modal-subtitle {
-  margin: 2px 0 0 0;
-  font-size: 12px;
-  color: #64748b;
+.transaction-dialog-icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #315f8c;
+  background: #eef3f8;
+  border: 1px solid #dce6ef;
+  border-radius: 6px;
 }
 
-.btn-close {
-  background: #f1f5f9;
-  border: none;
+.transaction-dialog-heading h2 { margin: 0; color: #202833; font-size: 15px; font-weight: 700; }
+.transaction-dialog-heading p { margin: 2px 0 0; color: #7d8792; font-size: 10px; }
+
+.dialog-close-button {
+  display: grid;
+  flex: 0 0 32px;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  font-size: 20px;
-  color: #64748b;
+  padding: 0;
+  place-items: center;
+  color: #718090;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
 }
+.dialog-close-button:hover:not(:disabled) { background: #f1f3f5; }
 
-.btn-close:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.modal-form {
-  padding: 24px;
+.transaction-form {
   display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 18px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
-.modal-body-scroll {
-  padding: 16px 24px;
-  overflow-y: auto;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #475569;
-}
-
-.form-control {
-  padding: 10px 14px;
-  font-size: 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  outline: none;
-  transition: all 0.2s;
-  width: 100%;
-}
-
-.form-control:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.input-with-prefix {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-with-prefix .prefix {
-  position: absolute;
-  left: 14px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #64748b;
-}
-
-.input-with-prefix .form-control {
-  padding-left: 42px;
-}
-
-.radio-group {
+.transaction-form-body {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "primary primary"
+    "detail proof";
   gap: 8px;
+  padding: 9px;
+  overflow: visible;
 }
 
-.radio-box {
-  border: 1px solid #e2e8f0;
+.transaction-form-body--asset {
+  grid-template-areas:
+    "primary primary"
+    "detail proof"
+    "asset asset";
+}
+
+.form-section {
+  min-width: 0;
   padding: 10px;
-  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #dfe3e8;
+  border-radius: 7px;
+}
+
+.form-section--primary {
+  display: grid;
+  grid-area: primary;
+  grid-template-columns: 220px minmax(0, 1fr);
+  column-gap: 10px;
+}
+.form-section--detail { grid-area: detail; }
+.form-section--proof { grid-area: proof; }
+.form-section--asset {
+  display: grid;
+  grid-area: asset;
+  grid-template-columns: 190px minmax(0, 1fr);
+  column-gap: 10px;
+}
+
+.form-section-heading {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.form-section--primary > .form-section-heading,
+.form-section--asset > .form-section-heading { grid-column: 1 / -1; }
+
+.form-section-heading > div { display: flex; align-items: center; gap: 8px; }
+
+.form-section-heading > div > span {
+  display: inline-grid;
+  width: 23px;
+  height: 21px;
+  place-items: center;
+  color: #5a6877;
+  font-size: 8px;
+  font-weight: 700;
+  background: #f1f3f5;
+  border: 1px solid #e0e4e8;
+  border-radius: 4px;
+}
+
+.form-section-heading h3 { margin: 0; color: #2c3743; font-size: 12px; font-weight: 700; line-height: 21px; }
+.form-section-heading p { margin: 3px 0 0; color: #8a949f; font-size: 9px; text-align: right; }
+
+.transaction-type-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  align-self: end;
+  padding: 3px;
+  background: #eef1f4;
+  border-radius: 5px;
+}
+
+.transaction-type-switch button {
+  display: flex;
+  height: 30px;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  font-size: 12px;
-  cursor: pointer;
+  color: #718091;
+  font: inherit;
+  font-size: 10px;
   font-weight: 600;
-  color: #64748b;
-  transition: all 0.2s;
-  text-align: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
-.radio-box input[type="radio"] {
-  display: none;
+.transaction-type-switch button.active {
+  color: #315f8c;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(28, 39, 52, 0.12);
 }
 
-.radio-box.active {
-  border-color: #2563eb;
-  background-color: #eff6ff;
-  color: #1d4ed8;
-}
+.form-grid { display: grid; gap: 8px; }
+.form-grid--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.form-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-grid-spaced { margin-top: 8px; }
+.asset-section { border-color: #ddd8eb; }
 
-.meal-allowance-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px;
-}
-
-.checkbox-container {
+.asset-notice {
   display: flex;
-  align-items: center;
-  position: relative;
-  padding-left: 28px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-  user-select: none;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 48px;
+  margin: 0;
+  padding: 7px 9px;
+  color: #65577f;
+  font-size: 9px;
+  line-height: 1.5;
+  background: #f6f3fa;
+  border: 1px solid #e6dff1;
+  border-radius: 5px;
 }
 
-.checkbox-container input {
+.asset-grid { grid-template-columns: minmax(180px, 1.6fr) 90px 120px minmax(180px, 1.3fr); }
+
+.proof-upload-box {
+  position: relative;
+  display: flex;
+  min-height: 50px;
+  padding: 7px 9px;
+  align-items: center;
+  gap: 10px;
+  color: #4b5b6c;
+  background: #fbfcfd;
+  border: 1px dashed #b9c3cd;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.proof-upload-box:hover { background: #f5f8fb; border-color: #7f9db9; }
+
+.proof-upload-box > input {
   position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
   cursor: pointer;
-  height: 0;
-  width: 0;
 }
 
-.checkmark {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  height: 18px;
-  width: 18px;
-  background-color: #ffffff;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 4px;
-  transition: all 0.2s;
+.proof-upload-icon {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: #315f8c;
+  background: #eef3f8;
+  border: 1px solid #dce6ef;
+  border-radius: 5px;
 }
 
-.checkbox-container:hover input ~ .checkmark {
-  border-color: #2563eb;
-}
+.proof-upload-box > span:last-child { display: flex; flex-direction: column; }
+.proof-upload-box strong { font-size: 10px; }
+.proof-upload-box small { margin-top: 2px; color: #8c96a1; font-size: 8px; }
 
-.checkbox-container input:checked ~ .checkmark {
-  background-color: #2563eb;
-  border-color: #2563eb;
-}
-
-.checkmark:after {
-  content: "";
-  position: absolute;
-  display: none;
-}
-
-.checkbox-container input:checked ~ .checkmark:after {
-  display: block;
-}
-
-.checkbox-container .checkmark:after {
-  left: 5px;
-  top: 2px;
-  width: 4px;
-  height: 8px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-.image-preview-card img {
-  max-height: 90px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  object-fit: cover;
-}
-
-.modal-footer {
+.proof-preview-grid {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 16px;
-  border-top: 1px solid #f1f5f9;
+  gap: 6px;
+  margin-top: 7px;
+  overflow-x: auto;
 }
 
-.info-card-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  max-width: 400px;
+.proof-preview-card {
+  position: relative;
+  flex: 0 0 82px;
+  height: 50px;
+  overflow: hidden;
+  background: #f3f5f7;
+  border: 1px solid #dfe3e8;
+  border-radius: 5px;
 }
 
-.bank-card {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  border-radius: 20px;
-  padding: 24px;
-  width: 100%;
+.proof-preview-card img { width: 100%; height: 100%; object-fit: cover; }
+
+.proof-preview-card button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  width: 23px;
+  height: 23px;
+  padding: 0;
+  place-items: center;
   color: #ffffff;
-  box-shadow: 0 20px 25px -5px rgba(37, 99, 235, 0.4);
+  background: rgba(34, 40, 48, 0.75);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
-.bank-card-header {
+.transaction-dialog-footer {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.bank-logo-icon {
-  background: rgba(255, 255, 255, 0.2);
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bank-title {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  opacity: 0.9;
-}
-
-.bank-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.holder-name {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.account-number-group {
-  display: flex;
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding: 7px 13px;
   align-items: center;
   justify-content: space-between;
+  gap: 18px;
+  background: #ffffff;
+  border-top: 1px solid #dfe3e8;
 }
 
-.acc-number {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  font-family: monospace;
-}
+.transaction-dialog-footer p { margin: 0; color: #7c8793; font-size: 9px; }
+.transaction-dialog-footer > div { display: flex; gap: 8px; }
 
-.btn-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
+.dialog-cancel-button,
+.dialog-save-button {
+  min-width: 100px;
+  height: 30px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
 }
+.dialog-save-button { min-width: 142px; }
 
-.btn-copy:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
+.transaction-dialog :deep(.input-field),
+.transaction-dialog :deep(.date-input-wrapper) { border-radius: 4px; }
 
-.info-tap-hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #cbd5e1;
-}
-
-.lightbox-backdrop {
+.proof-lightbox {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  z-index: 11000;
   display: flex;
+  padding: 28px;
   align-items: center;
   justify-content: center;
-  z-index: 9999999;
-  padding: 20px;
-}
-
-.lightbox-content {
-  max-width: 90%;
-  max-height: 85vh;
-  display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: 12px;
+  color: #cbd3dc;
+  background: rgba(9, 13, 18, 0.9);
+  cursor: zoom-out;
 }
 
-.lightbox-content img {
-  max-width: 100%;
-  max-height: 75vh;
-  border-radius: 12px;
+.proof-lightbox img {
+  max-width: min(1100px, 94vw);
+  max-height: 80vh;
   object-fit: contain;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border-radius: 7px;
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.4);
 }
 
-.lightbox-caption {
-  color: #94a3b8;
-  font-size: 13px;
-  margin-top: 14px;
+.proof-lightbox button {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+.proof-lightbox span { font-size: 9px; }
+
+@media (max-width: 1100px) {
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .finance-overview-grid { grid-template-columns: 1fr; }
+  .transaction-toolbar { grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(150px, 0.5fr)); }
+  .clear-filter-button { grid-column: 1 / -1; justify-self: start; }
+}
+
+@media (max-width: 767px) {
+  .office-finance-page { padding: 6px 8px 20px; }
+  .finance-hero { align-items: stretch; padding: 17px; flex-direction: column; }
+  .finance-hero h1 { font-size: 21px; }
+  .finance-hero-actions { display: grid; grid-template-columns: 1fr 1.2fr; }
+  .finance-hero-actions .v-btn { width: 100%; }
+  .metric-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .metric-card { min-height: 112px; padding: 14px; }
+  .metric-card > strong { font-size: 16px; }
+  .finance-overview-grid,
+  .transaction-panel { margin-top: 8px; }
+  .category-overview-card,
+  .period-card { padding: 14px; }
+  .transaction-toolbar { grid-template-columns: 1fr 1fr; padding: 10px; }
+  .search-field { grid-column: 1 / -1; }
+  .toolbar-select--category { grid-column: 1 / -1; }
+  .transaction-table-wrap { display: none; }
+  .transaction-mobile-list { display: grid; gap: 8px; padding: 10px; }
+
+  .transaction-mobile-card {
+    padding: 11px;
+    background: #ffffff;
+    border: 1px solid #dfe4e9;
+    border-radius: 6px;
+  }
+
+  .mobile-card-heading {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-card-heading > div { display: flex; min-width: 0; flex-direction: column; }
+  .mobile-card-heading strong {
+    overflow: hidden;
+    color: #334150;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-card-heading > div span { margin-top: 2px; color: #89939e; font-size: 8px; }
+
+  .mobile-asset-info {
+    display: flex;
+    margin-top: 9px;
+    padding: 7px 8px;
+    align-items: center;
+    gap: 6px;
+    color: #65577f;
+    font-size: 8px;
+    background: #f6f3fa;
+    border-radius: 4px;
+  }
+
+  .mobile-card-meta {
+    display: flex;
+    margin-top: 9px;
+    padding-top: 8px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: #7c8793;
+    font-size: 8px;
+    border-top: 1px solid #edf0f2;
+  }
+  .mobile-card-meta strong { font-size: 10px; font-variant-numeric: tabular-nums; }
+
+  .mobile-card-actions { display: flex; justify-content: flex-end; gap: 5px; margin-top: 8px; }
+  .mobile-card-actions button {
+    display: grid;
+    width: 29px;
+    height: 29px;
+    padding: 0;
+    place-items: center;
+    color: #4e6f8e;
+    background: #f3f7fa;
+    border: 1px solid #dce5ec;
+    border-radius: 4px;
+  }
+  .mobile-card-actions .mobile-delete-button {
+    color: #ac4c58;
+    background: #fcf2f3;
+    border-color: #efd8dc;
+  }
+
+  .transaction-dialog-backdrop { padding: 0; }
+  .transaction-dialog { height: 100vh; max-height: 100vh; border: 0; border-radius: 0; }
+  .transaction-dialog-header { min-height: 64px; padding: 11px 12px; }
+  .transaction-dialog-heading p { display: none; }
+  .transaction-form {
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+    flex-direction: column;
+  }
+  .transaction-form-body {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    flex-direction: column;
+    gap: 9px;
+    padding: 9px;
+  }
+  .form-section { padding: 13px; }
+  .form-section--primary,
+  .form-section--asset { display: block; }
+  .form-section-heading p { display: none; }
+  .transaction-type-switch { margin-bottom: 13px; }
+  .asset-notice { margin-bottom: 12px; }
+  .form-grid--three,
+  .form-grid--two,
+  .asset-grid { grid-template-columns: 1fr; }
+
+  .transaction-dialog-footer {
+    align-items: stretch;
+    padding: 9px 11px;
+  }
+  .transaction-dialog-footer p { display: none; }
+  .transaction-dialog-footer > div {
+    display: grid;
+    flex: 1;
+    grid-template-columns: 1fr 1.35fr;
+  }
+  .dialog-cancel-button,
+  .dialog-save-button { width: 100%; min-width: 0; }
+}
+
+@media (max-width: 480px) {
+  .metric-grid { grid-template-columns: 1fr; }
+  .metric-card { min-height: 104px; }
+  .period-fields,
+  .transaction-toolbar { grid-template-columns: 1fr; }
+  .search-field,
+  .toolbar-select--category { grid-column: auto; }
+  .finance-hero-actions { grid-template-columns: 1fr; }
 }
 </style>

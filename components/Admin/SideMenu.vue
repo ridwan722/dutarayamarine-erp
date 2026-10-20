@@ -40,7 +40,7 @@
     /> -->
     <v-list-item
       class="nav-item mb-1"
-      title="Kas"
+      title="Keuangan Kantor"
       prepend-icon="mdi-cash-multiple"
       to="/admin/petty-cash"
     />
