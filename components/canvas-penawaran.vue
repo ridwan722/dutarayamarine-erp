@@ -159,7 +159,7 @@
             <div class="meta-row">
               <span class="lbl">{{ t.address }}</span>
               <span class="sep">:</span>
-              <span class="val bold-navy">{{
+              <span class="val bold-navy ">{{
                 props.detailpenawaran.alamat_perusahaan || "-"
               }}</span>
             </div>
@@ -176,7 +176,7 @@
               <span class="lbl">{{ t.location }}</span>
               <span class="sep">:</span>
               <span class="val bold-navy">{{
-                props.detailpenawaran.location
+                props.detailpenawaran.location || "-"
               }}</span>
             </div>
 

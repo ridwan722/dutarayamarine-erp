@@ -330,7 +330,7 @@
                     <div v-if="section.description" class="section-description">
                       {{ section.description }}
                     </div>
-                    <br v-if="item.nama" />{{ item.nama }}
+                    <br v-if="section.description && section.title" />{{ item.nama }}
                   </td>
                   <td class="text-center">{{ item.qty }}</td>
                   <td class="text-center text-slate-500">{{ item.uom }}</td>
