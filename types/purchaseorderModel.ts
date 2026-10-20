@@ -38,6 +38,8 @@ export interface purchaseorderM {
   item_purchaseorder: purchaseorderSectionM[];
   subtotal_purchaseorder: number;
   diskon_purchaseorder: number;
+  diskon_nominal_purchaseorder?: number;
+  tipe_diskon_purchaseorder?: 'percent' | 'nominal';
   grandtotal_purchaseorder: number;
 
   termCondition: termconditionM[];

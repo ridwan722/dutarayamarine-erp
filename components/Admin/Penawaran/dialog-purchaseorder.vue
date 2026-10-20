@@ -381,16 +381,50 @@
             <div class="summary-row discount-row">
               <div class="discount-label">
                 <span>Diskon</span>
-                <div class="discount-input-wrapper ml-2">
-                  <input
-                    v-model.number="form.diskon_purchaseorder"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    class="discount-input"
-                  />
-                  <span class="discount-percent">%</span>
+                <div class="discount-fields ml-2">
+                  <label class="discount-field">
+                    <span class="discount-field-caption">Persen</span>
+                    <span
+                      class="discount-input-wrapper"
+                      :class="{
+                        'discount-input-active': discountInputMode === 'percent',
+                      }"
+                    >
+                      <input
+                        v-model.number="discountPercentModel"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        class="discount-input"
+                      />
+                      <span class="discount-percent">%</span>
+                    </span>
+                  </label>
+
+                  <span class="discount-or">atau</span>
+
+                  <label class="discount-field discount-field-nominal">
+                    <span class="discount-field-caption">
+                      Nominal ({{ currency || "IDR" }})
+                    </span>
+                    <span
+                      class="discount-input-wrapper nominal-input-wrapper"
+                      :class="{
+                        'discount-input-active': discountInputMode === 'nominal',
+                      }"
+                    >
+                      <span class="discount-currency">{{ currency || "IDR" }}</span>
+                      <input
+                        v-model.number="discountNominalModel"
+                        type="number"
+                        min="0"
+                        :max="subtotal_purchaseorder"
+                        :step="currency === 'IDR' ? 1 : 0.01"
+                        class="discount-input nominal-discount-input"
+                      />
+                    </span>
+                  </label>
                 </div>
               </div>
               <span class="discount-value"
@@ -486,6 +520,7 @@ const purchaseorderLoadFailed = ref(false);
 const isEditing = computed(() =>
   Boolean(editingPurchaseorder.value?.id_purchaseorder),
 );
+const discountInputMode = ref<"percent" | "nominal">("percent");
 const vendorOptions = computed(() =>
   vendorStore.getDataVendor.map((vendor) => ({
     ...vendor,
@@ -514,6 +549,7 @@ const resetForm = () => {
   no_quotation_from_vendor.value = "";
   currency.value = "IDR";
   selectedVendorId.value = "";
+  discountInputMode.value = "percent";
   form.value = {
     sections: [
       {
@@ -528,6 +564,7 @@ const resetForm = () => {
       },
     ],
     diskon_purchaseorder: 0,
+    diskon_nominal_purchaseorder: 0,
   };
 };
 
@@ -563,8 +600,14 @@ const loadPurchaseorder = async () => {
       purchaseorder.no_quotation_from_vendor || "";
     currency.value = purchaseorder.currency || "IDR";
     selectedVendorId.value = purchaseorder.id_vendor || "";
+    discountInputMode.value =
+      purchaseorder.tipe_diskon_purchaseorder === "nominal"
+        ? "nominal"
+        : "percent";
     form.value = {
       diskon_purchaseorder: Number(purchaseorder.diskon_purchaseorder) || 0,
+      diskon_nominal_purchaseorder:
+        Number(purchaseorder.diskon_nominal_purchaseorder) || 0,
       sections: (purchaseorder.item_purchaseorder || []).map((section) => ({
         title: section.title || "",
         description: section.description || "",
@@ -580,6 +623,11 @@ const loadPurchaseorder = async () => {
         })),
       })),
     };
+    if (discountInputMode.value === "nominal") {
+      syncDiscountFromNominal();
+    } else {
+      syncDiscountFromPercent();
+    }
     if (!form.value.sections.length) resetForm();
   } catch (error) {
     console.error("Gagal mengambil Purchase Order:", error);
@@ -611,7 +659,11 @@ interface Section {
   id_vendor?: string;
 }
 
-const form = ref<{ sections: Section[]; diskon_purchaseorder: number }>({
+const form = ref<{
+  sections: Section[];
+  diskon_purchaseorder: number;
+  diskon_nominal_purchaseorder: number;
+}>({
   sections: [
     {
       title: "",
@@ -631,6 +683,7 @@ const form = ref<{ sections: Section[]; diskon_purchaseorder: number }>({
     },
   ],
   diskon_purchaseorder: 0,
+  diskon_nominal_purchaseorder: 0,
 });
 
 // Modal State
@@ -699,16 +752,79 @@ const subtotal_purchaseorder = computed(() => {
   }, 0);
 });
 
-const discountAmount = computed(() => {
-  const diskon_purchaseorder = Math.min(
-    Math.max(Number(form.value.diskon_purchaseorder) || 0, 0),
-    100,
+const roundCurrencyAmount = (value: number) => {
+  const fractionDigits = currency.value === "IDR" ? 0 : 2;
+  return Number((Number(value) || 0).toFixed(fractionDigits));
+};
+
+const normalizeDiscountPercent = (value: number | string) =>
+  Math.min(Math.max(Number(value) || 0, 0), 100);
+
+const normalizeDiscountNominal = (value: number | string) =>
+  roundCurrencyAmount(
+    Math.min(
+      Math.max(Number(value) || 0, 0),
+      Math.max(subtotal_purchaseorder.value, 0),
+    ),
   );
-  return subtotal_purchaseorder.value * (diskon_purchaseorder / 100);
+
+const syncDiscountFromPercent = () => {
+  const percent = normalizeDiscountPercent(form.value.diskon_purchaseorder);
+  form.value.diskon_purchaseorder = percent;
+  form.value.diskon_nominal_purchaseorder = roundCurrencyAmount(
+    subtotal_purchaseorder.value * (percent / 100),
+  );
+};
+
+const syncDiscountFromNominal = () => {
+  const nominal = normalizeDiscountNominal(
+    form.value.diskon_nominal_purchaseorder,
+  );
+  form.value.diskon_nominal_purchaseorder = nominal;
+  form.value.diskon_purchaseorder = subtotal_purchaseorder.value
+    ? Number(((nominal / subtotal_purchaseorder.value) * 100).toFixed(8))
+    : 0;
+};
+
+const discountPercentModel = computed<number>({
+  get: () => form.value.diskon_purchaseorder,
+  set: (value) => {
+    discountInputMode.value = "percent";
+    form.value.diskon_purchaseorder = normalizeDiscountPercent(value);
+    syncDiscountFromPercent();
+  },
+});
+
+const discountNominalModel = computed<number>({
+  get: () => form.value.diskon_nominal_purchaseorder,
+  set: (value) => {
+    discountInputMode.value = "nominal";
+    form.value.diskon_nominal_purchaseorder = normalizeDiscountNominal(value);
+    syncDiscountFromNominal();
+  },
+});
+
+watch([subtotal_purchaseorder, currency], () => {
+  if (discountInputMode.value === "nominal") {
+    syncDiscountFromNominal();
+  } else {
+    syncDiscountFromPercent();
+  }
+});
+
+const discountAmount = computed(() => {
+  if (discountInputMode.value === "percent") {
+    return roundCurrencyAmount(
+      subtotal_purchaseorder.value *
+        (normalizeDiscountPercent(form.value.diskon_purchaseorder) / 100),
+    );
+  }
+
+  return normalizeDiscountNominal(form.value.diskon_nominal_purchaseorder);
 });
 
 const grandtotal_purchaseorder = computed(() => {
-  return subtotal_purchaseorder.value - discountAmount.value;
+  return Math.max(0, subtotal_purchaseorder.value - discountAmount.value);
 });
 
 async function addpurchaseorder() {
@@ -737,6 +853,12 @@ async function addpurchaseorder() {
     }),
   );
 
+  if (discountInputMode.value === "nominal") {
+    syncDiscountFromNominal();
+  } else {
+    syncDiscountFromPercent();
+  }
+
   const dataPurchaseorder: purchaseorderM = {
     id_penawaran: penawaran.id_penawaran,
     no_penawaran: penawaran.no_penawaran,
@@ -750,6 +872,8 @@ async function addpurchaseorder() {
     item_purchaseorder,
     subtotal_purchaseorder: subtotal_purchaseorder.value,
     diskon_purchaseorder: Number(form.value.diskon_purchaseorder) || 0,
+    diskon_nominal_purchaseorder: discountAmount.value,
+    tipe_diskon_purchaseorder: discountInputMode.value,
     grandtotal_purchaseorder: grandtotal_purchaseorder.value,
     termCondition: editingPurchaseorder.value?.termCondition || [],
     id_vendor: vendor?.id_vendor || editingPurchaseorder.value!.id_vendor,
@@ -1045,7 +1169,7 @@ async function addpurchaseorder() {
 
 .summary {
   width: 100%;
-  max-width: 360px;
+  max-width: 560px;
   padding-top: 10px;
   border-top: 1px solid #e5e7eb;
   font-size: 12px;
@@ -1058,6 +1182,44 @@ async function addpurchaseorder() {
   margin-bottom: 8px;
 }
 
+.discount-row {
+  align-items: flex-end;
+}
+
+.discount-label,
+.discount-fields,
+.discount-field {
+  display: flex;
+}
+
+.discount-label {
+  align-items: flex-end;
+  flex: 1;
+  min-width: 0;
+}
+
+.discount-fields {
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.discount-field {
+  flex-direction: column;
+  gap: 3px;
+}
+
+.discount-field-caption {
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.discount-or {
+  padding-bottom: 6px;
+  color: #9ca3af;
+  font-size: 9px;
+}
+
 .discount-input-wrapper {
   display: inline-flex;
   align-items: center;
@@ -1067,7 +1229,29 @@ async function addpurchaseorder() {
   border-radius: 4px;
 }
 
+.discount-input-active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.nominal-input-wrapper {
+  width: 170px;
+}
+
+.discount-currency {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-right: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 700;
+}
+
 .discount-input {
+  min-width: 0;
   width: 100%;
   text-align: left;
   padding: 0 4px;
@@ -1080,6 +1264,11 @@ async function addpurchaseorder() {
   padding-right: 4px;
   font-size: 11px;
   color: #9ca3af;
+}
+
+.discount-value {
+  margin-left: 12px;
+  white-space: nowrap;
 }
 
 .grand-total-row {
@@ -1148,5 +1337,30 @@ async function addpurchaseorder() {
 .item-dialog-actions {
   padding: 12px 16px;
   border-top: 1px solid #e5e7eb;
+}
+
+@media (max-width: 600px) {
+  .discount-row,
+  .discount-label {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .discount-fields {
+    margin-left: 0 !important;
+    margin-top: 6px;
+  }
+
+  .discount-field-nominal,
+  .nominal-input-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .discount-value {
+    align-self: flex-end;
+    margin-left: 0;
+    margin-top: 7px;
+  }
 }
 </style>

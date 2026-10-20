@@ -345,27 +345,30 @@
             </tbody>
 
             <tfoot>
-              <tr class="summary-row grand-total-row">
-                <td colspan="5" class="text-right font-weight-bold text-navy">
-                  Total
+              <tr class="summary-row grand-total-row" v-if="purchaseorderDiscountAmount > 0">
+                <td colspan="5" class="text-right  text-navy">
+                  Subtotal
                 </td>
-                <td class="text-right font-weight-bold text-navy gt-text">
+                <td class="text-right  text-navy gt-text">
                   {{ formatCurrency(purchaseorder?.subtotal_purchaseorder || 0) }}
                 </td>
               </tr>
 
-              <tr class="summary-row grand-total-row" v-if="purchaseorder?.diskon_purchaseorder > 0">
-                <td colspan="5" class="text-right font-weight-bold text-navy">
-                  {{ lang === "id" ? "Diskon" : "Discount" }} {{ rupiah(purchaseorder?.diskon_purchaseorder || 0) }} %
+              <tr class="summary-row grand-total-row" v-if="purchaseorderDiscountAmount > 0">
+                <td colspan="5" class="text-right  text-navy">
+                  {{ lang === "id" ? "Diskon" : "Discount" }}
+                  <template v-if="purchaseorder?.tipe_diskon_purchaseorder !== 'nominal'">
+                    {{ rupiah(purchaseorder?.diskon_purchaseorder || 0) }} %
+                  </template>
                 </td>
-                <td class="text-right font-weight-bold text-navy gt-text">
-                  {{ formatCurrency(((purchaseorder?.subtotal_purchaseorder || 0) * (purchaseorder?.diskon_purchaseorder || 0)) / 100) }}
+                <td class="text-right  text-navy gt-text font-italic">
+                  - {{ formatCurrency(purchaseorderDiscountAmount) }}
                 </td>
               </tr>
 
               <tr class="summary-row grand-total-row">
                 <td colspan="5" class="text-right font-weight-bold text-navy">
-                  Grand Total
+                  Total
                 </td>
                 <td class="text-right font-weight-bold text-navy gt-text">
                   {{ formatCurrency(purchaseorder?.grandtotal_purchaseorder || 0) }}
@@ -520,6 +523,26 @@ const purchaseorderSections = computed(() => {
     itemCount += items.length;
     return { ...section, items, startIndex };
   });
+});
+
+const purchaseorderDiscountAmount = computed(() => {
+  const currentPurchaseorder = purchaseorder.value;
+  if (!currentPurchaseorder) return 0;
+
+  const subtotal = Math.max(
+    Number(currentPurchaseorder.subtotal_purchaseorder) || 0,
+    0,
+  );
+  const savedNominal = currentPurchaseorder.diskon_nominal_purchaseorder;
+  if (savedNominal !== undefined && savedNominal !== null) {
+    return Math.min(Math.max(Number(savedNominal) || 0, 0), subtotal);
+  }
+
+  const percent = Math.min(
+    Math.max(Number(currentPurchaseorder.diskon_purchaseorder) || 0, 0),
+    100,
+  );
+  return subtotal * (percent / 100);
 });
 
 const lang = ref<"id" | "en">("en");
@@ -768,6 +791,144 @@ const loadWatermarkImage = (): Promise<HTMLImageElement> => {
   });
 };
 
+type PdfTextFragment = {
+  text: string;
+  left: number;
+  top: number;
+  height: number;
+  baseline: number;
+  fontSizePx: number;
+  fontWeight: number;
+  isItalic: boolean;
+  color: [number, number, number];
+  alignment: "left" | "center";
+};
+
+const parseCssColor = (value: string): [number, number, number] => {
+  const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  return channels?.length === 3
+    ? [channels[0], channels[1], channels[2]]
+    : [30, 41, 59];
+};
+
+const applyTextTransform = (text: string, transform: string) => {
+  if (transform === "uppercase") return text.toUpperCase();
+  if (transform === "lowercase") return text.toLowerCase();
+  if (transform === "capitalize") {
+    return text.replace(/(^|\s)\S/g, (character) => character.toUpperCase());
+  }
+  return text;
+};
+
+// The visual layer only contains backgrounds, borders and images. Text is
+// written as native PDF text so it stays sharp without a large bitmap.
+const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
+  const rootRect = root.getBoundingClientRect();
+  const fragments: PdfTextFragment[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+
+  let textNode = walker.nextNode() as Text | null;
+  while (textNode) {
+    const parent = textNode.parentElement;
+    const sourceText = textNode.data;
+    if (
+      parent &&
+      sourceText.trim() &&
+      !parent.closest(".no-print, .drag-icon, .no-print-cell")
+    ) {
+      const style = window.getComputedStyle(parent);
+      const fontSizePx = Number.parseFloat(style.fontSize);
+      if (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity) !== 0 &&
+        fontSizePx > 0 &&
+        parent.getClientRects().length
+      ) {
+        type CharacterRect = { character: string; rect: DOMRect };
+        let currentLine: CharacterRect[] = [];
+        let currentTop: number | null = null;
+        const range = document.createRange();
+
+        const flushLine = () => {
+          const firstVisible = currentLine.findIndex(
+            ({ character }) => !/\s/.test(character),
+          );
+          let lastVisible = currentLine.length - 1;
+          while (
+            lastVisible >= firstVisible &&
+            /\s/.test(currentLine[lastVisible]?.character || "")
+          ) {
+            lastVisible--;
+          }
+
+          if (firstVisible >= 0 && lastVisible >= firstVisible) {
+            const visibleCharacters = currentLine.slice(
+              firstVisible,
+              lastVisible + 1,
+            );
+            const centeredSignatureLine = parent.closest(".sig-person-name");
+            const lineTop = Math.min(
+              ...visibleCharacters.map(({ rect }) => rect.top),
+            );
+            const lineBottom = Math.max(
+              ...visibleCharacters.map(({ rect }) => rect.bottom),
+            );
+            const normalizedText = visibleCharacters
+              .map(({ character }) => character)
+              .join("")
+              .replace(/\s+/g, " ");
+
+            fragments.push({
+              text: applyTextTransform(normalizedText, style.textTransform),
+              left: centeredSignatureLine
+                ? centeredSignatureLine.getBoundingClientRect().left -
+                  rootRect.left +
+                  centeredSignatureLine.getBoundingClientRect().width / 2
+                : visibleCharacters[0].rect.left - rootRect.left,
+              top: lineTop - rootRect.top,
+              height: lineBottom - lineTop,
+              baseline: lineTop - rootRect.top + (lineBottom - lineTop) * 0.8,
+              fontSizePx,
+              fontWeight: Number.parseInt(style.fontWeight, 10) || 400,
+              isItalic: style.fontStyle === "italic",
+              color: parseCssColor(style.color),
+              alignment: centeredSignatureLine ? "center" : "left",
+            });
+          }
+
+          currentLine = [];
+          currentTop = null;
+        };
+
+        for (let index = 0; index < sourceText.length; index++) {
+          const character = sourceText[index];
+          if (character === "\n" || character === "\r") {
+            flushLine();
+            continue;
+          }
+
+          range.setStart(textNode, index);
+          range.setEnd(textNode, index + 1);
+          const rect = range.getBoundingClientRect();
+          if (!rect.width && !rect.height) continue;
+
+          if (currentTop !== null && Math.abs(rect.top - currentTop) > 0.75) {
+            flushLine();
+          }
+          if (currentTop === null) currentTop = rect.top;
+          currentLine.push({ character, rect });
+        }
+        flushLine();
+      }
+    }
+
+    textNode = walker.nextNode() as Text | null;
+  }
+
+  return fragments;
+};
+
 const handlePrint = async () => {
   const offerElement = document.getElementById("purchaseorder-to-print");
   const letterheadElement = offerElement?.querySelector(".letterhead");
@@ -901,46 +1062,184 @@ const handlePrint = async () => {
   }, 600);
 };
 
-const handleSavePdf = async () => {
+const createPaginatedPurchaseorderPdf = async () => {
   const offerElement = document.getElementById("purchaseorder-to-print");
-  if (!offerElement || isSavingPdf.value) return;
+  const letterheadElement = offerElement?.querySelector(".letterhead");
+  const contentElement = offerElement?.querySelector(".content-body");
+  const footerElement = offerElement?.querySelector(".page-footer");
+  if (!offerElement || !letterheadElement || !contentElement || !footerElement) {
+    return null;
+  }
 
-  const letterheadElement = offerElement.querySelector(".letterhead");
-  const contentElement = offerElement.querySelector(".content-body");
-  const footerElement = offerElement.querySelector(".page-footer");
-  if (!letterheadElement || !contentElement || !footerElement) return;
-
-  isSavingPdf.value = true;
+  // The preview is scaled by its parent on mobile. Remove that transform only
+  // while measuring and capturing so every PDF uses the original A4 layout.
+  const previewContainer = offerElement.closest<HTMLElement>(".po-content");
+  previewContainer?.classList.add("purchaseorder-pdf-unscaled");
+  offerElement.classList.add("purchaseorder-pdf-capture");
+  void offerElement.offsetHeight;
 
   try {
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
       import("html2canvas"),
       import("jspdf"),
     ]);
-    const canvasOptions = {
-      scale: 2,
+    await document.fonts?.ready;
+
+    const letterheadRect = letterheadElement.getBoundingClientRect();
+    const contentRect = contentElement.getBoundingClientRect();
+    const letterheadTextFragments = extractPdfTextFragments(letterheadElement);
+    const contentTextFragments = extractPdfTextFragments(contentElement);
+
+    const preparePrintClone = (clonedDocument: Document) => {
+      clonedDocument
+        .querySelectorAll(".no-print, .drag-icon, .no-print-cell")
+        .forEach((element) => {
+          (element as HTMLElement).style.display = "none";
+        });
+      clonedDocument
+        .querySelectorAll(".print-only-cell")
+        .forEach((element) => {
+          (element as HTMLElement).style.display = "table-cell";
+        });
+      clonedDocument
+        .querySelectorAll(".modern-table tbody tr")
+        .forEach((element) => {
+          (element as HTMLElement).style.breakInside = "avoid";
+          (element as HTMLElement).style.pageBreakInside = "avoid";
+        });
+      clonedDocument
+        .querySelectorAll(".modern-table tbody td")
+        .forEach((element) => {
+          (element as HTMLElement).style.verticalAlign = "top";
+        });
+
+      clonedDocument
+        .querySelectorAll("#purchaseorder-to-print *")
+        .forEach((element) => {
+          const htmlElement = element as HTMLElement;
+          htmlElement.style.setProperty("color", "transparent", "important");
+          htmlElement.style.setProperty(
+            "-webkit-text-fill-color",
+            "transparent",
+            "important",
+          );
+          htmlElement.style.setProperty("text-shadow", "none", "important");
+        });
+    };
+
+    const isSmallViewport = window.matchMedia("(max-width: 600px)").matches;
+    const requestedCaptureScale = isSmallViewport ? 2 : 3;
+    const maxContentCanvasPixels = isSmallViewport ? 12_000_000 : 40_000_000;
+    const safeContentScale = Math.sqrt(
+      maxContentCanvasPixels / (contentRect.width * contentRect.height),
+    );
+    const captureScale = Math.max(
+      1,
+      Math.min(requestedCaptureScale, safeContentScale),
+    );
+    const captureOptions = {
+      scale: captureScale,
       useCORS: true,
       backgroundColor: "#ffffff",
       logging: false,
-      onclone: (clonedDocument: Document) => {
-        clonedDocument
-          .querySelectorAll(".no-print, .no-print-cell, .drag-icon")
-          .forEach((element) => {
-            (element as HTMLElement).style.display = "none";
-          });
-        clonedDocument
-          .querySelectorAll(".print-only-cell")
-          .forEach((element) => {
-            (element as HTMLElement).style.display = "table-cell";
-          });
-      },
+      onclone: preparePrintClone,
     };
-    const [letterheadCanvas, contentCanvas, footerCanvas] = await Promise.all([
-      html2canvas(letterheadElement as HTMLElement, canvasOptions),
-      html2canvas(contentElement as HTMLElement, canvasOptions),
-      html2canvas(footerElement as HTMLElement, canvasOptions),
-    ]);
-    const watermarkImage = await loadWatermarkImage();
+    const [letterheadCanvas, footerCanvas, contentCanvas, watermarkImage] =
+      await Promise.all([
+        html2canvas(letterheadElement as HTMLElement, captureOptions),
+        html2canvas(footerElement as HTMLElement, captureOptions),
+        html2canvas(contentElement as HTMLElement, captureOptions),
+        loadWatermarkImage(),
+      ]);
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+      compress: true,
+      putOnlyUsedFonts: true,
+      precision: 4,
+    });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const sideMargin = 18;
+    const topMargin = 8;
+    const footerMargin = 8;
+    const contentWidth = pageWidth - sideMargin * 2;
+    const letterheadHeight =
+      (letterheadCanvas.height * contentWidth) / letterheadCanvas.width;
+    const footerHeight =
+      (footerCanvas.height * contentWidth) / footerCanvas.width;
+    const contentTop = topMargin + letterheadHeight + 6;
+    const contentBottom = pageHeight - footerMargin - footerHeight;
+    const printableContentHeight = contentBottom - contentTop;
+    const pixelsPerMm = contentCanvas.width / contentWidth;
+    const pageSliceHeight = Math.floor(printableContentHeight * pixelsPerMm);
+
+    const drawPdfTextFragments = (
+      fragments: PdfTextFragment[],
+      originX: number,
+      originY: number,
+      mmPerCssPixel: number,
+      sourceTop = 0,
+      sourceBottom = Number.POSITIVE_INFINITY,
+    ) => {
+      fragments.forEach((fragment) => {
+        const fragmentMiddle = fragment.top + fragment.height / 2;
+        if (fragmentMiddle < sourceTop || fragmentMiddle >= sourceBottom) return;
+
+        const fontStyle = fragment.isItalic
+          ? fragment.fontWeight >= 600
+            ? "bolditalic"
+            : "italic"
+          : fragment.fontWeight >= 600
+            ? "bold"
+            : "normal";
+        pdf.setFont("helvetica", fontStyle);
+        pdf.setFontSize(
+          fragment.fontSizePx * mmPerCssPixel * (72 / 25.4),
+        );
+        pdf.setTextColor(...fragment.color);
+        pdf.text(
+          fragment.text,
+          originX + fragment.left * mmPerCssPixel,
+          originY + (fragment.baseline - sourceTop) * mmPerCssPixel,
+          { align: fragment.alignment },
+        );
+      });
+    };
+
+    const canvasScale = contentCanvas.width / contentRect.width;
+    const keepTogetherRanges: Array<{ top: number; bottom: number }> = [];
+    contentElement
+      .querySelectorAll(".modern-table tbody tr")
+      .forEach((row) => {
+        const rect = row.getBoundingClientRect();
+        const range = {
+          top: Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
+          bottom: Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
+        };
+        if (range.bottom - range.top <= pageSliceHeight) {
+          keepTogetherRanges.push(range);
+        }
+      });
+
+    // Totals and signatures must not be cut between pages.
+    [".modern-table tfoot", ".closing-paragraph", ".signatures-wrapper"].forEach(
+      (selector) => {
+        contentElement.querySelectorAll<HTMLElement>(selector).forEach((block) => {
+          const rect = block.getBoundingClientRect();
+          const range = {
+            top: Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
+            bottom: Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
+          };
+          if (range.bottom - range.top <= pageSliceHeight) {
+            keepTogetherRanges.push(range);
+          }
+        });
+      },
+    );
+
     const watermarkCanvas = document.createElement("canvas");
     watermarkCanvas.width = 600;
     watermarkCanvas.height = Math.round(
@@ -948,6 +1247,13 @@ const handleSavePdf = async () => {
     );
     const watermarkContext = watermarkCanvas.getContext("2d");
     if (watermarkContext) {
+      watermarkContext.fillStyle = "#ffffff";
+      watermarkContext.fillRect(
+        0,
+        0,
+        watermarkCanvas.width,
+        watermarkCanvas.height,
+      );
       watermarkContext.globalAlpha = 0.105;
       watermarkContext.drawImage(
         watermarkImage,
@@ -958,100 +1264,190 @@ const handleSavePdf = async () => {
       );
     }
 
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const sideMargin = 12;
-    const topMargin = 8;
-    const footerMargin = 8;
-    const contentWidth = pageWidth - sideMargin * 2;
-    const letterheadHeight =
-      (letterheadCanvas.height * contentWidth) / letterheadCanvas.width;
-    const footerHeight =
-      (footerCanvas.height * contentWidth) / footerCanvas.width;
-    const contentTop = topMargin + letterheadHeight + 6;
-    const contentBottom = pageHeight - footerMargin - footerHeight - 5;
-    const printableContentHeight = contentBottom - contentTop;
-    const pixelsPerMm = contentCanvas.width / contentWidth;
-    const pageSliceHeight = Math.floor(printableContentHeight * pixelsPerMm);
+    const toLosslessPdfImage = (canvas: HTMLCanvasElement) =>
+      canvas.toDataURL("image/png");
+    const letterheadImage = toLosslessPdfImage(letterheadCanvas);
+    const footerImage = toLosslessPdfImage(footerCanvas);
+    const watermarkImageData = watermarkCanvas.toDataURL("image/jpeg", 0.92);
+    const watermarkWidth = 105;
+    const watermarkHeight =
+      (watermarkCanvas.height / watermarkCanvas.width) * watermarkWidth;
 
-    let sourceY = 0;
-    let pageNumber = 0;
-    while (sourceY < contentCanvas.height) {
-      if (pageNumber > 0) pdf.addPage();
-
-      const sliceHeight = Math.min(
-        pageSliceHeight,
-        contentCanvas.height - sourceY,
-      );
-      const sliceCanvas = document.createElement("canvas");
-      sliceCanvas.width = contentCanvas.width;
-      sliceCanvas.height = sliceHeight;
-      const context = sliceCanvas.getContext("2d");
-      context?.drawImage(
-        contentCanvas,
-        0,
-        sourceY,
-        contentCanvas.width,
-        sliceHeight,
-        0,
-        0,
-        contentCanvas.width,
-        sliceHeight,
-      );
-
+    const addPageFrame = () => {
       pdf.addImage(
-        letterheadCanvas.toDataURL("image/png"),
+        watermarkImageData,
+        "JPEG",
+        (pageWidth - watermarkWidth) / 2,
+        (pageHeight - watermarkHeight) / 2,
+        watermarkWidth,
+        watermarkHeight,
+        "purchaseorder-watermark",
+        "FAST",
+      );
+      pdf.addImage(
+        letterheadImage,
         "PNG",
         sideMargin,
         topMargin,
         contentWidth,
         letterheadHeight,
+        "purchaseorder-letterhead",
+        "SLOW",
       );
       pdf.addImage(
-        footerCanvas.toDataURL("image/png"),
+        footerImage,
         "PNG",
         sideMargin,
         pageHeight - footerMargin - footerHeight,
         contentWidth,
         footerHeight,
+        "purchaseorder-footer",
+        "SLOW",
       );
+      drawPdfTextFragments(
+        letterheadTextFragments,
+        sideMargin,
+        topMargin,
+        contentWidth / letterheadRect.width,
+        0,
+        letterheadRect.height,
+      );
+    };
+
+    const createContentSlice = (sliceStart: number, sliceHeight: number) => {
+      const sliceCanvas = document.createElement("canvas");
+      sliceCanvas.width = contentCanvas.width;
+      sliceCanvas.height = sliceHeight;
+      sliceCanvas
+        .getContext("2d")
+        ?.drawImage(
+          contentCanvas,
+          0,
+          sliceStart,
+          contentCanvas.width,
+          sliceHeight,
+          0,
+          0,
+          contentCanvas.width,
+          sliceHeight,
+        );
+      return sliceCanvas;
+    };
+
+    let sourceY = 0;
+    let pageIndex = 0;
+    while (sourceY < contentCanvas.height) {
+      const remainingHeight = contentCanvas.height - sourceY;
+      const finalPageScale = Math.min(1, pageSliceHeight / remainingHeight);
+
+      if (finalPageScale >= 0.92) {
+        if (pageIndex > 0) pdf.addPage();
+
+        const finalPageCanvas = createContentSlice(sourceY, remainingHeight);
+        const fittedContentWidth = contentWidth * finalPageScale;
+        const fittedContentHeight =
+          (remainingHeight / pixelsPerMm) * finalPageScale;
+
+        addPageFrame();
+        pdf.addImage(
+          toLosslessPdfImage(finalPageCanvas),
+          "PNG",
+          sideMargin + (contentWidth - fittedContentWidth) / 2,
+          contentTop,
+          fittedContentWidth,
+          fittedContentHeight,
+          `purchaseorder-content-${pageIndex}`,
+          "SLOW",
+        );
+        drawPdfTextFragments(
+          contentTextFragments,
+          sideMargin + (contentWidth - fittedContentWidth) / 2,
+          contentTop,
+          (contentWidth / contentRect.width) * finalPageScale,
+          sourceY / canvasScale,
+          contentCanvas.height / canvasScale,
+        );
+        break;
+      }
+
+      let targetY = Math.min(sourceY + pageSliceHeight, contentCanvas.height);
+      const crossingRange = keepTogetherRanges.find(
+        (range) =>
+          range.top > sourceY &&
+          range.top < targetY &&
+          range.bottom > targetY,
+      );
+      if (crossingRange) targetY = crossingRange.top;
+      if (pageIndex > 0) pdf.addPage();
+
+      const sliceHeight = targetY - sourceY;
+      const sliceCanvas = createContentSlice(sourceY, sliceHeight);
+
+      addPageFrame();
       pdf.addImage(
-        sliceCanvas.toDataURL("image/png"),
+        toLosslessPdfImage(sliceCanvas),
         "PNG",
         sideMargin,
         contentTop,
         contentWidth,
         sliceHeight / pixelsPerMm,
+        `purchaseorder-content-${pageIndex}`,
+        "SLOW",
+      );
+      drawPdfTextFragments(
+        contentTextFragments,
+        sideMargin,
+        contentTop,
+        contentWidth / contentRect.width,
+        sourceY / canvasScale,
+        targetY / canvasScale,
       );
 
-      // Watermark ditambahkan lebih dahulu agar berada di belakang konten
-      const watermarkWidthMm = 105;
-      const watermarkHeightMm =
-        (watermarkCanvas.height / watermarkCanvas.width) * watermarkWidthMm;
-      pdf.addImage(
-        watermarkCanvas.toDataURL("image/png"),
-        "PNG",
-        (pageWidth - watermarkWidthMm) / 2,
-        (pageHeight - watermarkHeightMm) / 2,
-        watermarkWidthMm,
-        watermarkHeightMm,
-      );
-
-      sourceY += sliceHeight;
-      pageNumber++;
+      sourceY = targetY;
+      pageIndex++;
     }
 
-    const poNumber =
-      purchaseorder.value?.no_purchaseorder ||
-      purchaseorder.value?.id_purchaseorder ||
-      props.detailpenawaran?.no_penawaran ||
-      "DRM";
-    pdf.save(`${poNumber}.pdf`);
+    return pdf;
+  } finally {
+    offerElement.classList.remove("purchaseorder-pdf-capture");
+    previewContainer?.classList.remove("purchaseorder-pdf-unscaled");
+  }
+};
+
+const getPurchaseorderPdfFilename = () => {
+  const rawPoNumber =
+    purchaseorder.value?.no_purchaseorder ||
+    purchaseorder.value?.id_purchaseorder ||
+    props.detailpenawaran?.no_penawaran ||
+    "00000";
+  const poNumberParts = rawPoNumber
+    .split(/[/-]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const yearFromPoNumber = poNumberParts.find((part) => /^\d{4}$/.test(part));
+  const purchaseorderDate = moment(purchaseorder.value?.tgl_purchaseorder);
+  const year =
+    yearFromPoNumber ||
+    (purchaseorderDate.isValid()
+      ? purchaseorderDate.format("YYYY")
+      : moment().format("YYYY"));
+  const poNumber = (poNumberParts.at(-1) || "00000")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `DRM-PO-${year}-${poNumber || "00000"}.pdf`;
+};
+
+const handleSavePdf = async () => {
+  if (isSavingPdf.value) return;
+  isSavingPdf.value = true;
+
+  try {
+    const pdf = await createPaginatedPurchaseorderPdf();
+    if (!pdf) return;
+    pdf.save(getPurchaseorderPdfFilename());
+  } catch (error) {
+    console.error("Gagal membuat PDF purchase order:", error);
   } finally {
     isSavingPdf.value = false;
   }
@@ -1076,6 +1472,12 @@ const handleSavePdf = async () => {
     sans-serif;
   color: #1e293b;
   box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+:global(.po-content.purchaseorder-pdf-unscaled) {
+  transform: none !important;
 }
 
 .watermark {
@@ -1346,6 +1748,16 @@ const handleSavePdf = async () => {
 
 .print-only-cell {
   display: none;
+}
+
+.offer-card.purchaseorder-pdf-capture .no-print,
+.offer-card.purchaseorder-pdf-capture .drag-icon,
+.offer-card.purchaseorder-pdf-capture .no-print-cell {
+  display: none !important;
+}
+
+.offer-card.purchaseorder-pdf-capture .print-only-cell {
+  display: table-cell !important;
 }
 
 .closing-paragraph {
