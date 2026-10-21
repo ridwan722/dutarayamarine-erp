@@ -811,7 +811,10 @@ function addfile(event: Event) {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  min-width: 0;
   padding: 24px;
+  overflow: hidden;
   background: rgba(22, 29, 37, 0.48);
 }
 
@@ -819,8 +822,10 @@ function addfile(event: Event) {
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0;
   max-width: 1040px;
   max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   overflow: hidden;
   color: #1f2937;
   background: #f5f6f8;
@@ -835,6 +840,7 @@ function addfile(event: Event) {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  min-width: 0;
   min-height: 72px;
   padding: 14px 20px;
   background: #ffffff;
@@ -850,10 +856,12 @@ function addfile(event: Event) {
 }
 
 .invoice-dialog-heading {
+  flex: 1 1 auto;
   gap: 12px;
 }
 
 .invoice-dialog-heading > div:last-child {
+  flex: 1 1 auto;
   align-items: flex-start;
   flex-direction: column;
 }
@@ -920,9 +928,13 @@ function addfile(event: Event) {
   flex: 1 1 auto;
   flex-direction: column;
   gap: 14px;
+  width: 100%;
   min-height: 0;
+  min-width: 0;
   padding: 18px;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: #f5f6f8;
 }
 
@@ -1490,6 +1502,8 @@ function addfile(event: Event) {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  width: 100%;
+  min-width: 0;
   min-height: 64px;
   padding: 12px 20px;
   background: #ffffff;
@@ -1507,6 +1521,7 @@ function addfile(event: Event) {
   display: flex;
   flex: 0 0 auto;
   gap: 8px;
+  min-width: 0;
 }
 
 .invoice-cancel-btn,
@@ -1535,7 +1550,11 @@ function addfile(event: Event) {
 
   .invoice-dialog-card {
     height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    max-width: 100%;
     max-height: 100vh;
+    max-height: 100dvh;
     border: 0;
     border-radius: 0;
   }
@@ -1560,7 +1579,7 @@ function addfile(event: Event) {
 @media (max-width: 599px) {
   .invoice-dialog-header {
     min-height: 64px;
-    padding: 11px 12px;
+    padding: calc(11px + env(safe-area-inset-top)) 12px 11px;
   }
 
   .invoice-dialog-heading {
@@ -1574,7 +1593,11 @@ function addfile(event: Event) {
   }
 
   .invoice-dialog-heading h2 {
+    max-width: 100%;
+    overflow: hidden;
     font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .invoice-dialog-heading p,
@@ -1629,7 +1652,7 @@ function addfile(event: Event) {
 
   .invoice-dialog-footer {
     align-items: stretch;
-    padding: 10px 12px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   }
 
   .invoice-dialog-footer p {
@@ -1639,7 +1662,8 @@ function addfile(event: Event) {
   .invoice-dialog-footer > div {
     display: grid;
     flex: 1;
-    grid-template-columns: 1fr 1.4fr;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   }
 
   .invoice-cancel-btn,

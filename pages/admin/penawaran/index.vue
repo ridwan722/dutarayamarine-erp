@@ -1,172 +1,178 @@
 <template>
   <ConfirmationDialog ref="confirmationDialog" />
 
- <v-dialog
-  v-model="data.dialogTambahMasterPerusahaan"
-  max-width="320"
-  persistent
->
-  <v-card class="rounded border elevation-1 bg-white">
-    <!-- Header Padat -->
-    <div class="px-4 py-2-5 pa-3 d-flex align-center justify-space-between border-b">
-      <span class="text-caption font-weight-bold text-grey-darken-3">Tambah Master Client</span>
-      <v-btn
-        icon="mdi-close"
-        variant="text"
-        density="compact"
-        size="x-small"
-        color="grey-darken-1"
-        @click="data.dialogTambahMasterPerusahaan = false"
-      />
-    </div>
+  <v-dialog
+    v-model="data.dialogTambahMasterPerusahaan"
+    max-width="320"
+    persistent
+  >
+    <v-card class="rounded border elevation-1 bg-white">
+      <!-- Header Padat -->
+      <div
+        class="px-4 py-2-5 pa-3 d-flex align-center justify-space-between border-b"
+      >
+        <span class="text-caption font-weight-bold text-grey-darken-3"
+          >Tambah Master Client</span
+        >
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          density="compact"
+          size="x-small"
+          color="grey-darken-1"
+          @click="data.dialogTambahMasterPerusahaan = false"
+        />
+      </div>
 
-    <!-- Form Body High-Density -->
-    <v-card-text class="pa-3">
-
+      <!-- Form Body High-Density -->
+      <v-card-text class="pa-3">
         <!-- Nama Perusahaan -->
 
-          <a-text-field-new
-            v-model="newCustomer.nama"
-            placeholder="Nama perusahaan"
-            variant="outlined"
-            density="compact"
-            hide-details
-          />
-          <div v-if="saranFieldCustomer('nama', newCustomer.nama).length" >
-            <v-chip
-              v-for="nama in saranFieldCustomer('nama', newCustomer.nama)"
-              :key="nama"
-              size="x-small"
-              class="mr-1 mb-1 text-grey"
-              @mousedown.prevent
-              @click="newCustomer.nama = nama"
-            >
-              {{ nama }}
-            </v-chip>
-          </div>
+        <a-text-field-new
+          v-model="newCustomer.nama"
+          placeholder="Nama perusahaan"
+          variant="outlined"
+          density="compact"
+          hide-details
+        />
+        <div v-if="saranFieldCustomer('nama', newCustomer.nama).length">
+          <v-chip
+            v-for="nama in saranFieldCustomer('nama', newCustomer.nama)"
+            :key="nama"
+            size="x-small"
+            class="mr-1 mb-1 text-grey"
+            @mousedown.prevent
+            @click="newCustomer.nama = nama"
+          >
+            {{ nama }}
+          </v-chip>
+        </div>
 
+        <a-text-field-new
+          v-model="newCustomer.vessel"
+          placeholder="vessel"
+          variant="outlined"
+          density="compact"
+          hide-details
+        />
+        <div v-if="saranFieldCustomer('vessel', newCustomer.vessel).length">
+          <v-chip
+            v-for="value in saranFieldCustomer('vessel', newCustomer.vessel)"
+            :key="value"
+            size="x-small"
+            class="mr-1 mb-1 text-grey"
+            @mousedown.prevent
+            @click="newCustomer.vessel = value"
+            >{{ value }}</v-chip
+          >
+        </div>
 
+        <a-text-field-new
+          v-model="newCustomer.pic"
+          placeholder="PIC name"
+          variant="outlined"
+          density="compact"
+          hide-details
+        />
+        <div v-if="saranFieldCustomer('pic', newCustomer.pic).length">
+          <v-chip
+            v-for="value in saranFieldCustomer('pic', newCustomer.pic)"
+            :key="value"
+            size="x-small"
+            class="mr-1 mb-1 text-grey"
+            @mousedown.prevent
+            @click="newCustomer.pic = value"
+            >{{ value }}</v-chip
+          >
+        </div>
 
-          <a-text-field-new
-            v-model="newCustomer.vessel"
-            placeholder="vessel"
-            variant="outlined"
-            density="compact"
-            hide-details
-          />
-          <div v-if="saranFieldCustomer('vessel', newCustomer.vessel).length">
-            <v-chip
-              v-for="value in saranFieldCustomer('vessel', newCustomer.vessel)"
-              :key="value"
-              size="x-small"
-              class="mr-1 mb-1 text-grey"
-              @mousedown.prevent
-              @click="newCustomer.vessel = value"
-            >{{ value }}</v-chip>
-          </div>
+        <a-text-field-new
+          v-model="newCustomer.no_telp"
+          placeholder="Phone Number"
+          variant="outlined"
+          density="compact"
+          hide-details
+        />
+        <div v-if="saranFieldCustomer('no_telp', newCustomer.no_telp).length">
+          <v-chip
+            v-for="value in saranFieldCustomer('no_telp', newCustomer.no_telp)"
+            :key="value"
+            size="x-small"
+            class="mr-1 mb-1 text-grey"
+            @mousedown.prevent
+            @click="newCustomer.no_telp = value"
+            >{{ value }}</v-chip
+          >
+        </div>
 
-          <a-text-field-new
-            v-model="newCustomer.pic"
-            placeholder="PIC name"
-            variant="outlined"
-            density="compact"
-            hide-details
-          />
-          <div v-if="saranFieldCustomer('pic', newCustomer.pic).length">
-            <v-chip
-              v-for="value in saranFieldCustomer('pic', newCustomer.pic)"
-              :key="value"
-              size="x-small"
-              class="mr-1 mb-1 text-grey"
-              @mousedown.prevent
-              @click="newCustomer.pic = value"
-            >{{ value }}</v-chip>
-          </div>
+        <a-text-field-new
+          v-model="newCustomer.email"
+          placeholder="Email"
+          variant="outlined"
+          density="compact"
+          hide-details
+        />
+        <div v-if="saranFieldCustomer('email', newCustomer.email).length">
+          <v-chip
+            v-for="value in saranFieldCustomer('email', newCustomer.email)"
+            :key="value"
+            size="x-small"
+            class="mr-1 mb-1 text-grey"
+            @mousedown.prevent
+            @click="newCustomer.email = value"
+            >{{ value }}</v-chip
+          >
+        </div>
 
-          <a-text-field-new
-            v-model="newCustomer.no_telp"
-            placeholder="Phone Number"
-            variant="outlined"
-            density="compact"
-            hide-details
-          />
-          <div v-if="saranFieldCustomer('no_telp', newCustomer.no_telp).length">
-            <v-chip
-              v-for="value in saranFieldCustomer('no_telp', newCustomer.no_telp)"
-              :key="value"
-              size="x-small"
-              class="mr-1 mb-1 text-grey"
-              @mousedown.prevent
-              @click="newCustomer.no_telp = value"
-            >{{ value }}</v-chip>
-          </div>
-       
-          <a-text-field-new
-            v-model="newCustomer.email"
-            placeholder="Email"
-            variant="outlined"
-            density="compact"
-            hide-details
-          />
-          <div v-if="saranFieldCustomer('email', newCustomer.email).length">
-            <v-chip
-              v-for="value in saranFieldCustomer('email', newCustomer.email)"
-              :key="value"
-              size="x-small"
-              class="mr-1 mb-1 text-grey"
-              @mousedown.prevent
-              @click="newCustomer.email = value"
-            >{{ value }}</v-chip>
-          </div>
+        <a-textarea-new
+          v-model="newCustomer.alamat"
+          placeholder="Address"
+          rows="2"
+          variant="outlined"
+          density="compact"
+          hide-details
+          auto-grow
+        />
+        <div v-if="saranFieldCustomer('alamat', newCustomer.alamat).length">
+          <v-chip
+            v-for="value in saranFieldCustomer('alamat', newCustomer.alamat)"
+            :key="value"
+            size="x-small"
+            class="mr-1 mb-1 text-grey"
+            @mousedown.prevent
+            @click="newCustomer.alamat = value"
+            >{{ value }}</v-chip
+          >
+        </div>
+      </v-card-text>
 
-          <a-textarea-new
-            v-model="newCustomer.alamat"
-            placeholder="Address"
-            rows="2"
-            variant="outlined"
-            density="compact"
-            hide-details
-            auto-grow
-          />
-          <div v-if="saranFieldCustomer('alamat', newCustomer.alamat).length">
-            <v-chip
-              v-for="value in saranFieldCustomer('alamat', newCustomer.alamat)"
-              :key="value"
-              size="x-small"
-              class="mr-1 mb-1 text-grey"
-              @mousedown.prevent
-              @click="newCustomer.alamat = value"
-            >{{ value }}</v-chip>
-          </div>
-
-
-    </v-card-text>
-
-    <!-- Footer Padat -->
-    <div class="px-3 py-2 border-t d-flex justify-end gap-1 bg-grey-lighten-5">
-      <v-btn
-        variant="text"
-        color="grey-darken-1"
-        size="x-small"
-        class="text-none px-3"
-        :disabled="savingCustomer"
-        @click="data.dialogTambahMasterPerusahaan = false"
+      <!-- Footer Padat -->
+      <div
+        class="px-3 py-2 border-t d-flex justify-end gap-1 bg-grey-lighten-5"
       >
-        Batal
-      </v-btn>
-      <v-btn
-        color="grey-darken-4"
-        size="x-small"
-        variant="flat"
-        class="text-none px-3 text-white"
-        :loading="savingCustomer"
-        @click="simpanMasterPerusahaan"
-      >
-        Simpan
-      </v-btn>
-    </div>
-  </v-card>
-</v-dialog>
+        <v-btn
+          variant="text"
+          color="grey-darken-1"
+          size="x-small"
+          class="text-none px-3"
+          :disabled="savingCustomer"
+          @click="data.dialogTambahMasterPerusahaan = false"
+        >
+          Batal
+        </v-btn>
+        <v-btn
+          color="grey-darken-4"
+          size="x-small"
+          variant="flat"
+          class="text-none px-3 text-white"
+          :loading="savingCustomer"
+          @click="simpanMasterPerusahaan"
+        >
+          Simpan
+        </v-btn>
+      </div>
+    </v-card>
+  </v-dialog>
 
   <!-- Tombol Kembali -->
   <v-btn
@@ -184,7 +190,7 @@
     v-model="data.dialogTambahPenawaran"
     max-width="1040"
     scrollable
-    :fullscreen="display.mdAndDown.value"
+    :fullscreen="display.xs.value"
     persistent
     class="quotation-dialog-overlay"
   >
@@ -199,9 +205,7 @@
               {{ data.penawaranAddEdit === "add" ? "Create" : "Edit" }}
               Quotation
             </h2>
-            <p>
-          Nomor quotation dibuat otomatis saat disimpan
-            </p>
+            <p>Nomor quotation dibuat otomatis saat disimpan</p>
           </div>
         </div>
 
@@ -298,14 +302,14 @@
           </dl>
 
           <a-select-new
-              class="quotation-client-select mt-2"
-              v-model="newPenawaran.location"
-              label="Location"
-              placeholder="Select location"
-              item-title="label"
-              item-value="id_customer"
-              :items="['Batam', 'Jakarta', 'Lamongan']"
-            />
+            class="quotation-client-select mt-2"
+            v-model="newPenawaran.location"
+            label="Location"
+            placeholder="Select location"
+            item-title="label"
+            item-value="id_customer"
+            :items="['Batam', 'Jakarta', 'Lamongan']"
+          />
         </section>
 
         <section class="quotation-currency-section">
@@ -340,7 +344,7 @@
               <span class="quotation-section-index">02</span>
               <h3>Quotation Items</h3>
             </div>
-            <v-btn
+            <!-- <v-btn
               size="small"
               variant="outlined"
               color="primary"
@@ -349,151 +353,190 @@
               @click="tambahBarisPenawaran"
             >
               Add Item
-            </v-btn>
+            </v-btn> -->
           </div>
 
           <div
-          v-for="(item, index) in newPenawaran.penawaran_item"
-          :key="index"
-          class="quotation-line-item"
-          @focusin="activeSuggestionIndex = index"
-          @focusout="activeSuggestionIndex = null"
-        >
-            <div class="quotation-line-item-header">
-              <div>
-                <span class="quotation-line-number">
-                  {{ String(index + 1).padStart(2, "0") }}
-                </span>
-                <span class="quotation-line-title">Item detail</span>
-              </div>
-              <v-btn
-                size="small"
-                variant="outlined"
-                color="error"
-                prepend-icon="mdi-trash-can-outline"
-                class="quotation-delete-item-btn text-none"
-                aria-label="Hapus item quotation"
-                @click="hapusBarisPenawaran(index)"
-              >
-                Delete
-                <v-tooltip activator="parent" location="top">
-                  Delete item
-                </v-tooltip>
-              </v-btn>
-            </div>
-
-            <a-textarea-new
-              v-model="item.nama"
-              label="Description"
-              placeholder="Describe the product, service, or scope of work"
-              rows="2"
-            />
-
+            ref="quotationItemsSortableContainer"
+            class="quotation-sortable-items"
+          >
             <div
-              v-if="
-                activeSuggestionIndex === index &&
-                barangSesuaiNama(item.nama).length
-              "
-              class="quotation-suggestions"
+              v-for="(item, index) in newPenawaran.penawaran_item"
+              :key="quotationItemKey(item)"
+              class="quotation-line-item"
+              @focusin="activeSuggestionIndex = index"
+              @focusout="activeSuggestionIndex = null"
             >
-              <span>HPP history</span>
-              <div>
-                <v-chip
-                  v-for="(barang, idxBarang) in barangSesuaiNama(item.nama)"
-                  :key="barang.id ?? idxBarang"
-                  size="x-small"
-                  variant="outlined"
-                  color="grey-darken-1"
-                >
-                  {{ barang.nama_barang }} · Rp
-                  {{ rupiah(barang.harga_hpp) }}
-                </v-chip>
-              </div>
-            </div>
-
-            <div class="quotation-category">
-              <span class="quotation-field-label">Category</span>
-              <div class="quotation-category-options">
-                <a-checkbox
-                  label="Barang"
-                  :model-value="item.kategori_item === 'Barang'"
-                  @update:model-value="
-                    setKategoriItem(item, 'Barang', $event)
-                  "
-                />
-                <a-checkbox
-                  label="Jasa"
-                  :model-value="item.kategori_item === 'Jasa'"
-                  @update:model-value="setKategoriItem(item, 'Jasa', $event)"
-                />
-                <a-checkbox
-                  label="Barang & Jasa"
-                  :model-value="item.kategori_item === 'Barang & Jasa'"
-                  @update:model-value="
-                    setKategoriItem(item, 'Barang & Jasa', $event)
-                  "
-                />
-              </div>
-            </div>
-
-            <div class="quotation-item-fields">
-              <a-field-number-new
-                v-model="item.qty"
-                label="Qty"
-                placeholder="0"
-              />
-              <a-select-new
-                :items="[
-                  'Unit',
-                  'Pcs',
-                  'Kg',
-                  'Lot',
-                  'Set',
-                  'Meter',
-                  'Box',
-                  'Liter',
-                  'Jerigen',
-                  'Can',
-                  'Pail',
-                ]"
-                v-model="item.uom"
-                label="UOM"
-                placeholder="Select"
-              />
-              <div class="quotation-hpp-field">
-                <a-field-number-new
-                  v-model="item.harga_hpp"
-                  label="HPP (Optional)"
-                  placeholder="0"
-                />
-                <div v-if="item.harga_hpp > 0" class="quotation-markup-actions">
+              <div class="quotation-line-item-header">
+                <div>
                   <button
-                    v-for="persentase in [10, 20, 30]"
-                    :key="persentase"
                     type="button"
-                    :disabled="!Number(item.harga_hpp)"
-                    @click="terapkanMarkup(item, persentase)"
+                    class="quotation-item-drag-handle"
+                    :aria-label="`Pindahkan item ${index + 1}`"
+                    title="Tarik untuk mengubah urutan item"
+                    @keydown.up.prevent="moveQuotationItem(index, index - 1)"
+                    @keydown.down.prevent="moveQuotationItem(index, index + 1)"
                   >
-                    +{{ persentase }}%
+                    <v-icon icon="mdi-drag-vertical" size="18" />
                   </button>
+                  <span class="quotation-line-number">
+                    {{ String(index + 1).padStart(2, "0") }}
+                  </span>
+                  <span class="quotation-line-title">Item detail</span>
+                </div>
+                <v-btn
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  prepend-icon="mdi-trash-can-outline"
+                  class="quotation-delete-item-btn text-none"
+                  aria-label="Hapus item quotation"
+                  @click="hapusBarisPenawaran(index)"
+                >
+                  Delete
+                  <v-tooltip activator="parent" location="top">
+                    Delete item
+                  </v-tooltip>
+                </v-btn>
+              </div>
+
+              <a-textarea-new
+                v-model="item.nama"
+                label="Description"
+                placeholder="Describe the product, service, or scope of work"
+                rows="2"
+              />
+
+              <div
+                v-if="
+                  activeSuggestionIndex === index &&
+                  barangSesuaiNama(item.nama).length
+                "
+                class="quotation-suggestions"
+              >
+                <span>HPP history</span>
+                <div>
+                  <v-chip
+                    v-for="(barang, idxBarang) in barangSesuaiNama(item.nama)"
+                    :key="barang.id ?? idxBarang"
+                    size="x-small"
+                    variant="outlined"
+                    color="grey-darken-1"
+                  >
+                    {{ barang.nama_barang }} · Rp
+                    {{ rupiah(barang.harga_hpp) }}
+                  </v-chip>
                 </div>
               </div>
-              <a-field-number-new
-                v-model="item.amount"
-                :label="`Unit Price (${currencyLabel(newPenawaran.currency)})`"
-                placeholder="0"
-              />
-              <a-text-field-new
-                :model-value="
-                  formatCurrency(
-                    Number(item.qty || 0) * Number(item.amount || 0),
-                    newPenawaran.currency,
-                  )
-                "
-                label="Subtotal"
-                placeholder="0"
-                disabled
-              />
+
+              <div class="quotation-category">
+                <span class="quotation-field-label">Category</span>
+                <div class="quotation-category-options">
+                  <a-checkbox
+                    label="Barang"
+                    :model-value="item.kategori_item === 'Barang'"
+                    @update:model-value="
+                      setKategoriItem(item, 'Barang', $event)
+                    "
+                  />
+                  <a-checkbox
+                    label="Jasa"
+                    :model-value="item.kategori_item === 'Jasa'"
+                    @update:model-value="setKategoriItem(item, 'Jasa', $event)"
+                  />
+                  <a-checkbox
+                    label="Barang & Jasa"
+                    :model-value="item.kategori_item === 'Barang & Jasa'"
+                    @update:model-value="
+                      setKategoriItem(item, 'Barang & Jasa', $event)
+                    "
+                  />
+                </div>
+              </div>
+
+              <div class="quotation-item-fields">
+                <a-field-number-new
+                  v-model="item.qty"
+                  label="Qty"
+                  placeholder="0"
+                />
+                <a-select-new
+                  :items="[
+                    'Unit',
+                    'Pcs',
+                    'Kg',
+                    'Lot',
+                    'Set',
+                    'Meter',
+                    'Box',
+                    'Liter',
+                    'Jerigen',
+                    'Can',
+                    'Pail',
+                  ]"
+                  v-model="item.uom"
+                  label="UOM"
+                  placeholder="Select"
+                />
+                <div class="quotation-hpp-field">
+                  <a-field-number-new
+                    v-model="item.harga_hpp"
+                    label="Harga Modal"
+                    placeholder="0"
+                  />
+                  <div
+                    v-if="item.harga_hpp > 0"
+                    class="quotation-markup-actions"
+                  >
+                    <button
+                      v-for="persentase in [10, 20, 30]"
+                      :key="persentase"
+                      type="button"
+                      :disabled="!Number(item.harga_hpp)"
+                      @click="terapkanMarkup(item, persentase)"
+                    >
+                      +{{ persentase }}%
+                    </button>
+                    <div class="quotation-custom-markup">
+                      <input
+                        v-model="customMarkupPercentages[quotationItemKey(item)]"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="Custom"
+                        :aria-label="`Persentase markup manual item ${index + 1}`"
+                        @keydown.enter.prevent="terapkanMarkupManual(item)"
+                      />
+                      <span>%</span>
+                      <button
+                        type="button"
+                        class="quotation-custom-markup-apply"
+                        :disabled="!canApplyCustomMarkup(item)"
+                        :aria-label="`Terapkan markup manual item ${index + 1}`"
+                        title="Terapkan markup manual"
+                        @click="terapkanMarkupManual(item)"
+                      >
+                        <v-icon icon="mdi-check" size="14" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <a-field-number-new
+                  v-model="item.amount"
+                  :label="`Unit Price (${currencyLabel(newPenawaran.currency)})`"
+                  placeholder="0"
+                />
+                <a-text-field-new
+                  :model-value="
+                    formatCurrency(
+                      Number(item.qty || 0) * Number(item.amount || 0),
+                      newPenawaran.currency,
+                    )
+                  "
+                  label="Subtotal"
+                  placeholder="0"
+                  disabled
+                />
+              </div>
             </div>
           </div>
 
@@ -566,10 +609,7 @@
                 <span>Total Quotation</span>
                 <strong>
                   {{
-                    formatCurrency(
-                      grandTotalPenawaran,
-                      newPenawaran.currency,
-                    )
+                    formatCurrency(grandTotalPenawaran, newPenawaran.currency)
                   }}
                 </strong>
               </div>
@@ -596,7 +636,10 @@
               ]"
             />
 
-            <div v-if="newPenawaran.sign_by" class="quotation-signature-preview">
+            <div
+              v-if="newPenawaran.sign_by"
+              class="quotation-signature-preview"
+            >
               <div
                 v-if="newPenawaran.sign_by == 'Leo Adiatmaja Sembiring'"
                 class="signature-content"
@@ -669,13 +712,13 @@
               size="small"
               color="primary"
               variant="outlined"
-              prepend-icon="mdi-plus"
+              :prepend-icon="existingTermCondition ? undefined : 'mdi-plus'"
               class="quotation-term-add-btn text-none"
               :disabled="!canAddTermCondition"
               :loading="savingTermCondition"
               @click="tambahTermConditionDariPencarian"
             >
-              {{ existingTermCondition ? "Sudah Ada" : "Tambah T&C" }}
+              {{ existingTermCondition ? "Available" : "Add master T&C" }}
             </v-btn>
           </div>
 
@@ -683,16 +726,30 @@
             <table class="quotation-terms-table">
               <thead>
                 <tr>
+                  <th scope="col" aria-label="Ubah urutan"></th>
                   <th scope="col">No.</th>
                   <th scope="col">Select</th>
                   <th scope="col">Description</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody ref="termConditionsSortableContainer">
                 <tr
                   v-for="(item, index) in sortedTermConditions"
-                  :key="item.id ?? index"
+                  :key="termConditionKey(item)"
+                  class="quotation-term-row"
                 >
+                  <td>
+                    <button
+                      type="button"
+                      class="quotation-term-drag-handle"
+                      :aria-label="`Pindahkan term ${index + 1}`"
+                      title="Tarik untuk mengubah urutan term"
+                      @keydown.up.prevent="moveTermCondition(index, index - 1)"
+                      @keydown.down.prevent="moveTermCondition(index, index + 1)"
+                    >
+                      <v-icon icon="mdi-drag-vertical" size="17" />
+                    </button>
+                  </td>
                   <td>{{ index + 1 }}</td>
                   <td>
                     <v-checkbox
@@ -703,12 +760,13 @@
                       hide-details
                       color="primary"
                       class="quotation-term-checkbox"
+                      @update:model-value="scheduleSelectedTermOrderSync"
                     />
                   </td>
                   <td>{{ item.nama_term }}</td>
                 </tr>
                 <tr v-if="!sortedTermConditions.length">
-                  <td colspan="3" class="quotation-terms-empty">
+                  <td colspan="4" class="quotation-terms-empty">
                     <strong>Term tidak ditemukan.</strong>
                     <span v-if="canAddTermCondition">
                       Klik “Tambah T&amp;C” untuk menyimpannya ke master.
@@ -979,10 +1037,19 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted, watch } from "vue";
+import {
+  reactive,
+  ref,
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  watch,
+} from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import moment from "moment";
+import Sortable from "sortablejs";
 import type { ConfirmationDialog } from "#components";
 import type { penawaranM } from "~/types/penawaranModel";
 import type { barangM } from "~/types/barangModel";
@@ -1273,37 +1340,46 @@ function currencyLabel(currency?: string) {
   }
 }
 
+type TermConditionOrderItem = { id?: string; nama_term: string };
+
+const termConditionOrder = ref<string[]>([]);
+
+function termConditionKey(term: TermConditionOrderItem) {
+  return term.id
+    ? `id:${term.id}`
+    : `name:${normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID")}`;
+}
+
+function orderTermConditions<T extends TermConditionOrderItem>(terms: T[]) {
+  const orderIndex = new Map(
+    termConditionOrder.value.map((key, index) => [key, index]),
+  );
+
+  return [...terms].sort((left, right) => {
+    const leftIndex = orderIndex.get(termConditionKey(left));
+    const rightIndex = orderIndex.get(termConditionKey(right));
+
+    if (leftIndex !== undefined && rightIndex !== undefined) {
+      return leftIndex - rightIndex;
+    }
+    if (leftIndex !== undefined) return -1;
+    if (rightIndex !== undefined) return 1;
+    return left.nama_term.localeCompare(right.nama_term, "id-ID");
+  });
+}
+
 const sortedTermConditions = computed(() => {
-  const search = normalizeTermCondition(termConditionSearch.value)
-    .toLocaleLowerCase("id-ID");
-  const selectedTerms = newPenawaran.value.termCondition ?? [];
-  return termconditionStore.getDataTermcondition
-    .filter((term) =>
+  const search = normalizeTermCondition(
+    termConditionSearch.value,
+  ).toLocaleLowerCase("id-ID");
+
+  return orderTermConditions(
+    termconditionStore.getDataTermcondition.filter((term) =>
       normalizeTermCondition(term.nama_term)
         .toLocaleLowerCase("id-ID")
         .includes(search),
-    )
-    .sort((a, b) => {
-      const aSelectedIndex = selectedTerms.findIndex((selected) =>
-        sameTermCondition(selected, {
-          id: a.id ?? "",
-          nama_term: a.nama_term,
-        }),
-      );
-      const bSelectedIndex = selectedTerms.findIndex((selected) =>
-        sameTermCondition(selected, {
-          id: b.id ?? "",
-          nama_term: b.nama_term,
-        }),
-      );
-
-      const aSelected = aSelectedIndex !== -1;
-      const bSelected = bSelectedIndex !== -1;
-
-      if (aSelected && bSelected) return aSelectedIndex - bSelectedIndex;
-      if (aSelected !== bSelected) return aSelected ? -1 : 1;
-      return a.nama_term.localeCompare(b.nama_term, "id-ID");
-    });
+    ),
+  );
 });
 
 function generateNoPenawaran(): string {
@@ -1323,14 +1399,34 @@ function generateNoPenawaran(): string {
 const newPenawaran = ref<penawaranM>(emptyPenawaran());
 const termConditionSearch = ref("");
 const savingTermCondition = ref(false);
+const customMarkupPercentages = ref<Record<string, string | number>>({});
+const quotationItemsSortableContainer = ref<HTMLElement | null>(null);
+const termConditionsSortableContainer = ref<HTMLTableSectionElement | null>(
+  null,
+);
+const quotationItemKeys = new WeakMap<object, string>();
+let quotationItemKeySequence = 0;
+let quotationItemsSortable: Sortable | null = null;
+let termConditionsSortable: Sortable | null = null;
+
+function quotationItemKey(item: penawaranM["penawaran_item"][number]) {
+  const existingKey = quotationItemKeys.get(item);
+  if (existingKey) return existingKey;
+
+  quotationItemKeySequence += 1;
+  const key = `quotation-item-${quotationItemKeySequence}`;
+  quotationItemKeys.set(item, key);
+  return key;
+}
 
 function normalizeTermCondition(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
 const existingTermCondition = computed(() => {
-  const search = normalizeTermCondition(termConditionSearch.value)
-    .toLocaleLowerCase("id-ID");
+  const search = normalizeTermCondition(
+    termConditionSearch.value,
+  ).toLocaleLowerCase("id-ID");
   if (!search) return undefined;
 
   return termconditionStore.getDataTermcondition.find(
@@ -1375,6 +1471,11 @@ async function tambahTermConditionDariPencarian() {
     );
     if (!addedTerm) return;
 
+    const addedTermKey = termConditionKey(addedTerm);
+    if (!termConditionOrder.value.includes(addedTermKey)) {
+      termConditionOrder.value.push(addedTermKey);
+    }
+
     newPenawaran.value.termCondition ??= [];
     const selectedTerm = {
       id: addedTerm.id ?? "",
@@ -1387,6 +1488,7 @@ async function tambahTermConditionDariPencarian() {
     ) {
       newPenawaran.value.termCondition.push(selectedTerm);
     }
+    syncSelectedTermConditionOrder();
     termConditionSearch.value = "";
   } finally {
     savingTermCondition.value = false;
@@ -1401,6 +1503,179 @@ function sameTermCondition(
     ? left.id === right.id
     : left.nama_term === right.nama_term;
 }
+
+function initializeTermConditionOrder() {
+  const availableTerms = [...termconditionStore.getDataTermcondition].sort(
+    (left, right) => left.nama_term.localeCompare(right.nama_term, "id-ID"),
+  );
+  const availableKeys = new Set(availableTerms.map(termConditionKey));
+  const selectedKeys = (newPenawaran.value.termCondition ?? [])
+    .map(termConditionKey)
+    .filter((key, index, keys) => {
+      return availableKeys.has(key) && keys.indexOf(key) === index;
+    });
+  const selectedKeySet = new Set(selectedKeys);
+
+  termConditionOrder.value = [
+    ...selectedKeys,
+    ...availableTerms
+      .map(termConditionKey)
+      .filter((key) => !selectedKeySet.has(key)),
+  ];
+}
+
+function syncSelectedTermConditionOrder() {
+  const selectedTerms = newPenawaran.value.termCondition;
+  if (!selectedTerms?.length) return;
+
+  const orderIndex = new Map(
+    termConditionOrder.value.map((key, index) => [key, index]),
+  );
+  selectedTerms.sort((left, right) => {
+    const leftIndex = orderIndex.get(termConditionKey(left));
+    const rightIndex = orderIndex.get(termConditionKey(right));
+
+    if (leftIndex === undefined && rightIndex === undefined) return 0;
+    if (leftIndex === undefined) return 1;
+    if (rightIndex === undefined) return -1;
+    return leftIndex - rightIndex;
+  });
+}
+
+function scheduleSelectedTermOrderSync() {
+  void nextTick(syncSelectedTermConditionOrder);
+}
+
+function moveQuotationItem(fromIndex: number, toIndex: number) {
+  const items = newPenawaran.value.penawaran_item;
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= items.length ||
+    toIndex >= items.length
+  ) {
+    return;
+  }
+
+  const [movedItem] = items.splice(fromIndex, 1);
+  if (!movedItem) return;
+  items.splice(toIndex, 0, movedItem);
+  activeSuggestionIndex.value = null;
+}
+
+function moveTermCondition(fromIndex: number, toIndex: number) {
+  const visibleTerms = [...sortedTermConditions.value];
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= visibleTerms.length ||
+    toIndex >= visibleTerms.length
+  ) {
+    return;
+  }
+
+  const [movedTerm] = visibleTerms.splice(fromIndex, 1);
+  if (!movedTerm) return;
+  visibleTerms.splice(toIndex, 0, movedTerm);
+
+  const visibleKeys = new Set(visibleTerms.map(termConditionKey));
+  const reorderedVisibleTerms = [...visibleTerms];
+  const allTerms = orderTermConditions(
+    termconditionStore.getDataTermcondition,
+  ).map((term) => {
+    if (!visibleKeys.has(termConditionKey(term))) return term;
+    return reorderedVisibleTerms.shift() ?? term;
+  });
+
+  termConditionOrder.value = allTerms.map(termConditionKey);
+  syncSelectedTermConditionOrder();
+}
+
+function sortableEventIndexes(event: Sortable.SortableEvent) {
+  return {
+    fromIndex: event.oldDraggableIndex ?? event.oldIndex,
+    toIndex: event.newDraggableIndex ?? event.newIndex,
+  };
+}
+
+function destroyQuotationSortables() {
+  quotationItemsSortable?.destroy();
+  termConditionsSortable?.destroy();
+  quotationItemsSortable = null;
+  termConditionsSortable = null;
+}
+
+function initializeQuotationSortables() {
+  destroyQuotationSortables();
+
+  if (quotationItemsSortableContainer.value) {
+    quotationItemsSortable = new Sortable(
+      quotationItemsSortableContainer.value,
+      {
+        animation: 160,
+        draggable: ".quotation-line-item",
+        handle: ".quotation-item-drag-handle",
+        ghostClass: "quotation-sortable-ghost",
+        chosenClass: "quotation-sortable-chosen",
+        dragClass: "quotation-sortable-drag",
+        delay: 120,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 4,
+        forceFallback: true,
+        fallbackOnBody: true,
+        fallbackTolerance: 3,
+        scroll: true,
+        onEnd(event) {
+          const { fromIndex, toIndex } = sortableEventIndexes(event);
+          if (fromIndex === undefined || toIndex === undefined) return;
+          moveQuotationItem(fromIndex, toIndex);
+        },
+      },
+    );
+  }
+
+  if (termConditionsSortableContainer.value) {
+    termConditionsSortable = new Sortable(
+      termConditionsSortableContainer.value,
+      {
+        animation: 160,
+        draggable: ".quotation-term-row",
+        handle: ".quotation-term-drag-handle",
+        ghostClass: "quotation-sortable-ghost",
+        chosenClass: "quotation-sortable-chosen",
+        dragClass: "quotation-sortable-drag",
+        delay: 120,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 4,
+        forceFallback: true,
+        fallbackOnBody: true,
+        fallbackTolerance: 3,
+        scroll: true,
+        onEnd(event) {
+          const { fromIndex, toIndex } = sortableEventIndexes(event);
+          if (fromIndex === undefined || toIndex === undefined) return;
+          moveTermCondition(fromIndex, toIndex);
+        },
+      },
+    );
+  }
+}
+
+watch(
+  () => data.dialogTambahPenawaran,
+  async (isOpen) => {
+    destroyQuotationSortables();
+    if (!isOpen) return;
+
+    await nextTick();
+    initializeQuotationSortables();
+  },
+  { flush: "post" },
+);
+
+onBeforeUnmount(destroyQuotationSortables);
 
 const subtotalPenawaran = computed(() =>
   newPenawaran.value.penawaran_item.reduce(
@@ -1545,7 +1820,9 @@ function openDialogTambahPenawaran() {
   data.penawaranAddEdit = "add";
   data.editOriginalTermconditionId = "";
   termConditionSearch.value = "";
+  customMarkupPercentages.value = {};
   newPenawaran.value = emptyPenawaran();
+  initializeTermConditionOrder();
   data.dialogTambahPenawaran = true;
 }
 
@@ -1571,6 +1848,8 @@ function openDialogEditPenawaran(item: penawaranM) {
 
   data.penawaranAddEdit = "edit";
   termConditionSearch.value = "";
+  customMarkupPercentages.value = {};
+  initializeTermConditionOrder();
   data.dialogTambahPenawaran = true;
 }
 
@@ -1595,13 +1874,44 @@ function setKategoriItem(
 }
 
 function terapkanMarkup(
-  item: { harga_hpp: number; amount: number },
+  item: { harga_hpp?: number; amount: number },
   persentase: number,
 ) {
   const hargaHpp = Number(item.harga_hpp) || 0;
   if (hargaHpp <= 0) return;
 
   item.amount = hargaHpp * (1 + persentase / 100);
+}
+
+function customMarkupPercentage(
+  item: penawaranM["penawaran_item"][number],
+) {
+  const rawValue = customMarkupPercentages.value[quotationItemKey(item)];
+  if (rawValue === undefined || String(rawValue).trim() === "") return NaN;
+  return Number(String(rawValue).trim().replace(",", "."));
+}
+
+function canApplyCustomMarkup(
+  item: penawaranM["penawaran_item"][number],
+) {
+  const percentage = customMarkupPercentage(item);
+  return (
+    Number(item.harga_hpp) > 0 &&
+    Number.isFinite(percentage) &&
+    percentage >= 0
+  );
+}
+
+function terapkanMarkupManual(
+  item: penawaranM["penawaran_item"][number],
+) {
+  if (!canApplyCustomMarkup(item)) {
+    return notificationStore.showError(
+      "Isi persentase markup manual dengan angka 0 atau lebih",
+    );
+  }
+
+  terapkanMarkup(item, customMarkupPercentage(item));
 }
 
 async function hapusBarisPenawaran(index: number) {
@@ -1616,6 +1926,10 @@ async function hapusBarisPenawaran(index: number) {
   );
   if (!confirmed) return;
 
+  const itemToDelete = newPenawaran.value.penawaran_item[index];
+  if (itemToDelete) {
+    delete customMarkupPercentages.value[quotationItemKey(itemToDelete)];
+  }
   newPenawaran.value.penawaran_item.splice(index, 1);
 }
 
@@ -1662,10 +1976,7 @@ async function simpanPenawaranDialog() {
     return notificationStore.showError("Location wajib diisi");
   }
 
-  if (
-    !newPenawaran.value.location ||
-    !newPenawaran.value.location.trim()
-  ) {
+  if (!newPenawaran.value.location || !newPenawaran.value.location.trim()) {
     return notificationStore.showError("Location wajib diisi");
   }
 
@@ -2438,6 +2749,59 @@ async function refreshData() {
   gap: 8px;
 }
 
+.quotation-item-drag-handle,
+.quotation-term-drag-handle {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  color: #7a8795;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.quotation-item-drag-handle {
+  margin-left: -5px;
+}
+
+.quotation-item-drag-handle:hover,
+.quotation-term-drag-handle:hover {
+  color: #315f8c;
+  background: #edf3f8;
+  border-color: #d4e0eb;
+}
+
+.quotation-item-drag-handle:focus-visible,
+.quotation-term-drag-handle:focus-visible {
+  outline: 2px solid rgba(24, 103, 192, 0.32);
+  outline-offset: 1px;
+}
+
+.quotation-item-drag-handle:active,
+.quotation-term-drag-handle:active {
+  cursor: grabbing;
+}
+
+.quotation-sortable-ghost {
+  opacity: 0.35;
+}
+
+.quotation-sortable-chosen {
+  background: #f2f7fb !important;
+  border-color: #9db8d1 !important;
+}
+
+.quotation-sortable-drag {
+  opacity: 0.95;
+  box-shadow: 0 10px 28px rgba(31, 50, 70, 0.18);
+}
+
 .quotation-delete-item-btn {
   min-width: 76px;
   height: 28px !important;
@@ -2516,6 +2880,7 @@ async function refreshData() {
 
 .quotation-markup-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-top: 6px;
 }
@@ -2549,6 +2914,61 @@ async function refreshData() {
 .quotation-markup-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.quotation-custom-markup {
+  display: grid;
+  grid-template-columns: 52px auto 24px;
+  align-items: center;
+  height: 23px;
+  overflow: hidden;
+  color: #4f5d68;
+  background: #ffffff;
+  border: 1px solid #bddfc9;
+  border-radius: 4px;
+}
+
+.quotation-custom-markup input {
+  width: 52px;
+  height: 21px;
+  padding: 0 5px;
+  color: #33404d;
+  font: inherit;
+  font-size: 10px;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.quotation-custom-markup input::placeholder {
+  color: #929ca6;
+}
+
+.quotation-custom-markup span {
+  padding-right: 3px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.quotation-markup-actions .quotation-custom-markup-apply {
+  min-width: 24px;
+  width: 24px;
+  height: 21px;
+  padding: 0;
+  color: #21764b;
+  background: #f3faf6;
+  border: 0;
+  border-left: 1px solid #d6e8dd;
+  border-radius: 0;
+}
+
+.quotation-markup-actions .quotation-custom-markup-apply:hover:not(:disabled) {
+  background: #e6f5ec;
+}
+
+.quotation-custom-markup:focus-within {
+  border-color: #70ad87;
+  box-shadow: 0 0 0 2px rgba(33, 118, 75, 0.12);
 }
 
 .quotation-add-row-secondary {
@@ -2755,15 +3175,26 @@ async function refreshData() {
 
 .quotation-terms-table th:first-child,
 .quotation-terms-table td:first-child {
-  width: 44px;
+  width: 40px;
+  padding: 0;
   text-align: center;
 }
 
 .quotation-terms-table th:nth-child(2),
 .quotation-terms-table td:nth-child(2) {
+  width: 44px;
+  text-align: center;
+}
+
+.quotation-terms-table th:nth-child(3),
+.quotation-terms-table td:nth-child(3) {
   width: 58px;
   padding: 0;
   text-align: center;
+}
+
+.quotation-term-drag-handle {
+  margin: 0 auto;
 }
 
 .quotation-terms-table td {
@@ -2869,11 +3300,6 @@ async function refreshData() {
 }
 
 @media (max-width: 959px) {
-  .quotation-dialog-card {
-    border: 0;
-    border-radius: 0 !important;
-  }
-
   .quotation-dialog-body {
     padding: 14px !important;
   }
@@ -2896,6 +3322,11 @@ async function refreshData() {
 }
 
 @media (max-width: 599px) {
+  .quotation-dialog-card {
+    border: 0;
+    border-radius: 0 !important;
+  }
+
   .quotation-dialog-header {
     min-height: 64px;
     padding: 11px 12px;

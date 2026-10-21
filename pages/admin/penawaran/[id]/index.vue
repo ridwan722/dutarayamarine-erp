@@ -11,11 +11,14 @@ import { doc } from "firebase/firestore";
 import { ref } from "vue";
 import { useDocument, useFirestore } from "vuefire";
 import { queryambilid } from "~/composables/useFirestoreQuery";
+import type { invoiceM } from "~/types/invoice";
 import type { penawaranM } from "~/types/penawaranModel";
 
 const activeTab = ref(0);
 const purchaseorderPreviewKey = ref(0);
-const invoiceLinks = ref<{ id: string; no_inv?: string }[]>([]);
+const hasPurchaseOrder = ref(false);
+const invoiceLinks = ref<(invoiceM & { id: string })[]>([]);
+const invoiceLinksLoading = ref(true);
 
 definePageMeta({ layout: "admin" });
 
@@ -64,11 +67,62 @@ watch(
 // tanpa menahan preview quotation atau menampilkan loader global.
 void queryambilid(`penawaran/${penawaranId}/invoice`)
   .then((invoices) => {
-    invoiceLinks.value = invoices as { id: string; no_inv?: string }[];
+    invoiceLinks.value = invoices as (invoiceM & { id: string })[];
   })
   .catch((error) => {
     console.error("Gagal memuat tautan invoice:", error);
+  })
+  .finally(() => {
+    invoiceLinksLoading.value = false;
   });
+
+void queryambilid(`penawaran/${penawaranId}/purchaseorder`)
+  .then((purchaseOrders) => {
+    hasPurchaseOrder.value = purchaseOrders.length > 0;
+  })
+  .catch((error) => {
+    console.error("Gagal memuat status Purchase Order:", error);
+  });
+
+const quotationInvoiceTarget = computed(() => {
+  const quotation = detailpenawaran.value;
+  return (
+    Number(quotation?.grand_total_penawaran) ||
+    Number(quotation?.subtotal_penawaran) ||
+    (quotation?.penawaran_item ?? []).reduce(
+      (total, item) =>
+        total +
+        Number(item.subtotal_item || Number(item.qty) * Number(item.amount)),
+      0,
+    )
+  );
+});
+
+const invoicedSubtotal = computed(() =>
+  invoiceLinks.value.reduce((total, invoice) => {
+    const netSubtotal = Math.max(
+      0,
+      Number(invoice.subtotal_invoice || 0) -
+        Number(invoice.discount_invoice || 0),
+    );
+    const billedAmount = invoice.down_payment
+      ? netSubtotal * (Number(invoice.dp_persen || 0) / 100)
+      : netSubtotal;
+
+    return total + billedAmount;
+  }, 0),
+);
+
+const remainingInvoiceAmount = computed(() =>
+  Math.max(0, quotationInvoiceTarget.value - invoicedSubtotal.value),
+);
+
+const isFullyInvoiced = computed(
+  () =>
+    invoiceLinks.value.length > 0 &&
+    quotationInvoiceTarget.value > 0 &&
+    remainingInvoiceAmount.value <= 0.5,
+);
 
 const data = reactive({
   dialogAdd: false,
@@ -104,11 +158,23 @@ const data = reactive({
 });
 
 async function opendialogaddinv() {
+  if (invoiceLinksLoading.value) return;
+  if (isFullyInvoiced.value) {
+    return useNotificationStore().showInfo(
+      "Seluruh nominal quotation sudah ditagih",
+    );
+  }
+
   data.dialogAdd = true;
 }
 
 async function opendialogaddpengeluaran() {
   data.dialogAddPengeluaran = true;
+}
+
+function handlePurchaseOrderSaved() {
+  purchaseorderPreviewKey.value += 1;
+  hasPurchaseOrder.value = true;
 }
 
 const penawaranWrapper = ref<HTMLElement | null>(null);
@@ -232,7 +298,7 @@ onBeforeUnmount(() => {
   <admin-penawaran-dialog-purchaseorder
     v-model="data.dialogPurchaseOrder"
     :penawaran="detailpenawaran"
-    @saved="purchaseorderPreviewKey++"
+    @saved="handlePurchaseOrderSaved"
   />
 
   <div v-if="detailpenawaran" class="quotation-page">
@@ -329,6 +395,15 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="action-buttons">
+                <div
+                  v-if="isFullyInvoiced"
+                  class="invoice-fully-billed-notice"
+                  role="status"
+                >
+                  <v-icon size="16">mdi-check-circle</v-icon>
+                  <span>Seluruh nominal quotation sudah ditagih.</span>
+                </div>
+
                 <!-- Invoice -->
                 <v-btn
                   block
@@ -337,6 +412,8 @@ onBeforeUnmount(() => {
                   size="small"
                   append-icon="mdi-file-document-plus-outline"
                   class="corporate-btn btn-invoice"
+                  :disabled="invoiceLinksLoading || isFullyInvoiced"
+                  :loading="invoiceLinksLoading"
                   @click="opendialogaddinv"
                 >
                   Buat Invoice
@@ -348,11 +425,15 @@ onBeforeUnmount(() => {
                   color="primary"
                   variant="flat"
                   size="small"
-                  append-icon="mdi-clipboard-text-outline"
+                  :append-icon="
+                    hasPurchaseOrder
+                      ? 'mdi-check-circle'
+                      : 'mdi-clipboard-text-outline'
+                  "
                   class="corporate-btn btn-po"
                   @click="data.dialogPurchaseOrder = true"
                 >
-                  Buat / Edit Purchase Order (PO)
+                  Buat / Edit PO
                 </v-btn>
 
                 <!-- Pengeluaran
@@ -976,6 +1057,27 @@ onBeforeUnmount(() => {
   gap: 9px;
 }
 
+.invoice-fully-billed-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 9px 10px;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+}
+
+.invoice-fully-billed-notice .v-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #16a34a;
+}
+
 .corporate-btn {
   height: 28px !important;
   min-height: 28px !important;
@@ -997,6 +1099,10 @@ onBeforeUnmount(() => {
 /* Hover */
 .corporate-btn:hover {
   transform: translateY(-1px);
+}
+
+.corporate-btn.v-btn--disabled:hover {
+  transform: none;
 }
 
 /* Invoice */
