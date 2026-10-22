@@ -89,6 +89,11 @@
               v-model="newInvoice.tanggal_preorder"
               label="Tanggal Pre Order (PO)"
             />
+            <a-select-new
+              v-model="newInvoice.currency_inv"
+              label="Currency Invoice"
+              :items="['IDR', 'USD', 'SGD']"
+            />
           </div>
 
         <div class="mt-3">
@@ -239,8 +244,10 @@
               />
               <a-field-number-new
                 v-model="item.amount"
-                label="Amount/unit"
+                :label="`Amount/unit (${newInvoice.currency_inv || 'IDR'})`"
                 placeholder="0"
+                :allow-decimal="newInvoice.currency_inv !== 'IDR'"
+                :step="newInvoice.currency_inv === 'IDR' ? 1 : 0.01"
               />
               <a-field-number-new
                 v-model="item.subtotal_item"
@@ -335,7 +342,7 @@
               >
                 <span>Subtotal</span>
                 <span class="font-weight-medium text-grey-darken-3"
-                  >Rp {{ rupiah(subtotal_invoice) }}</span
+                  >{{ formatInvoiceCurrency(subtotal_invoice, newInvoice.currency_inv) }}</span
                 >
               </div>
               <div
@@ -344,7 +351,7 @@
               >
                 <span>Discount</span>
                 <span class="font-weight-medium text-grey-darken-3"
-                  >- Rp {{ rupiah(discountInvoice) }}</span
+                  >- {{ formatInvoiceCurrency(discountInvoice, newInvoice.currency_inv) }}</span
                 >
               </div>
               <div class="d-flex flex-wrap align-center justify-space-between ga-2 text-body-2 text-grey-darken-2 mb-1">
@@ -363,7 +370,7 @@
                   style="max-width: 130px"
                 />
                 <span v-if="newInvoice.down_payment" class="font-weight-medium text-grey-darken-3">
-                  Rp {{ rupiah(dpNominal) }}
+                  {{ formatInvoiceCurrency(dpNominal, newInvoice.currency_inv) }}
                 </span>
               </div>
               <div
@@ -372,7 +379,7 @@
               >
                 <span>PPN 11%</span>
                 <span class="font-weight-medium text-grey-darken-3"
-                  >Rp {{ rupiah(ppnInvoice) }}</span
+                  >{{ formatInvoiceCurrency(ppnInvoice, newInvoice.currency_inv) }}</span
                 >
               </div>
               <v-divider class="my-2" />
@@ -382,7 +389,7 @@
                   >Grand Total</span
                 >
                 <span class="text-h6 font-weight-black text-primary"
-                  >Rp {{ rupiah(grandtotal_invoice) }}</span
+                  >{{ formatInvoiceCurrency(grandtotal_invoice, newInvoice.currency_inv) }}</span
                 >
               </div>
             </v-col>
@@ -532,7 +539,9 @@
       </template>
 
       <template #item.grandtotal_invoice="{ item }">
-        <strong class="invoice-amount-cell">Rp {{ rupiah(item.grandtotal_invoice) }}</strong>
+        <strong class="invoice-amount-cell">
+          {{ formatInvoiceCurrency(item.grandtotal_invoice, item.currency_inv) }}
+        </strong>
       </template>
 
       <template #item.status="{ item }">
@@ -604,7 +613,11 @@ import { useDisplay } from "vuetify";
 import moment from "moment";
 import type { ConfirmationDialog } from "#components";
 import type { customerM } from "~/types/customerModel";
-import type { invoiceM, invoicePoDocumentM } from "~/types/invoice";
+import type {
+  invoiceCurrencyM,
+  invoiceM,
+  invoicePoDocumentM,
+} from "~/types/invoice";
 import { useinvoiceStore } from "~/stores/invoiceStore";
 
 definePageMeta({
@@ -667,6 +680,7 @@ function emptyInvoice(): invoiceM {
     email: "",
     pic: "",
     tanggal: moment().format("YYYY-MM-DD"),
+    currency_inv: "IDR",
     perihal: "",
     item_pekerjaan: [
       {
@@ -724,6 +738,20 @@ const sortedTermConditions = computed(() => {
 });
 
 const newInvoice = ref<invoiceM>(emptyInvoice());
+
+function normalizeInvoiceCurrency(currency?: string): invoiceCurrencyM {
+  return currency === "USD" || currency === "SGD" ? currency : "IDR";
+}
+
+function formatInvoiceCurrency(value: number, currency?: string) {
+  const code = normalizeInvoiceCurrency(currency);
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: code,
+    maximumFractionDigits: code === "IDR" ? 0 : 2,
+  }).format(Number(value) || 0);
+}
+
 const readingPo = ref(false);
 const savingInvoice = ref(false);
 const MAX_INVOICE_BYTES = 900_000;
@@ -1397,7 +1425,7 @@ async function refreshData() {
 .invoice-section-header h3 { margin: 0; color: #2c3743; font-size: 12px; font-weight: 700; line-height: 21px; }
 .invoice-section-header p { margin: 3px 0 0; color: #8a949f; font-size: 9px; text-align: right; }
 .invoice-client-picker,
-.invoice-po-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.invoice-po-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .invoice-client-details {
   display: grid;
   grid-template-columns: 1.8fr repeat(4, minmax(0, 1fr));

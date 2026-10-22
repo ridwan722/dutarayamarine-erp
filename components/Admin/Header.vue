@@ -3,14 +3,104 @@ import { useDisplay } from "vuetify";
 import { useUserStore } from "@/stores/userStore";
 import { getAuth, signOut } from "firebase/auth";
 import { navigateTo } from "#app";
+import { ref, watch } from "vue";
 
 const { mdAndUp } = useDisplay();
 const useuser = useUserStore();
+const mobileMenuOpen = ref(false);
+
+const menuItems = [
+  {
+    title: "Dashboard",
+    subtitle: "Ringkasan aktivitas ERP",
+    to: "/admin/",
+    icon: "mdi-view-dashboard-outline",
+    exact: true,
+  },
+  {
+    title: "Quotation",
+    subtitle: "Penawaran dan proyek",
+    to: "/admin/penawaran",
+    icon: "mdi-file-edit-outline",
+  },
+  {
+    title: "Invoice",
+    subtitle: "Tagihan pelanggan",
+    to: "/admin/invoice",
+    icon: "mdi-receipt-text-outline",
+    exact: true,
+  },
+  {
+    title: "Purchase Order",
+    subtitle: "Pesanan untuk vendor",
+    to: "/admin/purchase-order",
+    icon: "mdi-clipboard-text-outline",
+  },
+  {
+    title: "Invoice Success",
+    subtitle: "Invoice yang telah selesai",
+    to: "/admin/invoice/selesai",
+    icon: "mdi-check-decagram-outline",
+  },
+  {
+    title: "Master Client",
+    subtitle: "Data pelanggan",
+    to: "/admin/master/client",
+    icon: "mdi-domain",
+  },
+  {
+    title: "Master Vendor",
+    subtitle: "Data mitra dan pemasok",
+    to: "/admin/master/vendor",
+    icon: "mdi-human-dolly",
+  },
+  {
+    title: "Leads Web",
+    subtitle: "Prospek yang masuk",
+    to: "/admin/master/leads-web",
+    icon: "mdi-human-queue",
+  },
+  {
+    title: "Master Barang / Service",
+    subtitle: "Katalog barang dan layanan",
+    to: "/admin/master/barang",
+    icon: "mdi-package-variant-closed",
+  },
+  {
+    title: "Master T&C",
+    subtitle: "Syarat dan ketentuan",
+    to: "/admin/master/termcondition",
+    icon: "mdi-information-variant-circle-outline",
+  },
+  {
+    title: "Keuangan Kantor",
+    subtitle: "Kas dan transaksi kantor",
+    to: "/admin/petty-cash",
+    icon: "mdi-cash-multiple",
+  },
+  {
+    title: "Report Order",
+    subtitle: "Laporan pekerjaan",
+    to: "/admin/report-order",
+    icon: "mdi-chart-box-outline",
+  },
+  {
+    title: "Legalitas",
+    subtitle: "Dokumen legal perusahaan",
+    to: "/admin/legalitas",
+    icon: "mdi-file-cloud",
+  },
+];
+
+watch(mdAndUp, (isDesktop) => {
+  if (isDesktop) mobileMenuOpen.value = false;
+});
 
 const logout = async () => {
   const auth = getAuth();
 
   try {
+    mobileMenuOpen.value = false;
     await signOut(auth);
     useuser.setUser(null);
     await navigateTo("/");
@@ -40,148 +130,23 @@ const logout = async () => {
 
     <v-list nav density="compact" class="side-nav-list px-2">
       <v-list-item
-        to="/admin/"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-        exact
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-view-dashboard-outline</v-icon>
-        </div>
-        <span class="nav-title-flyout">Dashboard</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/penawaran"
+        v-for="item in menuItems"
+        :key="item.to"
+        :to="item.to"
+        :exact="item.exact"
         class="side-nav-item"
         active-class="side-nav-item--active"
       >
         <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-file-edit-outline</v-icon>
+          <v-icon :icon="item.icon" size="20" />
         </div>
-        <span class="nav-title-flyout">Quotation</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/invoice"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-        exact
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-receipt-text-outline</v-icon>
-        </div>
-        <span class="nav-title-flyout">Invoice</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/invoice/selesai"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-check-decagram-outline</v-icon>
-        </div>
-        <span class="nav-title-flyout">Invoice Success</span>
-      </v-list-item>
-
-      <!-- <v-list-item
-        to="/admin/berita-acara"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-file-certificate-outline</v-icon>
-        </div>
-        <span class="nav-title-flyout">Berita Acara</span>
-      </v-list-item> -->
-
-      <v-list-item
-        to="/admin/master/client"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-domain</v-icon>
-        </div>
-        <span class="nav-title-flyout">Master Client</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/master/vendor"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-human-dolly</v-icon>
-        </div>
-        <span class="nav-title-flyout">Master Vendor</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/master/leads-web"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-human-queue</v-icon>
-        </div>
-        <span class="nav-title-flyout">Leads Web</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/master/barang"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-package-variant-closed</v-icon>
-        </div>
-        <span class="nav-title-flyout">Master Barang / Service</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/master/termcondition"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-information-variant-circle-outline</v-icon>
-        </div>
-        <span class="nav-title-flyout">Master T&C</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/petty-cash"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-cash-multiple</v-icon>
-        </div>
-        <span class="nav-title-flyout">Keuangan Kantor</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/report-order"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-chart-box-outline</v-icon>
-        </div>
-        <span class="nav-title-flyout">Report Order</span>
-      </v-list-item>
-
-      <v-list-item
-        to="/admin/legalitas"
-        class="side-nav-item"
-        active-class="side-nav-item--active"
-      >
-        <div class="nav-icon-wrapper">
-          <v-icon size="20">mdi-file-cloud</v-icon>
-        </div>
-        <span class="nav-title-flyout">Legalitas</span>
+        <v-tooltip
+          activator="parent"
+          location="end"
+          content-class="side-nav-tooltip"
+        >
+          {{ item.title }}
+        </v-tooltip>
       </v-list-item>
     </v-list>
   </v-navigation-drawer>
@@ -211,7 +176,83 @@ const logout = async () => {
 
     <template #append>
       <div class="header-right">
+        <v-menu
+          v-if="!mdAndUp"
+          v-model="mobileMenuOpen"
+          location="bottom end"
+          :offset="10"
+          :close-on-content-click="true"
+        >
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              icon
+              variant="outlined"
+              class="mobile-menu-btn"
+              aria-label="Buka menu navigasi"
+              :aria-expanded="mobileMenuOpen"
+            >
+              <v-icon :icon="mobileMenuOpen ? 'mdi-close' : 'mdi-menu'" />
+            </v-btn>
+          </template>
+
+          <v-card class="mobile-menu-card" width="340" elevation="10">
+            <div class="mobile-menu-header">
+              <div class="mobile-menu-header-icon">
+                <v-icon icon="mdi-apps" size="20" />
+              </div>
+              <div>
+                <strong>Menu Navigasi</strong>
+                <span>Pilih modul ERP yang ingin dibuka</span>
+              </div>
+            </div>
+
+            <v-divider />
+
+            <v-list class="mobile-nav-list" density="comfortable" nav>
+              <v-list-item
+                v-for="item in menuItems"
+                :key="`mobile-${item.to}`"
+                :to="item.to"
+                :exact="item.exact"
+                class="mobile-nav-item"
+                active-class="mobile-nav-item--active"
+                @click="mobileMenuOpen = false"
+              >
+                <template #prepend>
+                  <span class="mobile-nav-icon">
+                    <v-icon :icon="item.icon" size="18" />
+                  </span>
+                </template>
+
+                <v-list-item-title>{{ item.title }}</v-list-item-title>
+                <v-list-item-subtitle>{{ item.subtitle }}</v-list-item-subtitle>
+
+                <template #append>
+                  <v-icon icon="mdi-chevron-right" size="17" />
+                </template>
+              </v-list-item>
+            </v-list>
+
+            <v-divider />
+
+            <div class="mobile-menu-footer">
+              <v-btn
+                block
+                variant="tonal"
+                color="error"
+                prepend-icon="mdi-logout-variant"
+                class="text-none"
+                @click="logout"
+              >
+                Keluar dari aplikasi
+              </v-btn>
+            </div>
+          </v-card>
+        </v-menu>
+
         <v-btn
+          v-if="mdAndUp"
           variant="outlined"
           prepend-icon="mdi-logout-variant"
           class="logout-btn"
@@ -237,8 +278,8 @@ const logout = async () => {
   overflow: visible !important;
 }
 
-:deep(.v-navigation-drawer__content) {
-  overflow: visible !important;
+.desktop-side-menu :deep(.v-navigation-drawer__content) {
+  overflow: hidden !important;
   display: flex;
   flex-direction: column;
 }
@@ -276,9 +317,19 @@ const logout = async () => {
 
 .side-nav-list {
   display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
   flex-direction: column;
   gap: 6px;
-  overflow: visible !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-bottom: 12px !important;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+
+.side-nav-list::-webkit-scrollbar {
+  display: none;
 }
 
 .side-nav-item {
@@ -323,30 +374,6 @@ const logout = async () => {
     transform 0.2s ease;
 }
 
-.nav-title-flyout {
-  position: absolute;
-  left: 56px;
-  top: 50%;
-  transform: translateY(-50%);
-  background-color: #0f172a;
-  color: #f8fafc;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.3),
-    0 4px 6px -4px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 999;
-}
-
 .side-nav-item:hover {
   background-color: rgba(255, 255, 255, 0.06) !important;
   color: #ffffff !important;
@@ -355,12 +382,6 @@ const logout = async () => {
 .side-nav-item:hover .nav-icon-wrapper .v-icon {
   color: #ffffff;
   transform: scale(1.08);
-}
-
-.side-nav-item:hover .nav-title-flyout {
-  opacity: 1;
-  visibility: visible;
-  left: 62px;
 }
 
 .side-nav-item--active {
@@ -380,6 +401,20 @@ const logout = async () => {
 
 .side-nav-item--active .nav-icon-wrapper .v-icon {
   color: #ef4444 !important;
+}
+
+:global(.side-nav-tooltip) {
+  padding: 6px 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.3),
+    0 4px 6px -4px rgba(0, 0, 0, 0.2) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
 }
 
 /* =========================================================
@@ -467,6 +502,123 @@ const logout = async () => {
   align-items: center;
 }
 
+.mobile-menu-btn {
+  width: 40px !important;
+  height: 40px !important;
+  border-color: #dbe3ee !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+}
+
+.mobile-menu-card {
+  width: min(340px, calc(100vw - 20px)) !important;
+  overflow: hidden !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+}
+
+.mobile-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 15px 16px 13px;
+}
+
+.mobile-menu-header-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 11px;
+  background: #eaf5f8;
+  color: #288aa1;
+}
+
+.mobile-menu-header > div:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-menu-header strong {
+  color: #18364a;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+.mobile-menu-header span {
+  color: #879ca8;
+  font-size: 10px;
+}
+
+.mobile-nav-list {
+  max-height: min(58vh, 480px);
+  overflow-y: auto !important;
+  padding: 8px !important;
+  overscroll-behavior: contain;
+}
+
+.mobile-nav-item {
+  min-height: 54px !important;
+  margin-bottom: 3px !important;
+  border-radius: 11px !important;
+  color: #314f60 !important;
+}
+
+.mobile-nav-item :deep(.v-list-item__prepend) {
+  margin-right: 11px !important;
+}
+
+.mobile-nav-item :deep(.v-list-item__append) {
+  color: #a8bbc4;
+}
+
+.mobile-nav-item :deep(.v-list-item-title) {
+  font-size: 11.5px !important;
+  font-weight: 750 !important;
+}
+
+.mobile-nav-item :deep(.v-list-item-subtitle) {
+  margin-top: 2px;
+  color: #8ca0aa !important;
+  font-size: 9.5px !important;
+  opacity: 1 !important;
+}
+
+.mobile-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #f0f6f8;
+  color: #418095;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.mobile-nav-item:hover {
+  background: #f6fafb !important;
+}
+
+.mobile-nav-item--active {
+  background: #edf7f9 !important;
+  color: #1d7187 !important;
+}
+
+.mobile-nav-item--active .mobile-nav-icon {
+  background: #d7eef3;
+  color: #17788f;
+}
+
+.mobile-menu-footer {
+  padding: 10px;
+  background: #fafcfd;
+}
+
 .logout-btn {
   min-width: 92px !important;
   height: 38px !important;
@@ -525,20 +677,6 @@ const logout = async () => {
     font-size: 9.5px;
   }
 
-  .logout-btn {
-    min-width: 40px !important;
-    width: 40px !important;
-    height: 40px !important;
-    padding: 0 !important;
-  }
-
-  .logout-btn :deep(.v-btn__prepend) {
-    margin: 0 !important;
-  }
-
-  .logout-label {
-    display: none;
-  }
 }
 
 @media (max-width: 390px) {

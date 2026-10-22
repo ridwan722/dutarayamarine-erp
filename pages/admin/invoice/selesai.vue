@@ -113,7 +113,7 @@
 
       <template #item.grandtotal_invoice="{ item }">
         <strong class="invoice-amount-cell">
-          Rp {{ rupiah(item.grandtotal_invoice) }}
+          {{ formatInvoiceCurrency(item.grandtotal_invoice, item.currency_inv) }}
         </strong>
       </template>
 
@@ -170,11 +170,25 @@
 import { computed, onMounted, reactive } from "vue";
 import moment from "moment";
 import { useinvoiceStore } from "~/stores/invoiceStore";
+import type { invoiceCurrencyM } from "~/types/invoice";
 
 definePageMeta({ layout: "admin" });
 
 const invoiceStore = useinvoiceStore();
 const notificationStore = useNotificationStore();
+
+function normalizeInvoiceCurrency(currency?: string): invoiceCurrencyM {
+  return currency === "USD" || currency === "SGD" ? currency : "IDR";
+}
+
+function formatInvoiceCurrency(value: number, currency?: string) {
+  const code = normalizeInvoiceCurrency(currency);
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: code,
+    maximumFractionDigits: code === "IDR" ? 0 : 2,
+  }).format(Number(value) || 0);
+}
 
 const data = reactive({
   searchInvoice: "",

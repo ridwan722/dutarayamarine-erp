@@ -31,6 +31,8 @@ export interface invoiceDoWrM {
   contentType: string;
 }
 
+export type invoiceCurrencyM = "IDR" | "USD" | "SGD";
+
 export interface invoiceM {
   id?: string;
   id_invoice?: string;
@@ -51,6 +53,7 @@ export interface invoiceM {
   tanggal_penawaran?: string;
 
   tanggal: string;
+  currency_inv?: invoiceCurrencyM;
   perihal: string;
   item_pekerjaan: invoiceItemM[];
   pakai_ppn: boolean;

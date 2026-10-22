@@ -559,7 +559,7 @@
                 class="text-subtitle-1 font-weight-bold"
                 style="color: #1e293b"
               >
-                {{ rupiah(invoiceDetail.grandtotal_invoice) }}
+                {{ formatInvoiceCurrency(invoiceDetail.grandtotal_invoice) }}
               </div>
             </div>
 
@@ -593,7 +593,7 @@
 
               <div class="text-h6 font-weight-bold" style="color: #243b53">
                 {{
-                  rupiah(
+                  formatInvoiceCurrency(
                     invoiceDetail.grandtotal_invoice -
                       invoiceDetail.grandtotal_pengeluaran,
                   )
@@ -610,7 +610,7 @@
                 class="text-body-2 font-weight-semibold"
                 style="color: #334155"
               >
-                {{ rupiah(invoiceDetail.grandtotal_pengeluaran) }}
+                {{ formatInvoiceCurrency(invoiceDetail.grandtotal_pengeluaran) }}
               </div>
             </div>
           </div>
@@ -816,7 +816,7 @@
                       {{ invoiceLanguage === "id" ? "Mata Uang" : "Currency" }}
                     </td>
                     <td>:</td>
-                    <td>IDR – (Rupiah)</td>
+                    <td>{{ invoiceCurrencyDescription }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -877,8 +877,8 @@
 
                 <td class="amount-cell v-align-middle">
                   <div class="d-flex justify-space-between align-center">
-                    <span>Rp</span>
-                    <span>{{ rupiah(item.amount) }}</span>
+                    <span>{{ invoiceCurrencyPrefix }}</span>
+                    <span>{{ formatInvoiceNumber(item.amount) }}</span>
                   </div>
                 </td>
               </tr>
@@ -894,12 +894,12 @@
 
                 <td class="footer-value">
                   <div class="d-flex justify-space-between">
-                    <span>Rp</span>
-                    <span>{{ rupiah(invoiceDetail.subtotal_invoice) }}</span>
+                    <span>{{ invoiceCurrencyPrefix }}</span>
+                    <span>{{ formatInvoiceNumber(invoiceDetail.subtotal_invoice) }}</span>
                   </div>
                 </td>
               </tr>
-              <tr v-if="invoiceDetail.dp_persen > 0 || invoiceAmountLabel !== 'Down Payment' || invoiceDetail.pakai_ppn || invoiceDetail.discount_invoice > 0">
+              <tr v-if="invoiceDetail.dp_persen > 0 && invoiceAmountLabel !== 'Down Payment' && invoiceDetail.pakai_ppn && invoiceDetail.discount_invoice > 0">
                 <td></td>
                 <td></td>
                 <td></td>
@@ -910,8 +910,8 @@
 
                 <td class="footer-value">
                   <div class="d-flex justify-space-between font-italic">
-                    <span>Rp</span>
-                    <span>{{ rupiah(invoiceDetail.discount_invoice) }}</span>
+                    <span>{{ invoiceCurrencyPrefix }}</span>
+                    <span>{{ formatInvoiceNumber(invoiceDetail.discount_invoice) }}</span>
                   </div>
                 </td>
               </tr>
@@ -928,8 +928,8 @@
 
                 <td class="footer-value">
                   <div class="d-flex justify-space-between">
-                    <span>Rp</span>
-                    <span>{{ rupiah(previousBilledSubtotal) }}</span>
+                    <span>{{ invoiceCurrencyPrefix }}</span>
+                    <span>{{ formatInvoiceNumber(previousBilledSubtotal) }}</span>
                   </div>
                 </td>
               </tr>
@@ -947,8 +947,8 @@
 
                 <td class="footer-value">
                   <div class="d-flex justify-space-between">
-                    <span>Rp</span>
-                    <span>{{ rupiah(invoiceDetail.ppn) }}</span>
+                    <span>{{ invoiceCurrencyPrefix }}</span>
+                    <span>{{ formatInvoiceNumber(invoiceDetail.ppn) }}</span>
                   </div>
                 </td>
               </tr>
@@ -974,9 +974,9 @@
 
                 <td class="footer-value">
                   <div class="d-flex justify-space-between">
-                    <span>Rp</span>
+                    <span>{{ invoiceCurrencyPrefix }}</span>
                     <strong>{{
-                      rupiah(invoiceDetail.grandtotal_invoice)
+                      formatInvoiceNumber(invoiceDetail.grandtotal_invoice)
                     }}</strong>
                   </div>
                 </td>
@@ -987,13 +987,13 @@
           <div class="terbilang-strip">
             <span v-if="invoiceLanguage === 'id'">
               Terbilang: #{{ jadirupiah(invoiceDetail.grandtotal_invoice) }}
-              Rupiah.
+              {{ invoiceCurrencyName }}.
             </span>
             <span v-else>
               Amount in words: #{{
                 numberToWordsEnglish(invoiceDetail.grandtotal_invoice)
               }}
-              Rupiah.
+              {{ invoiceCurrencyName }}.
             </span>
           </div>
 
@@ -1270,6 +1270,7 @@
 import moment from "moment";
 import type { ConfirmationDialog } from "#components";
 import type {
+  invoiceCurrencyM,
   invoiceM,
   invoiceBuktiBayarM,
   invoiceDoWrM,
@@ -1418,6 +1419,41 @@ function tutupDialogDoWr() {
 }
 
 const invoiceDetail = computed(() => invoiceStore.getDetailInvoice);
+const invoiceCurrency = computed<invoiceCurrencyM>(() => {
+  const currency = invoiceDetail.value.currency_inv;
+  return currency === "USD" || currency === "SGD" ? currency : "IDR";
+});
+const invoiceCurrencyPrefix = computed(() =>
+  invoiceCurrency.value === "IDR" ? "Rp" : invoiceCurrency.value,
+);
+const invoiceCurrencyName = computed(() => {
+  if (invoiceCurrency.value === "USD") {
+    return invoiceLanguage.value === "id"
+      ? "Dolar Amerika Serikat"
+      : "US Dollars";
+  }
+  if (invoiceCurrency.value === "SGD") {
+    return invoiceLanguage.value === "id"
+      ? "Dolar Singapura"
+      : "Singapore Dollars";
+  }
+  return invoiceLanguage.value === "id" ? "Rupiah" : "Indonesian Rupiah";
+});
+const invoiceCurrencyDescription = computed(
+  () => `${invoiceCurrency.value} – (${invoiceCurrencyName.value})`,
+);
+
+function formatInvoiceNumber(value?: number) {
+  const fractionDigits = invoiceCurrency.value === "IDR" ? 0 : 2;
+  return new Intl.NumberFormat("id-ID", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(Number(value) || 0);
+}
+
+function formatInvoiceCurrency(value?: number) {
+  return `${invoiceCurrencyPrefix.value} ${formatInvoiceNumber(value)}`;
+}
 
 const discountPercent = computed(() => {
   const subtotal = Number(invoiceDetail.value.subtotal_invoice || 0);

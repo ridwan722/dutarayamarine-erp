@@ -2,6 +2,7 @@
 const links = [
   { title: "Penawaran", subtitle: "Kelola proyek & penawaran", href: "/admin/penawaran", icon: "mdi-file-document-edit-outline", tone: "blue" },
   { title: "Invoice", subtitle: "Tagihan dan pembayaran", href: "/admin/invoice", icon: "mdi-receipt-text-outline", tone: "cyan" },
+  { title: "Purchase Order", subtitle: "Pesanan ke vendor", href: "/admin/purchase-order", icon: "mdi-clipboard-text-outline", tone: "blue" },
   { title: "Keuangan kantor", subtitle: "Transaksi & inventaris", href: "/admin/petty-cash", icon: "mdi-wallet-outline", tone: "green" },
   { title: "Client", subtitle: "Data pelanggan", href: "/admin/master/client", icon: "mdi-account-group-outline", tone: "violet" },
   { title: "Vendor", subtitle: "Mitra pengadaan", href: "/admin/master/vendor", icon: "mdi-storefront-outline", tone: "orange" },

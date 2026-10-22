@@ -945,9 +945,16 @@
       </template>
 
       <template v-slot:item.grand_total="{ item }">
-        <strong class="quotation-amount-cell">{{
-          formatCurrency(item.grand_total_penawaran, item.currency)
-        }}</strong>
+        <div class="quotation-price-cell">
+          <strong class="quotation-amount-cell">
+            {{ formatCurrency(item.grand_total_penawaran, item.currency) }}
+          </strong>
+          <template v-if="hasQuotationDiscount(item)">
+            <del class="quotation-original-amount">
+              {{ formatCurrency(quotationOriginalTotal(item), item.currency) }}
+            </del>
+          </template>
+        </div>
       </template>
 
       <template v-slot:item.status="{ item }">
@@ -1327,6 +1334,29 @@ function formatCurrency(value: number | null | undefined, currency?: string) {
     currency: code,
     maximumFractionDigits: code === "IDR" ? 0 : 2,
   }).format(Number(value) || 0);
+}
+
+function quotationOriginalTotal(item: penawaranM) {
+  const storedSubtotal = Number(item.subtotal_penawaran) || 0;
+  if (storedSubtotal > 0) return storedSubtotal;
+
+  return (item.penawaran_item || []).reduce(
+    (total, quotationItem) =>
+      total +
+      (Number(quotationItem.subtotal_item) ||
+        (Number(quotationItem.qty) || 0) *
+          (Number(quotationItem.amount) || 0)),
+    0,
+  );
+}
+
+function hasQuotationDiscount(item: penawaranM) {
+  const originalTotal = quotationOriginalTotal(item);
+  const discountedTotal = Number(item.grand_total_penawaran) || 0;
+
+  return (
+    Number(item.discount_penawaran) > 0 && originalTotal > discountedTotal
+  );
 }
 
 function currencyLabel(currency?: string) {
@@ -2356,13 +2386,30 @@ async function refreshData() {
 }
 
 .quotation-amount-cell {
-  display: block;
+  display: inline-block;
   color: #273444;
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.quotation-price-cell {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
+}
+
+.quotation-original-amount {
+  color: #8f9aa7;
+  font-size: 9.5px;
+  font-weight: 500;
+  text-decoration-color: #9ca6b1;
+  text-decoration-thickness: 1px;
 }
 
 .quotation-table-status {

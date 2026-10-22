@@ -49,6 +49,11 @@
               v-model="form.tanggal"
               label="Invoice Date"
             />
+            <a-select-new
+              v-model="form.currency_inv"
+              label="Currency Invoice"
+              :items="['IDR', 'USD', 'SGD']"
+            />
           </div>
 
           <dl class="invoice-client-details">
@@ -184,8 +189,8 @@
                   <td>{{ item.nama }}</td>
                   <td>{{ item.qty }}</td>
                   <td>{{ item.uom }}</td>
-                  <td>Rp {{ rupiah(item.amount) }}</td>
-                  <td>Rp {{ rupiah(itemSubtotal(item)) }}</td>
+                  <td>{{ formatInvoiceCurrency(item.amount) }}</td>
+                  <td>{{ formatInvoiceCurrency(itemSubtotal(item)) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -205,22 +210,24 @@
             <div class="invoice-billing-progress">
               <v-icon icon="mdi-check-circle-outline" size="16" />
               <span>
-                Sudah ditagih: <strong>Rp {{ rupiah(billedSubtotal) }}</strong>
+                Sudah ditagih:
+                <strong>{{ formatInvoiceCurrency(billedSubtotal) }}</strong>
               </span>
               <span>
-                Sisa: <strong>Rp {{ rupiah(remainingSubtotal) }}</strong>
+                Sisa:
+                <strong>{{ formatInvoiceCurrency(remainingSubtotal) }}</strong>
               </span>
             </div>
 
             <div class="invoice-totals">
               <div>
                 <span>Subtotal</span>
-                <strong>Rp {{ rupiah(subtotal) }}</strong>
+                <strong>{{ formatInvoiceCurrency(subtotal) }}</strong>
               </div>
               <div v-if="discountAmount > 0">
                 <span>Discount</span>
                 <strong class="invoice-discount-value">
-                  - Rp {{ rupiah(discountAmount) }}
+                  - {{ formatInvoiceCurrency(discountAmount) }}
                 </strong>
               </div>
               <div class="invoice-total-option invoice-termin-option">
@@ -237,7 +244,7 @@
                   class="invoice-dp-field"
                 />
                 <strong v-if="form.down_payment">
-                  Rp {{ rupiah(dpNominal) }}
+                  {{ formatInvoiceCurrency(dpNominal) }}
                 </strong>
               </div>
               <div class="invoice-total-option">
@@ -245,11 +252,11 @@
                   <input type="checkbox" v-model="form.pakai_ppn" />
                   <span>PPN 11%</span>
                 </label>
-                <strong>Rp {{ rupiah(ppn) }}</strong>
+                <strong>{{ formatInvoiceCurrency(ppn) }}</strong>
               </div>
               <div class="invoice-grand-total">
                 <span>Grand Total</span>
-                <strong>Rp {{ rupiah(grandTotal) }}</strong>
+                <strong>{{ formatInvoiceCurrency(grandTotal) }}</strong>
               </div>
             </div>
           </section>
@@ -407,6 +414,7 @@
 <script setup lang="ts">
 import moment from "moment";
 import type {
+  invoiceCurrencyM,
   invoiceItemM,
   invoiceM,
   invoicePoDocumentM,
@@ -438,7 +446,7 @@ const sameTermCondition = (a: any, b: any) => {
 };
 
 const emptyForm = (): invoiceM => ({
- no_inv: "",
+  no_inv: "",
   id_customer: "",
   nama_customer: "",
   alamat_customer: "",
@@ -448,6 +456,7 @@ const emptyForm = (): invoiceM => ({
   pic: "",
   location: "",
   tanggal: "",
+  currency_inv: "IDR",
   perihal: "",
   sign_by: "",
   item_pekerjaan: [],
@@ -474,6 +483,23 @@ onMounted(async () => {
 });
 
 const form = ref<invoiceM>(emptyForm());
+const invoiceCurrency = computed<invoiceCurrencyM>(() =>
+  normalizeInvoiceCurrency(form.value.currency_inv),
+);
+
+function normalizeInvoiceCurrency(currency?: string): invoiceCurrencyM {
+  return currency === "USD" || currency === "SGD" ? currency : "IDR";
+}
+
+function formatInvoiceCurrency(value: number) {
+  const currency = invoiceCurrency.value;
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: currency === "IDR" ? 0 : 2,
+  }).format(Number(value) || 0);
+}
+
 const itemSubtotal = (item: invoiceItemM) =>
   Number(item.qty || 0) * Number(item.amount || 0);
 const subtotal = computed(() =>
@@ -553,6 +579,7 @@ watch(
       sign_by: props.penawaran.sign_by || "",
       pic: props.penawaran.pic,
       tanggal: moment().format("YYYY-MM-DD"),
+      currency_inv: normalizeInvoiceCurrency(props.penawaran.currency),
       item_pekerjaan: createInvoiceItems(props.penawaran),
 
       // termCondition: (props.penawaran.termCondition || []).map((item: any) => ({
@@ -658,7 +685,7 @@ async function save() {
     : netSubtotal.value;
   if (currentBilledSubtotal > remainingSubtotal.value + 0.5) {
     return notificationStore.showError(
-      `Nilai invoice melebihi sisa penawaran Rp ${rupiah(remainingSubtotal.value)}`,
+      `Nilai invoice melebihi sisa penawaran ${formatInvoiceCurrency(remainingSubtotal.value)}`,
     );
   }
   if (remainingSubtotal.value <= 0) {
@@ -990,7 +1017,8 @@ function addfile(event: Event) {
 
 .invoice-date-row {
   display: grid;
-  grid-template-columns: 220px;
+  grid-template-columns: 220px 180px;
+  gap: 10px;
   margin-bottom: 14px;
 }
 

@@ -529,6 +529,7 @@ onBeforeUnmount(() => {
           <v-divider opacity="100" thickness="2" class="my-4"></v-divider>
           <div
             ref="poWrapper"
+            id="purchase-order-preview"
             class="po-wrapper"
             :style="{
               height: isMobile && poHeight ? `${poHeight}px` : undefined,
