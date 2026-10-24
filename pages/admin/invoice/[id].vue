@@ -899,13 +899,13 @@
                   </div>
                 </td>
               </tr>
-              <tr v-if="invoiceDetail.dp_persen > 0 && invoiceAmountLabel !== 'Down Payment' && invoiceDetail.pakai_ppn && invoiceDetail.discount_invoice > 0">
+              <tr v-if="invoiceDetail.dp_persen > 0 && invoiceAmountLabel !== 'Down Payment' && invoiceDetail.pakai_ppn || invoiceDetail.discount_invoice > 0">
                 <td></td>
                 <td></td>
                 <td></td>
 
                 <td class="footer-label">
-                  <span>Discount ({{ discountPercent }}%)</span>
+                  <span>Discount</span>
                 </td>
 
                 <td class="footer-value">
