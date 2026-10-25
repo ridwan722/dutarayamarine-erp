@@ -222,9 +222,9 @@ async function hapusCustomer(id: string) {
           </template>
           <template #item.kontak="{ item }">
             <div class="contact-cell">
-              <a v-if="item.no_telp" :href="`tel:${item.no_telp}`"><v-icon icon="mdi-phone-outline" size="14" />{{ item.no_telp }}</a>
+              <a v-if="item.no_telp" ><v-icon icon="mdi-phone-outline" size="14" />{{ item.no_telp }}</a>
               <span v-else>—</span>
-              <a v-if="item.email" :href="`mailto:${item.email}`"><v-icon icon="mdi-email-outline" size="14" />{{ item.email }}</a>
+              <a v-if="item.email" ><v-icon icon="mdi-email-outline" size="14" />{{ item.email }}</a>
             </div>
           </template>
           <template #item.alamat="{ item }"><p class="address-cell">{{ item.alamat || "—" }}</p></template>

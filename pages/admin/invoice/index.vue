@@ -1,14 +1,23 @@
 <template>
   <ConfirmationDialog ref="confirmationDialog" />
-  <v-btn
-    variant="text"
-    color="grey-darken-3"
-    prepend-icon="mdi-arrow-left"
-    @click="$router.go(-1)"
-    class="text-capitalize font-weight-bold mb-2"
-  >
-    Kembali
-  </v-btn>
+  <div class="invoice-page-topbar">
+    <v-btn
+      variant="text"
+      color="grey-darken-3"
+      icon="mdi-arrow-left"
+      @click="$router.go(-1)"
+      class="invoice-back-btn text-capitalize font-weight-bold"
+    >
+
+    </v-btn>
+
+    <div class="invoice-page-heading">
+      <div>
+        <h1>Invoice</h1>
+        <!-- <p>Manage invoice, client, payment status, and transaction value.</p> -->
+      </div>
+    </div>
+  </div>
 
   <!-- /// DIALOG BUAT INVOICE \\\ -->
   <v-dialog
@@ -431,13 +440,6 @@
     </v-card>
   </v-dialog>
 
-  <div class="invoice-page-heading">
-    <div>
-      <h1>Invoice</h1>
-      <p>Manage invoice, client, payment status, and transaction value.</p>
-    </div>
-  </div>
-
   <v-card class="invoice-list-card" flat>
     <div class="invoice-list-toolbar">
       <div class="invoice-list-search">
@@ -465,12 +467,18 @@
         </span>
         <v-btn
           size="small"
-          class="invoice-toolbar-btn text-none"
+          class="invoice-filter-toggle invoice-toolbar-btn text-none"
           variant="outlined"
-          prepend-icon="mdi-filter-variant"
-          @click="getallinvoice"
+          :prepend-icon="
+            data.showInvoiceFilters
+              ? 'mdi-filter-variant-minus'
+              : 'mdi-filter-variant-plus'
+          "
+          @click="data.showInvoiceFilters = !data.showInvoiceFilters"
         >
-          All Status
+          Filter{{
+            activeInvoiceFilterCount ? ` (${activeInvoiceFilterCount})` : ""
+          }}
         </v-btn>
         <v-btn
           icon="mdi-refresh"
@@ -486,6 +494,123 @@
     </div>
 
     <v-divider />
+
+    <section v-show="data.showInvoiceFilters" class="invoice-filter-panel">
+      <div class="invoice-filter-heading">
+        <div>
+          <span class="invoice-filter-eyebrow">Filter pencarian</span>
+          <p>
+            Filter dapat digabungkan dan akan tetap tersimpan saat membuka
+            detail invoice.
+          </p>
+        </div>
+      </div>
+
+      <div class="invoice-filter-grid">
+        <div class="invoice-filter-field">
+          <a-date-range-filter
+            v-model:start="data.filterDateFrom"
+            v-model:end="data.filterDateTo"
+            placeholder="Rentang tanggal"
+            aria-label="Pilih rentang tanggal invoice"
+          />
+        </div>
+
+        <label class="invoice-filter-field">
+          <input
+            v-model.trim="data.filterInvoiceNo"
+            type="search"
+            placeholder="No. invoice"
+          />
+        </label>
+
+        <label class="invoice-filter-field invoice-filter-select">
+          <select v-model="data.filterClient" aria-label="Client">
+            <option value="">Client</option>
+            <option
+              v-for="client in availableInvoiceClients"
+              :key="client"
+              :value="client"
+            >
+              {{ client }}
+            </option>
+          </select>
+          <v-icon
+            icon="mdi-chevron-down"
+            size="14"
+            class="invoice-filter-select-icon"
+          />
+        </label>
+
+        <label class="invoice-filter-field">
+          <input
+            v-model.trim="data.filterQuotation"
+            type="search"
+            placeholder="No. quotation"
+          />
+        </label>
+
+        <label class="invoice-filter-field">
+          <input
+            v-model.trim="data.filterSubject"
+            type="search"
+            placeholder="Subject atau deskripsi item"
+          />
+        </label>
+
+        <label class="invoice-filter-field">
+          <input
+            :value="data.filterAmount"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            step="1"
+            placeholder="Total amount"
+            aria-label="Total amount"
+            @input="updateInvoiceAmountFilter"
+          />
+        </label>
+
+        <label class="invoice-filter-field invoice-filter-select">
+          <select v-model="data.filterStatus" aria-label="Status invoice">
+            <option value="">Status</option>
+            <option
+              v-for="status in availableInvoiceStatuses"
+              :key="status"
+              :value="status"
+            >
+              {{ status }}
+            </option>
+          </select>
+          <v-icon
+            icon="mdi-chevron-down"
+            size="14"
+            class="invoice-filter-select-icon"
+          />
+        </label>
+
+        <v-chip
+          v-if="hasActiveInvoiceFilters"
+          label
+          variant="tonal"
+          color="error"
+          prepend-icon="mdi-filter-off-outline"
+          class="invoice-filter-reset text-none"
+          role="button"
+          tabindex="0"
+          @click="resetInvoiceFilters"
+          @keydown.enter="resetInvoiceFilters"
+          @keydown.space.prevent="resetInvoiceFilters"
+        >
+          Reset filter
+        </v-chip>
+      </div>
+    </section>
+
+    <v-divider
+      v-show="data.showInvoiceFilters"
+      class="invoice-filter-divider"
+    />
 
     <v-data-table
       :headers="data.headInvoice"
@@ -599,7 +724,13 @@
       <template #no-data>
         <div class="invoice-empty-state">
           <v-icon size="34" color="grey-lighten-1" icon="mdi-receipt-text-outline" />
-          <div>{{ data.searchInvoice ? "Invoice tidak ditemukan" : "Belum ada data invoice" }}</div>
+          <div>
+            {{
+              hasActiveInvoiceFilters
+                ? "Invoice tidak ditemukan"
+                : "Belum ada data invoice"
+            }}
+          </div>
         </div>
       </template>
     </v-data-table>
@@ -650,6 +781,14 @@ const data = reactive({
     { title: "Aksi", align: "center" as const, value: "aksi", width: "100px" },
   ],
   searchInvoice: "",
+  showInvoiceFilters: true,
+  filterDateFrom: "",
+  filterDateTo: "",
+  filterInvoiceNo: "",
+  filterClient: "",
+  filterQuotation: "",
+  filterSubject: "",
+  filterAmount: "",
   filterStatus: "",
   showAllInvoice: false,
   headInvoice: [
@@ -664,6 +803,59 @@ const data = reactive({
     { title: "Action", align: "center" as const, value: "aksi", width: "58px", sortable: false },
   ],
 });
+
+const INVOICE_FILTER_STORAGE_KEY = "admin-invoice-list-filters-v2";
+const invoiceFilterKeys = [
+  "searchInvoice",
+  "filterDateFrom",
+  "filterDateTo",
+  "filterInvoiceNo",
+  "filterClient",
+  "filterQuotation",
+  "filterSubject",
+  "filterAmount",
+  "filterStatus",
+] as const;
+
+function invoiceFilterSnapshot() {
+  return Object.fromEntries(
+    invoiceFilterKeys.map((key) => [key, data[key]]),
+  );
+}
+
+function restoreInvoiceFilters() {
+  try {
+    const storedFilters = sessionStorage.getItem(INVOICE_FILTER_STORAGE_KEY);
+    if (!storedFilters) return;
+
+    const parsedFilters = JSON.parse(storedFilters) as Record<string, unknown>;
+    invoiceFilterKeys.forEach((key) => {
+      if (typeof parsedFilters[key] === "string") {
+        data[key] = parsedFilters[key];
+      }
+    });
+    if (
+      typeof parsedFilters.filterDate === "string" &&
+      !data.filterDateFrom &&
+      !data.filterDateTo
+    ) {
+      data.filterDateFrom = parsedFilters.filterDate;
+      data.filterDateTo = parsedFilters.filterDate;
+    }
+  } catch {
+    sessionStorage.removeItem(INVOICE_FILTER_STORAGE_KEY);
+  }
+}
+
+watch(
+  () => invoiceFilterKeys.map((key) => data[key]),
+  () => {
+    sessionStorage.setItem(
+      INVOICE_FILTER_STORAGE_KEY,
+      JSON.stringify(invoiceFilterSnapshot()),
+    );
+  },
+);
 
 function emptyInvoice(): invoiceM {
   return {
@@ -870,6 +1062,7 @@ watch(
 );
 
 onMounted(async () => {
+  restoreInvoiceFilters();
   await customerStore.tarikDataCustomerAct();
   useloadingStore().setLoading(true);
   await invoiceStore.tarikDataInvoiceAct();
@@ -884,53 +1077,146 @@ const filteredInvoice = computed(() => {
       (invoice) => invoice.status === "Draft",
     );
   }
-  if (!data.filterStatus) return invoiceStore.getDataInvoice;
-  return invoiceStore.getDataInvoice.filter(
-    (inv) => inv.status === data.filterStatus,
-  );
+  return invoiceStore.getDataInvoice;
 });
+
+const availableInvoiceStatuses = computed(() => {
+  const defaultStatuses = [
+    "Draft",
+    "Selesai",
+  ];
+  const storedStatuses = invoiceStore.getDataInvoice
+    .map((invoice) => invoice.status || "Draft")
+    .filter(Boolean);
+
+  return [...new Set([...defaultStatuses, ...storedStatuses])];
+});
+
+const availableInvoiceClients = computed(() => {
+  const clients = invoiceStore.getDataInvoice
+    .map((invoice) => invoice.nama_customer?.trim())
+    .filter((client): client is string => Boolean(client));
+
+  return [...new Set(clients)].sort((a, b) => a.localeCompare(b, "id-ID"));
+});
+
+function normalizeFilterValue(value: unknown) {
+  return String(value ?? "").trim().toLocaleLowerCase("id-ID");
+}
+
+function containsFilterValue(query: string, values: unknown[]) {
+  if (!query) return true;
+  return values.some((value) => normalizeFilterValue(value).includes(query));
+}
+
+const activeInvoiceFilterCount = computed(
+  () =>
+    [
+      data.searchInvoice,
+      data.filterDateFrom || data.filterDateTo,
+      data.filterInvoiceNo,
+      data.filterClient,
+      data.filterQuotation,
+      data.filterSubject,
+      data.filterAmount,
+      data.filterStatus,
+    ].filter((value) => String(value).trim() !== "").length,
+);
+
+const hasActiveInvoiceFilters = computed(
+  () =>
+    display.xs.value
+      ? Boolean(data.searchInvoice.trim())
+      : activeInvoiceFilterCount.value > 0,
+);
 
 const invoiceTampilTersaring = computed(() => {
-  const query = data.searchInvoice.trim().toLocaleLowerCase("id-ID");
-  if (!query) return filteredInvoice.value;
+  const globalQuery = normalizeFilterValue(data.searchInvoice);
+  const invoiceQuery = normalizeFilterValue(data.filterInvoiceNo);
+  const quotationQuery = normalizeFilterValue(data.filterQuotation);
+  const subjectQuery = normalizeFilterValue(data.filterSubject);
+  const selectedClient = normalizeFilterValue(data.filterClient);
+  const amountQuery = data.filterAmount.replace(/\D/g, "");
 
-  return filteredInvoice.value.filter((invoice) =>
-    [
+  return filteredInvoice.value.filter((invoice) => {
+    const invoiceStatus = invoice.status || "Draft";
+    const invoiceCurrency = normalizeInvoiceCurrency(invoice.currency_inv);
+    const invoiceAmount = Number(invoice.grandtotal_invoice) || 0;
+    const invoiceDate = String(invoice.tanggal || "").slice(0, 10);
+    const invoiceReference = `INV/DRM/${invoiceYear(invoice.tanggal)}/${invoice.no_inv}`;
+    const itemDescriptions = (invoice.item_pekerjaan || []).map(
+      (item) => item.nama,
+    );
+    const searchableValues = [
+      invoiceReference,
       invoice.no_inv,
+      invoice.tanggal,
       invoice.no_penawaran,
+      invoice.id_penawaran,
+      invoice.no_preorder,
+      invoice.tanggal_preorder,
       invoice.nama_customer,
+      invoice.alamat_customer,
       invoice.vessel,
       invoice.pic,
+      invoice.email,
+      invoice.no_telp,
+      invoice.location,
       invoice.perihal,
-      invoice.status,
-      invoice.grandtotal_invoice,
-    ].some((value) =>
-      String(value ?? "")
-        .toLocaleLowerCase("id-ID")
-        .includes(query),
-    ),
-  );
+      ...itemDescriptions,
+      invoiceCurrency,
+      invoiceAmount,
+      invoiceStatus,
+      invoice.sign_by,
+      invoice.createdBy,
+    ];
+
+    if (!containsFilterValue(globalQuery, searchableValues)) return false;
+    if (display.xs.value) return true;
+    if (
+      !containsFilterValue(invoiceQuery, [invoice.no_inv, invoiceReference])
+    ) return false;
+    if (
+      selectedClient &&
+      normalizeFilterValue(invoice.nama_customer) !== selectedClient
+    ) return false;
+    if (
+      !containsFilterValue(quotationQuery, [
+        invoice.no_penawaran,
+        invoice.id_penawaran,
+      ])
+    ) return false;
+    if (
+      !containsFilterValue(subjectQuery, [invoice.perihal, ...itemDescriptions])
+    ) return false;
+    if (data.filterDateFrom && invoiceDate < data.filterDateFrom) return false;
+    if (data.filterDateTo && invoiceDate > data.filterDateTo) return false;
+    if (data.filterStatus && invoiceStatus !== data.filterStatus) return false;
+    if (
+      amountQuery &&
+      !String(invoiceAmount).replace(/\D/g, "").includes(amountQuery)
+    ) return false;
+
+    return true;
+  });
 });
+
+function updateInvoiceAmountFilter(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const digits = input.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  data.filterAmount = digits;
+}
+
+function resetInvoiceFilters() {
+  invoiceFilterKeys.forEach((key) => {
+    data[key] = "";
+  });
+  sessionStorage.removeItem(INVOICE_FILTER_STORAGE_KEY);
+}
 
 function invoiceYear(date: string) {
   const year = moment(date, "YYYY-MM-DD", true).format("YYYY");
   return year === "Invalid date" ? moment().format("YYYY") : year;
-}
-
-async function getallinvoice() {
-  useloadingStore().setLoading(true);
-  try {
-    data.filterStatus = "";
-    sessionStorage.removeItem("invoice");
-    await invoiceStore.tarikDataInvoiceAct();
-    data.showAllInvoice = true;
-    notificationStore.showSuccess("Semua invoice (all status) berhasil dimuat");
-  } catch (error) {
-    console.error("Gagal memuat semua invoice:", error);
-    notificationStore.showError("Gagal memuat semua invoice");
-  } finally {
-    useloadingStore().setLoading(false);
-  }
 }
 
 function statusColor(status: string) {
@@ -1103,13 +1389,22 @@ async function refreshData() {
 <style scoped>
 * { box-sizing: border-box; }
 
+.invoice-page-topbar {
+  display: flex;
+  margin-bottom: 1px;
+  align-items: center;
+  gap: 14px;
+}
+
+.invoice-back-btn { flex: 0 0 auto; }
+
 .invoice-page-heading {
   display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
   align-items: flex-end;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 16px;
-  text-align: center;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .invoice-page-heading h1 {
@@ -1204,6 +1499,102 @@ async function refreshData() {
   height: 30px !important;
   color: #65717f !important;
   border-radius: 4px !important;
+}
+
+.invoice-filter-panel {
+  padding: 12px 14px 14px;
+  background: #fbfcfd;
+}
+
+.invoice-filter-heading {
+  display: flex;
+  margin-bottom: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.invoice-filter-eyebrow {
+  display: block;
+  color: #4c5b6b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.invoice-filter-heading p {
+  margin: 2px 0 0;
+  color: #8a94a0;
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.invoice-filter-reset {
+  width: 100%;
+  height: 31px !important;
+  align-self: end;
+  justify-content: center;
+  padding-inline: 8px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+}
+
+.invoice-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(100px, 1fr));
+  gap: 9px 10px;
+}
+
+.invoice-filter-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.invoice-filter-field input,
+.invoice-filter-field select {
+  width: 100%;
+  height: 31px;
+  min-width: 0;
+  padding: 5px 8px;
+  color: #344050;
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 19px;
+  outline: none;
+  background: #ffffff;
+  border: 1px solid #d8dde3;
+  border-radius: 4px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.invoice-filter-field select {
+  padding-right: 26px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.invoice-filter-select { position: relative; }
+
+.invoice-filter-select-icon {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  color: #7f8995;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.invoice-filter-field input::placeholder { color: #a3abb4; }
+.invoice-filter-field input:focus,
+.invoice-filter-field select:focus {
+  border-color: #7da5cc;
+  box-shadow: 0 0 0 2px rgba(49, 95, 140, 0.08);
 }
 
 .invoice-list-table { color: #344050; font-size: 11px; }
@@ -1656,7 +2047,17 @@ async function refreshData() {
   color: #dc2626;
 }
 
+@media (max-width: 1199px) {
+  .invoice-filter-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 959px) {
+  .invoice-filter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .invoice-dialog-card {
     height: 100%;
     border: 0;
@@ -1696,16 +2097,36 @@ async function refreshData() {
   .invoice-list-tools {
     justify-content: flex-end;
   }
+
+  .invoice-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 599px) {
-  .invoice-page-heading {
+  .invoice-filter-panel,
+  .invoice-filter-divider,
+  .invoice-filter-toggle {
+    display: none !important;
+  }
+
+  .invoice-page-topbar {
     margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  .invoice-page-heading {
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .invoice-page-heading h1 {
     font-size: 18px;
   }
+
+  .invoice-filter-heading p { display: none; }
+
+  .invoice-filter-grid { grid-template-columns: 1fr; }
 
   .invoice-dialog-header {
     min-height: 64px;
