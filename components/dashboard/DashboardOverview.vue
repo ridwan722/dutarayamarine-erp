@@ -23,9 +23,9 @@ const metricCards = computed(() => [
   // { label: "Invoice dikirim", value: available.value.invoice ? summary.value.sentValue : null, kind: "money" as const, hint: `${summary.value.sentCount} dokumen menunggu selesai`, icon: "mdi-send-check-outline", tone: "orange", href: "/admin/invoice" },
   { label: "Pengeluaran proyek", value: available.value.penawaran ? summary.value.expenseValue : null, kind: "money" as const, hint: `${summary.value.expenseCount} transaksi tercatat`, icon: "mdi-cash-minus", tone: "rose", href: "/admin/penawaran" },
   { label: "PO vendor", value: available.value.purchaseorder ? summary.value.purchaseCount : null, kind: "number" as const, hint: "Purchase order dari proyek", icon: "mdi-truck-delivery-outline", tone: "violet", href: "/admin/purchase-order" },
-  { label: "Pemasukan kantor", value: available.value.pettyCash ? summary.value.pettyIn : null, kind: "money" as const, hint: "Dana masuk pada periode ini", icon: "mdi-cash-plus", tone: "green", href: "/admin/petty-cash" },
-  { label: "Pengeluaran kantor", value: available.value.pettyCash ? summary.value.pettyOut : null, kind: "money" as const, hint: "Biaya kantor pada periode ini", icon: "mdi-wallet-minus-outline", tone: "orange", href: "/admin/petty-cash" },
-  { label: "Selisih keuangan kantor", value: available.value.pettyCash ? summary.value.pettyBalance : null, kind: "money" as const, hint: "Akumulasi dana masuk dikurangi pengeluaran", icon: "mdi-wallet-outline", tone: "blue", href: "/admin/petty-cash" },
+  // { label: "Pemasukan kantor", value: available.value.pettyCash ? summary.value.pettyIn : null, kind: "money" as const, hint: "Dana masuk pada periode ini", icon: "mdi-cash-plus", tone: "green", href: "/admin/petty-cash" },
+  { label: "Pengeluaran Kas kantor", value: available.value.pettyCash ? summary.value.pettyOut : null, kind: "money" as const, hint: "Biaya kantor pada periode ini", icon: "mdi-wallet-minus-outline", tone: "orange", href: "/admin/petty-cash" },
+  // { label: "Selisih keuangan kantor", value: available.value.pettyCash ? summary.value.pettyBalance : null, kind: "money" as const, hint: "Akumulasi dana masuk dikurangi pengeluaran", icon: "mdi-wallet-outline", tone: "blue", href: "/admin/petty-cash" },
 ]);
 const expenseShare = computed(() => {
   if (!available.value.invoice || !available.value.penawaran || !summary.value.invoiceValue) return null;

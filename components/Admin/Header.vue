@@ -78,12 +78,12 @@ const menuItems = [
     to: "/admin/petty-cash",
     icon: "mdi-cash-multiple",
   },
-  {
-    title: "Report Order",
-    subtitle: "Laporan pekerjaan",
-    to: "/admin/report-order",
-    icon: "mdi-chart-box-outline",
-  },
+  // {
+  //   title: "Report Order",
+  //   subtitle: "Laporan pekerjaan",
+  //   to: "/admin/report-order",
+  //   icon: "mdi-chart-box-outline",
+  // },
   {
     title: "Legalitas",
     subtitle: "Dokumen legal perusahaan",

@@ -329,20 +329,66 @@
             </span>
           </div>
 
+          <div class="invoice-term-controls">
+            <div class="invoice-term-search">
+              <v-icon icon="mdi-magnify" size="17" />
+              <a-text-field-new
+                v-model="termConditionSearch"
+                placeholder="Cari atau tulis term baru"
+                @keydown.enter.prevent="tambahTermConditionDariPencarian"
+              />
+              <v-btn
+                v-if="termConditionSearch"
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                color="grey-darken-1"
+                aria-label="Hapus pencarian term dan condition"
+                @click="termConditionSearch = ''"
+              />
+            </div>
+            <v-btn
+              size="small"
+              color="primary"
+              variant="outlined"
+              :prepend-icon="existingTermCondition ? undefined : 'mdi-plus'"
+              class="invoice-term-add-btn text-none"
+              :disabled="!canAddTermCondition"
+              :loading="savingTermCondition"
+              @click="tambahTermConditionDariPencarian"
+            >
+              {{ existingTermCondition ? "Available" : "Add master T&C" }}
+            </v-btn>
+          </div>
+
           <div class="invoice-terms-table-wrap">
             <table class="invoice-terms-table">
               <thead>
                 <tr>
+                  <th scope="col" aria-label="Ubah urutan"></th>
                   <th scope="col">No.</th>
                   <th scope="col">Select</th>
                   <th scope="col">Description</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody ref="termConditionsSortableContainer">
                 <tr
                   v-for="(item, index) in sortedTermConditions"
-                  :key="item?.id ?? index"
+                  :key="termConditionKey(item)"
+                  class="invoice-term-row"
                 >
+                  <td>
+                    <button
+                      type="button"
+                      class="invoice-term-drag-handle"
+                      :aria-label="`Pindahkan term ${index + 1}`"
+                      title="Tarik untuk mengubah urutan term"
+                      @keydown.up.prevent="moveTermCondition(index, index - 1)"
+                      @keydown.down.prevent="moveTermCondition(index, index + 1)"
+                    >
+                      <v-icon icon="mdi-drag-vertical" size="17" />
+                    </button>
+                  </td>
                   <td>{{ index + 1 }}</td>
                   <td>
                     <v-checkbox
@@ -358,9 +404,18 @@
                       hide-details
                       color="primary"
                       class="invoice-term-checkbox"
+                      @update:model-value="scheduleSelectedTermOrderSync"
                     />
                   </td>
                   <td>{{ item?.nama_term }}</td>
+                </tr>
+                <tr v-if="!sortedTermConditions.length">
+                  <td colspan="4" class="invoice-terms-empty">
+                    <strong>Term tidak ditemukan.</strong>
+                    <span v-if="canAddTermCondition">
+                      Klik “Add master T&amp;C” untuk menyimpannya ke master.
+                    </span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -412,7 +467,9 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, onBeforeUnmount } from "vue";
 import moment from "moment";
+import Sortable from "sortablejs";
 import type {
   invoiceCurrencyM,
   invoiceItemM,
@@ -420,6 +477,7 @@ import type {
   invoicePoDocumentM,
 } from "~/types/invoice";
 import type { penawaranM } from "~/types/penawaranModel";
+import type { termconditionM } from "~/types/termconditionModel";
 import { queryambilid } from "~/composables/useFirestoreQuery";
 
 const props = defineProps<{ modelValue: boolean; penawaran: penawaranM }>();
@@ -439,11 +497,13 @@ const saving = ref(false);
 const loadingPreviousInvoices = ref(false);
 const previousInvoicesLoadFailed = ref(false);
 const previousInvoices = ref<invoiceM[]>([]);
-
-const sameTermCondition = (a: any, b: any) => {
-  if (!a || !b) return false;
-  return a.id && b.id ? a.id === b.id : a.nama_term === b.nama_term;
-};
+const termConditionSearch = ref("");
+const savingTermCondition = ref(false);
+const termConditionOrder = ref<string[]>([]);
+const termConditionsSortableContainer = ref<HTMLTableSectionElement | null>(
+  null,
+);
+let termConditionsSortable: Sortable | null = null;
 
 const emptyForm = (): invoiceM => ({
   no_inv: "",
@@ -480,6 +540,11 @@ const emptyForm = (): invoiceM => ({
 
 onMounted(async () => {
   await termconditionStore.tarikDataTermconditionAct();
+  if (props.modelValue) {
+    initializeTermConditionOrder();
+    await nextTick();
+    initializeTermConditionSortable();
+  }
 });
 
 const form = ref<invoiceM>(emptyForm());
@@ -558,9 +623,14 @@ const grandTotal = computed(() => {
 watch(
   () => props.modelValue,
   async (open) => {
-    if (!open) return;
+    destroyTermConditionSortable();
+    if (!open) {
+      termConditionSearch.value = "";
+      return;
+    }
 
     poFiles.value = [];
+    termConditionSearch.value = "";
     previousInvoices.value = [];
     previousInvoicesLoadFailed.value = false;
     loadingPreviousInvoices.value = true;
@@ -589,6 +659,10 @@ watch(
       //   createdBy: item.createdBy ?? "",
       // })),
     };
+
+    initializeTermConditionOrder();
+    await nextTick();
+    initializeTermConditionSortable();
 
     try {
       const penawaranId = props.penawaran.id || props.penawaran.id_penawaran;
@@ -635,31 +709,239 @@ function createInvoiceItems(penawaran: penawaranM): invoiceItemM[] {
   }));
 }
 
-const sortedTermConditions = computed(() => {
-  const terms = [...termconditionStore.getDataTermcondition];
-  const selected = form.value.termCondition || [];
+type TermConditionOrderItem = { id?: string; nama_term: string };
 
-  const selectedTerms = selected
-    .map((selectedItem: any) => {
-      return terms.find((term: any) =>
-        term.id
-          ? term.id === selectedItem.id
-          : term.nama_term === selectedItem.nama_term,
-      );
-    })
-    .filter(Boolean);
+function normalizeTermCondition(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
 
-  const unselectedTerms = terms.filter(
-    (term: any) =>
-      !selected.some((selectedItem: any) =>
-        term.id
-          ? term.id === selectedItem.id
-          : term.nama_term === selectedItem.nama_term,
-      ),
+function termConditionKey(term: TermConditionOrderItem) {
+  return term.id
+    ? `id:${term.id}`
+    : `name:${normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID")}`;
+}
+
+function orderTermConditions<T extends TermConditionOrderItem>(terms: T[]) {
+  const orderIndex = new Map(
+    termConditionOrder.value.map((key, index) => [key, index]),
   );
 
-  return [...selectedTerms, ...unselectedTerms];
+  return [...terms].sort((left, right) => {
+    const leftIndex = orderIndex.get(termConditionKey(left));
+    const rightIndex = orderIndex.get(termConditionKey(right));
+
+    if (leftIndex !== undefined && rightIndex !== undefined) {
+      return leftIndex - rightIndex;
+    }
+    if (leftIndex !== undefined) return -1;
+    if (rightIndex !== undefined) return 1;
+    return left.nama_term.localeCompare(right.nama_term, "id-ID");
+  });
+}
+
+const sortedTermConditions = computed(() => {
+  const search = normalizeTermCondition(
+    termConditionSearch.value,
+  ).toLocaleLowerCase("id-ID");
+
+  return orderTermConditions(
+    termconditionStore.getDataTermcondition.filter((term) =>
+      normalizeTermCondition(term.nama_term)
+        .toLocaleLowerCase("id-ID")
+        .includes(search),
+    ),
+  );
 });
+
+const existingTermCondition = computed(() => {
+  const search = normalizeTermCondition(
+    termConditionSearch.value,
+  ).toLocaleLowerCase("id-ID");
+  if (!search) return undefined;
+
+  return termconditionStore.getDataTermcondition.find(
+    (term) =>
+      normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID") ===
+      search,
+  );
+});
+
+const canAddTermCondition = computed(
+  () =>
+    Boolean(normalizeTermCondition(termConditionSearch.value)) &&
+    !existingTermCondition.value &&
+    !savingTermCondition.value,
+);
+
+function sameTermCondition(
+  left: termconditionM,
+  right: termconditionM,
+) {
+  if (!left || !right) return false;
+  return left.id && right.id
+    ? left.id === right.id
+    : left.nama_term === right.nama_term;
+}
+
+async function tambahTermConditionDariPencarian() {
+  if (savingTermCondition.value) return;
+
+  const termName = normalizeTermCondition(termConditionSearch.value);
+  if (!termName) {
+    return notificationStore.showError("Term & Condition tidak boleh kosong");
+  }
+  if (existingTermCondition.value) {
+    return notificationStore.showInfo("Term & Condition sudah ada di master");
+  }
+
+  savingTermCondition.value = true;
+  try {
+    const payload: termconditionM = {
+      nama_term: termName,
+      createdAt: moment().unix(),
+      createdBy: userStore.getEmail,
+    };
+    await termconditionStore.addTermconditionAct(payload);
+
+    const normalizedName = termName.toLocaleLowerCase("id-ID");
+    const addedTerm = termconditionStore.getDataTermcondition.find(
+      (term) =>
+        normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID") ===
+        normalizedName,
+    );
+    if (!addedTerm) return;
+
+    const addedTermKey = termConditionKey(addedTerm);
+    if (!termConditionOrder.value.includes(addedTermKey)) {
+      termConditionOrder.value.push(addedTermKey);
+    }
+
+    form.value.termCondition ??= [];
+    const selectedTerm: termconditionM = {
+      id: addedTerm.id ?? "",
+      nama_term: addedTerm.nama_term,
+      createdAt: addedTerm.createdAt ?? 0,
+      createdBy: addedTerm.createdBy ?? "",
+    };
+    if (
+      !form.value.termCondition.some((term) =>
+        sameTermCondition(term, selectedTerm),
+      )
+    ) {
+      form.value.termCondition.push(selectedTerm);
+    }
+    syncSelectedTermConditionOrder();
+    termConditionSearch.value = "";
+  } finally {
+    savingTermCondition.value = false;
+  }
+}
+
+function initializeTermConditionOrder() {
+  const availableTerms = [...termconditionStore.getDataTermcondition].sort(
+    (left, right) => left.nama_term.localeCompare(right.nama_term, "id-ID"),
+  );
+  const availableKeys = new Set(availableTerms.map(termConditionKey));
+  const selectedKeys = (form.value.termCondition ?? [])
+    .map(termConditionKey)
+    .filter(
+      (key, index, keys) =>
+        availableKeys.has(key) && keys.indexOf(key) === index,
+    );
+  const selectedKeySet = new Set(selectedKeys);
+
+  termConditionOrder.value = [
+    ...selectedKeys,
+    ...availableTerms
+      .map(termConditionKey)
+      .filter((key) => !selectedKeySet.has(key)),
+  ];
+}
+
+function syncSelectedTermConditionOrder() {
+  const selectedTerms = form.value.termCondition;
+  if (!selectedTerms?.length) return;
+
+  const orderIndex = new Map(
+    termConditionOrder.value.map((key, index) => [key, index]),
+  );
+  selectedTerms.sort((left, right) => {
+    const leftIndex = orderIndex.get(termConditionKey(left));
+    const rightIndex = orderIndex.get(termConditionKey(right));
+
+    if (leftIndex === undefined && rightIndex === undefined) return 0;
+    if (leftIndex === undefined) return 1;
+    if (rightIndex === undefined) return -1;
+    return leftIndex - rightIndex;
+  });
+}
+
+function scheduleSelectedTermOrderSync() {
+  void nextTick(syncSelectedTermConditionOrder);
+}
+
+function moveTermCondition(fromIndex: number, toIndex: number) {
+  const visibleTerms = [...sortedTermConditions.value];
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= visibleTerms.length ||
+    toIndex >= visibleTerms.length
+  ) {
+    return;
+  }
+
+  const [movedTerm] = visibleTerms.splice(fromIndex, 1);
+  if (!movedTerm) return;
+  visibleTerms.splice(toIndex, 0, movedTerm);
+
+  const visibleKeys = new Set(visibleTerms.map(termConditionKey));
+  const reorderedVisibleTerms = [...visibleTerms];
+  const allTerms = orderTermConditions(
+    termconditionStore.getDataTermcondition,
+  ).map((term) => {
+    if (!visibleKeys.has(termConditionKey(term))) return term;
+    return reorderedVisibleTerms.shift() ?? term;
+  });
+
+  termConditionOrder.value = allTerms.map(termConditionKey);
+  syncSelectedTermConditionOrder();
+}
+
+function destroyTermConditionSortable() {
+  termConditionsSortable?.destroy();
+  termConditionsSortable = null;
+}
+
+function initializeTermConditionSortable() {
+  destroyTermConditionSortable();
+  if (!termConditionsSortableContainer.value) return;
+
+  termConditionsSortable = new Sortable(termConditionsSortableContainer.value, {
+    animation: 160,
+    draggable: ".invoice-term-row",
+    handle: ".invoice-term-drag-handle",
+    ghostClass: "invoice-sortable-ghost",
+    chosenClass: "invoice-sortable-chosen",
+    dragClass: "invoice-sortable-drag",
+    delay: 120,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 4,
+    forceFallback: true,
+    fallbackOnBody: true,
+    fallbackTolerance: 3,
+    scroll: true,
+    onEnd(event) {
+      const fromIndex = event.oldDraggableIndex ?? event.oldIndex;
+      const toIndex = event.newDraggableIndex ?? event.newIndex;
+      if (fromIndex === undefined || toIndex === undefined) return;
+      moveTermCondition(fromIndex, toIndex);
+    },
+  });
+}
+
+onBeforeUnmount(destroyTermConditionSortable);
 
 async function save() {
   if (
@@ -1449,6 +1731,56 @@ function addfile(event: Event) {
   align-items: center;
 }
 
+.invoice-term-controls {
+  display: flex;
+  max-width: 680px;
+  margin-bottom: 12px;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.invoice-term-search {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 7px;
+  padding-left: 9px;
+  color: #7b8794;
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+.invoice-term-search :deep(.input-field) {
+  display: block;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 5px 0 !important;
+  overflow: hidden;
+  line-height: 20px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  resize: none;
+}
+
+.invoice-term-search :deep(.form-group),
+.invoice-term-search :deep(.input-wrapper) {
+  height: 32px;
+}
+
+.invoice-term-add-btn {
+  flex: 0 0 auto;
+  min-width: 118px;
+  height: 34px !important;
+  padding-inline: 11px !important;
+  font-size: 9px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
+}
+
 .invoice-terms-table-wrap {
   border: 1px solid #dfe3e8;
   border-radius: 5px;
@@ -1476,15 +1808,66 @@ function addfile(event: Event) {
 
 .invoice-terms-table th:first-child,
 .invoice-terms-table td:first-child {
-  width: 44px;
+  width: 40px;
+  padding: 0;
   text-align: center;
 }
 
 .invoice-terms-table th:nth-child(2),
 .invoice-terms-table td:nth-child(2) {
+  width: 44px;
+  text-align: center;
+}
+
+.invoice-terms-table th:nth-child(3),
+.invoice-terms-table td:nth-child(3) {
   width: 58px;
   padding: 0;
   text-align: center;
+}
+
+.invoice-term-drag-handle {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  padding: 0;
+  place-items: center;
+  color: #7a8795;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.invoice-term-drag-handle:hover {
+  color: #315f8c;
+  background: #edf3f8;
+  border-color: #d4e0eb;
+}
+
+.invoice-term-drag-handle:focus-visible {
+  outline: 2px solid rgba(24, 103, 192, 0.32);
+  outline-offset: 1px;
+}
+
+.invoice-term-drag-handle:active {
+  cursor: grabbing;
+}
+
+.invoice-sortable-ghost {
+  opacity: 0.35;
+}
+
+.invoice-sortable-chosen {
+  background: #f2f7fb !important;
+}
+
+.invoice-sortable-drag {
+  opacity: 0.95;
+  box-shadow: 0 10px 28px rgba(31, 50, 70, 0.18);
 }
 
 .invoice-terms-table td {
@@ -1522,6 +1905,28 @@ function addfile(event: Event) {
 
 .invoice-term-checkbox :deep(.v-selection-control) {
   min-height: 38px;
+}
+
+.invoice-terms-empty {
+  height: 72px;
+  color: #8b95a1;
+  text-align: center !important;
+}
+
+.invoice-terms-empty strong,
+.invoice-terms-empty span {
+  display: block;
+}
+
+.invoice-terms-empty strong {
+  color: #687582;
+  font-size: 10px;
+}
+
+.invoice-terms-empty span {
+  margin-top: 3px;
+  color: #929ca6;
+  font-size: 8px;
 }
 
 .invoice-dialog-footer {
@@ -1676,6 +2081,16 @@ function addfile(event: Event) {
 
   .invoice-dp-field {
     width: 72px;
+  }
+
+  .invoice-term-controls {
+    max-width: none;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invoice-term-add-btn {
+    width: 100%;
   }
 
   .invoice-dialog-footer {

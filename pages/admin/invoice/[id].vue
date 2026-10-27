@@ -731,7 +731,7 @@
                     </td>
                     <td width="10">:</td>
                     <td>
-                      <span>Batam</span>
+                      <span> {{ invoiceDetail.location }}</span>
                     </td>
                   </tr>
                 </tbody>
@@ -1260,9 +1260,9 @@
     <div class="preview-container d-flex justify-center mt-8">
       <DeliveryOrder :invoice-detail="invoiceDetail" />
     </div>
-    <div class="preview-container d-flex justify-center mt-8">
+    <!-- <div class="preview-container d-flex justify-center mt-8">
       <work-complete-report :invoice-detail="invoiceDetail" />
-    </div>
+    </div> -->
   </div>
 </template>
 

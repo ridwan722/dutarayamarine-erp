@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import type { leadsM } from "~/types/leadsModel";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore";
 import { useFirestore } from "vuefire";
 
 const COLLECTION = "leads";
@@ -18,21 +18,14 @@ export const useleadsStore = defineStore("leadsStore", {
 
   actions: {
     async tarikDataLeadsAct() {
-      const datatarik = await queryambilid(COLLECTION);
-      const leadss = datatarik as (leadsM & { id?: string })[];
-      this.dataLeads = await Promise.all(
-        leadss.map(async (leads) => {
-          const id_leads = leads.id_leads || leads.id;
-          if (!leads.id_leads && id_leads) {
-            try {
-              await updatedatabase(COLLECTION, id_leads, { id_leads });
-            } catch (error) {
-              console.error(`Gagal menyimpan ID leads ${id_leads}:`, error);
-            }
-          }
-          return { ...leads, id_leads };
-        }),
-      );
+      const db = useFirestore();
+      const snapshot = await getDocs(collection(db, COLLECTION));
+      this.dataLeads = snapshot.docs.map((leadDocument) => ({
+        ...(leadDocument.data() as leadsM),
+        // ID dokumen harus menjadi sumber utama agar delete selalu menuju
+        // dokumen Firestore yang benar, termasuk untuk data leads lama.
+        id_leads: leadDocument.id,
+      }));
     },
 
     async addLeadsAct(data: leadsM) {
@@ -45,23 +38,11 @@ export const useleadsStore = defineStore("leadsStore", {
         // sessionStorage.removeItem(COLLECTION);
         await this.tarikDataLeadsAct();
         notificationStore.showSuccess("leads berhasil ditambahkan");
+        return true;
       } catch (error) {
+        console.error("Gagal menyimpan leads:", error);
         notificationStore.showError("Gagal menyimpan leads");
-      } finally {
-        useloadingStore().setLoading(false);
-      }
-    },
-
-    async updateLeadsAct(data: leadsM) {
-      const notificationStore = useNotificationStore();
-      try {
-        useloadingStore().setLoading(true);
-        await updatedatabase(COLLECTION, data.id_leads!, data);
-        // sessionStorage.removeItem(COLLECTION);
-        await this.tarikDataLeadsAct();
-        notificationStore.showSuccess("Perubahan berhasil disimpan");
-      } catch (error) {
-        notificationStore.showError("Gagal memperbarui leads");
+        return false;
       } finally {
         useloadingStore().setLoading(false);
       }
@@ -76,13 +57,17 @@ export const useleadsStore = defineStore("leadsStore", {
 
       try {
         useloadingStore().setLoading(true);
-        await hapusdatabase(COLLECTION, id);
-        // sessionStorage.removeItem(COLLECTION);
-        await this.tarikDataLeadsAct();
+        const db = useFirestore();
+        await deleteDoc(doc(db, COLLECTION, id));
+        this.dataLeads = this.dataLeads.filter(
+          (leads) => leads.id_leads !== id,
+        );
         notificationStore.showSuccess("leads berhasil dihapus");
+        return true;
       } catch (error) {
         console.error("Gagal menghapus leads:", error);
         notificationStore.showError("Gagal menghapus leads");
+        return false;
       } finally {
         useloadingStore().setLoading(false);
       }

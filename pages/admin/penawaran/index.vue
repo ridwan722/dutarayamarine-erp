@@ -982,8 +982,8 @@
 
         <v-chip
           label
-          variant="tonal"
-          color="error"
+          variant="flat"
+          color="red"
           prepend-icon="mdi-filter-off-outline"
           class="quotation-filter-reset text-none"
           role="button"
@@ -2562,7 +2562,8 @@ async function refreshData() {
 }
 
 .quotation-filter-reset {
-  width: 100%;
+  width: fit-content;
+  min-width: 100px;
   height: 31px !important;
   align-self: end;
   justify-content: center;
