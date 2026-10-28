@@ -706,15 +706,6 @@ async function saveDocument() {
             >
               Buka tab baru
             </v-btn>
-            <v-btn
-              color="primary"
-              variant="flat"
-              prepend-icon="mdi-download-outline"
-              class="text-none preview-download-action"
-              @click="downloadDocument(activeDocument)"
-            >
-              Unduh PDF
-            </v-btn>
             <button
               type="button"
               class="preview-close"
@@ -741,18 +732,29 @@ async function saveDocument() {
         </div>
 
         <footer class="preview-footer">
-          <div>
+          <div class="preview-footer-note">
             <v-icon icon="mdi-information-outline" size="16" />
             <span>Jika pratinjau tidak tampil, gunakan tombol “Buka tab baru”.</span>
           </div>
-          <v-btn
-            variant="outlined"
-            prepend-icon="mdi-printer-outline"
-            class="text-none"
-            @click="printDocument(activeDocument)"
-          >
-            Cetak Dokumen
-          </v-btn>
+          <div class="preview-footer-actions">
+            <v-btn
+              variant="outlined"
+              prepend-icon="mdi-printer-outline"
+              class="text-none"
+              @click="printDocument(activeDocument)"
+            >
+              Cetak Dokumen
+            </v-btn>
+            <v-btn
+              color="primary"
+              variant="flat"
+              prepend-icon="mdi-download-outline"
+              class="text-none"
+              @click="downloadDocument(activeDocument)"
+            >
+              Unduh PDF
+            </v-btn>
+          </div>
         </footer>
       </section>
     </v-dialog>
@@ -884,8 +886,9 @@ async function saveDocument() {
 .preview-body { position: relative; min-height: 0; padding: 10px; flex: 1; }
 .preview-loader { position: absolute; z-index: 3; inset: 10px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; color: #748391; font-size: 9px; background: #f8fafb; }
 .pdf-frame { position: relative; z-index: 2; display: block; width: 100%; height: 100%; background: #fff; border: 1px solid #d9dfe5; border-radius: 5px; }
-.preview-footer { display: flex; flex: 0 0 auto; min-height: 54px; padding: 9px 15px; align-items: center; justify-content: space-between; gap: 18px; background: #fff; border-top: 1px solid #dce2e7; }
-.preview-footer > div { display: flex; align-items: center; gap: 6px; color: #7d8995; font-size: 9px; }
+.preview-footer { display: flex; flex: 0 0 auto; min-height: 54px; padding: 9px 15px; align-items: center; gap: 18px; background: #fff; border-top: 1px solid #dce2e7; }
+.preview-footer-note { display: flex; align-items: center; gap: 6px; color: #7d8995; font-size: 9px; }
+.preview-footer-actions { display: flex; margin-left: auto; align-items: center; justify-content: flex-end; gap: 7px; }
 .preview-footer .v-btn { height: 32px !important; font-size: 9px !important; font-weight: 650 !important; letter-spacing: 0 !important; border-radius: 5px !important; }
 
 @media (max-width: 1050px) {
@@ -927,7 +930,8 @@ async function saveDocument() {
   .pdf-frame { border: 0; border-radius: 0; }
   .preview-loader { inset: 0; }
   .preview-footer { padding: 8px 10px; }
-  .preview-footer > div { display: none; }
+  .preview-footer-note { display: none; }
+  .preview-footer-actions { display: grid; width: 100%; grid-template-columns: 1fr 1fr; }
   .preview-footer .v-btn { width: 100%; }
 }
 

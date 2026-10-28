@@ -22,13 +22,19 @@ function normalizeProject(
   data: Partial<projectWebM>,
   id: string,
 ): projectWebM {
+  const paragraphs = Array.isArray(data.paragraf)
+    ? data.paragraf.map((item) => String(item || ""))
+    : [];
+  const englishParagraphs = Array.isArray(data.paragraf_en)
+    ? data.paragraf_en.map((item) => String(item || ""))
+    : [];
+
   return {
     id_project_web: id,
     judul: String(data.judul || ""),
     sub_judul: String(data.sub_judul || ""),
-    paragraf: Array.isArray(data.paragraf)
-      ? data.paragraf.map((item) => String(item || ""))
-      : [],
+    paragraf: paragraphs,
+    paragraf_en: paragraphs.map((_, index) => englishParagraphs[index] || ""),
     foto: Array.isArray(data.foto)
       ? data.foto
           .filter((item): item is projectWebPhotoM => Boolean(item?.url))
@@ -45,6 +51,7 @@ function normalizeProject(
           }))
       : [],
     paragraf_penutup: String(data.paragraf_penutup || ""),
+    paragraf_penutup_en: String(data.paragraf_penutup_en || ""),
     createdAt: Number(data.createdAt) || 0,
     ...(data.createdBy ? { createdBy: String(data.createdBy) } : {}),
     ...(data.updatedAt ? { updatedAt: Number(data.updatedAt) } : {}),

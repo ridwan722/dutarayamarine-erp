@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import moment from "moment";
+import Sortable from "sortablejs";
 import type { ConfirmationDialog } from "#components";
 import type { projectWebM, projectWebPhotoM } from "~/types/projectWebModel";
 
@@ -17,10 +18,52 @@ const detailProject = ref<projectWebM | null>(null);
 const pendingFiles = ref<File[]>([]);
 const pendingPreviewUrls = ref<string[]>([]);
 const removedPhotos = ref<projectWebPhotoM[]>([]);
+const photoDrafts = ref<ProjectPhotoDraft[]>([]);
+const photoGrid = ref<HTMLElement | null>(null);
 const photoProcessingProgress = ref(0);
+const translatingFields = ref<Set<string>>(new Set());
 const photoObjectUrls = new Map<string, string>();
+const translationTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const translationRequestVersions = new Map<string, number>();
+const fieldEditVersions = new Map<string, number>();
+const browserTranslators = new Map<string, Promise<BrowserTranslator>>();
 const MAX_PROJECT_BYTES = 900_000;
 const PROJECT_SIZE_SAFETY_BYTES = 25_000;
+const TRANSLATION_DEBOUNCE_MS = 700;
+let translationErrorShown = false;
+let photoDraftSequence = 0;
+let photoSortable: Sortable | null = null;
+
+type ProjectLanguage = "id" | "en";
+
+interface BrowserTranslator {
+  translate: (text: string) => Promise<string>;
+  destroy?: () => void;
+}
+
+interface BrowserTranslatorApi {
+  availability: (options: {
+    sourceLanguage: ProjectLanguage;
+    targetLanguage: ProjectLanguage;
+  }) => Promise<string>;
+  create: (options: {
+    sourceLanguage: ProjectLanguage;
+    targetLanguage: ProjectLanguage;
+  }) => Promise<BrowserTranslator>;
+}
+
+type ProjectPhotoDraft =
+  | {
+      id: string;
+      kind: "existing";
+      photo: projectWebPhotoM;
+    }
+  | {
+      id: string;
+      kind: "pending";
+      file: File;
+      previewUrl: string;
+    };
 
 const data = reactive({
   searchProject: "",
@@ -43,13 +86,16 @@ function emptyProject(): projectWebM {
     judul: "",
     sub_judul: "",
     paragraf: [""],
+    paragraf_en: [""],
     foto: [],
     paragraf_penutup: "",
+    paragraf_penutup_en: "",
     createdAt: 0,
   };
 }
 
 const projectForm = ref<projectWebM>(emptyProject());
+const isTranslating = computed(() => translatingFields.value.size > 0);
 const projects = computed(() => projectWebStore.getDataProjectWeb);
 const totalPhotos = computed(() =>
   projects.value.reduce((total, project) => total + project.foto.length, 0),
@@ -65,7 +111,14 @@ const filteredProjects = computed(() => {
   return [...projects.value]
     .filter((project) => {
       if (!query) return true;
-      return [project.judul, project.sub_judul, project.paragraf.join(" "), project.paragraf_penutup]
+      return [
+        project.judul,
+        project.sub_judul,
+        project.paragraf.join(" "),
+        project.paragraf_en.join(" "),
+        project.paragraf_penutup,
+        project.paragraf_penutup_en,
+      ]
         .some((value) => value.toLocaleLowerCase("id-ID").includes(query));
     })
     .sort((a, b) => createdAtSeconds(b.createdAt) - createdAtSeconds(a.createdAt));
@@ -83,7 +136,24 @@ onMounted(async () => {
   }
 });
 
+watch(
+  [() => data.dialogForm, () => photoDrafts.value.length],
+  async ([isOpen, photoCount]) => {
+    destroyPhotoSortable();
+    if (!isOpen || !photoCount) return;
+    await nextTick();
+    initializePhotoSortable();
+  },
+  { flush: "post" },
+);
+
 onBeforeUnmount(() => {
+  destroyPhotoSortable();
+  resetTranslationState();
+  browserTranslators.forEach((translatorPromise) => {
+    translatorPromise.then((translator) => translator.destroy?.()).catch(() => undefined);
+  });
+  browserTranslators.clear();
   resetPendingFiles();
   photoObjectUrls.forEach((url) => URL.revokeObjectURL(url));
   photoObjectUrls.clear();
@@ -112,6 +182,7 @@ function cloneProject(project: projectWebM): projectWebM {
   return {
     ...project,
     paragraf: [...project.paragraf],
+    paragraf_en: [...project.paragraf_en],
     foto: project.foto.map((photo) => ({ ...photo })),
   };
 }
@@ -144,32 +215,390 @@ function displayPhotoUrl(photo: projectWebPhotoM) {
   }
 }
 
+function paragraphFieldKey(index: number, language: ProjectLanguage) {
+  return `paragraph:${index}:${language}`;
+}
+
+function closingFieldKey(language: ProjectLanguage) {
+  return `closing:${language}`;
+}
+
+function isTranslatingField(key: string) {
+  return translatingFields.value.has(key);
+}
+
+function setFieldTranslating(key: string, translating: boolean) {
+  const next = new Set(translatingFields.value);
+  if (translating) next.add(key);
+  else next.delete(key);
+  translatingFields.value = next;
+}
+
+function resetTranslationState() {
+  translationTimers.forEach((timer) => clearTimeout(timer));
+  translationTimers.clear();
+  translationRequestVersions.clear();
+  fieldEditVersions.clear();
+  translatingFields.value = new Set();
+  translationErrorShown = false;
+}
+
+function markFieldEdited(key: string) {
+  fieldEditVersions.set(key, (fieldEditVersions.get(key) || 0) + 1);
+}
+
+async function translateInBrowser(
+  text: string,
+  sourceLanguage: ProjectLanguage,
+  targetLanguage: ProjectLanguage,
+) {
+  const translatorApi = (globalThis as typeof globalThis & {
+    Translator?: BrowserTranslatorApi;
+  }).Translator;
+  if (!translatorApi) {
+    throw new Error(
+      "Terjemahan otomatis memerlukan Google Chrome desktop versi terbaru",
+    );
+  }
+
+  const translatorKey = `${sourceLanguage}:${targetLanguage}`;
+  let translatorPromise = browserTranslators.get(translatorKey);
+  if (!translatorPromise) {
+    const availability = await translatorApi.availability({
+      sourceLanguage,
+      targetLanguage,
+    });
+    if (availability === "unavailable") {
+      throw new Error(
+        "Model terjemahan Indonesia–Inggris tidak tersedia di browser ini",
+      );
+    }
+
+    translatorPromise = translatorApi.create({ sourceLanguage, targetLanguage });
+    browserTranslators.set(translatorKey, translatorPromise);
+  }
+
+  try {
+    const translator = await translatorPromise;
+    const translatedText = (await translator.translate(text)).trim();
+    if (!translatedText) throw new Error("Hasil terjemahan kosong");
+    return translatedText;
+  } catch (error) {
+    browserTranslators.delete(translatorKey);
+    throw error;
+  }
+}
+
+function scheduleTranslation(options: {
+  text: string;
+  source: ProjectLanguage;
+  target: ProjectLanguage;
+  targetKey: string;
+  isSourceCurrent: () => boolean;
+  apply: (translatedText: string) => void;
+}) {
+  const existingTimer = translationTimers.get(options.targetKey);
+  if (existingTimer) clearTimeout(existingTimer);
+
+  const requestVersion = (translationRequestVersions.get(options.targetKey) || 0) + 1;
+  translationRequestVersions.set(options.targetKey, requestVersion);
+
+  const text = options.text.trim();
+  if (!text) {
+    translationTimers.delete(options.targetKey);
+    setFieldTranslating(options.targetKey, false);
+    options.apply("");
+    return;
+  }
+
+  const targetEditVersion = fieldEditVersions.get(options.targetKey) || 0;
+  setFieldTranslating(options.targetKey, true);
+
+  const timer = setTimeout(async () => {
+    translationTimers.delete(options.targetKey);
+    try {
+      const translatedText = await translateInBrowser(
+        text,
+        options.source,
+        options.target,
+      );
+
+      const isLatestRequest =
+        translationRequestVersions.get(options.targetKey) === requestVersion;
+      const targetWasNotEdited =
+        (fieldEditVersions.get(options.targetKey) || 0) === targetEditVersion;
+      if (isLatestRequest && targetWasNotEdited && options.isSourceCurrent()) {
+        options.apply(translatedText);
+        translationErrorShown = false;
+      }
+    } catch (error) {
+      console.error("Terjemahan otomatis gagal:", error);
+      if (!translationErrorShown) {
+        const message = error instanceof Error ? error.message : "";
+        notificationStore.showError(
+          message || "Terjemahan otomatis gagal. Isi kolom pasangan secara manual atau coba lagi.",
+        );
+        translationErrorShown = true;
+      }
+    } finally {
+      if (translationRequestVersions.get(options.targetKey) === requestVersion) {
+        setFieldTranslating(options.targetKey, false);
+      }
+    }
+  }, TRANSLATION_DEBOUNCE_MS);
+
+  translationTimers.set(options.targetKey, timer);
+}
+
+function updateParagraph(index: number, language: ProjectLanguage, value: unknown) {
+  const nextValue = String(value ?? "");
+  const sourceKey = paragraphFieldKey(index, language);
+  markFieldEdited(sourceKey);
+
+  if (language === "id") {
+    projectForm.value.paragraf[index] = nextValue;
+    scheduleTranslation({
+      text: nextValue,
+      source: "id",
+      target: "en",
+      targetKey: paragraphFieldKey(index, "en"),
+      isSourceCurrent: () => projectForm.value.paragraf[index] === nextValue,
+      apply: (translatedText) => {
+        projectForm.value.paragraf_en[index] = translatedText;
+      },
+    });
+    return;
+  }
+
+  projectForm.value.paragraf_en[index] = nextValue;
+  scheduleTranslation({
+    text: nextValue,
+    source: "en",
+    target: "id",
+    targetKey: paragraphFieldKey(index, "id"),
+    isSourceCurrent: () => projectForm.value.paragraf_en[index] === nextValue,
+    apply: (translatedText) => {
+      projectForm.value.paragraf[index] = translatedText;
+    },
+  });
+}
+
+function updateClosingParagraph(language: ProjectLanguage, value: unknown) {
+  const nextValue = String(value ?? "");
+  markFieldEdited(closingFieldKey(language));
+
+  if (language === "id") {
+    projectForm.value.paragraf_penutup = nextValue;
+    scheduleTranslation({
+      text: nextValue,
+      source: "id",
+      target: "en",
+      targetKey: closingFieldKey("en"),
+      isSourceCurrent: () => projectForm.value.paragraf_penutup === nextValue,
+      apply: (translatedText) => {
+        projectForm.value.paragraf_penutup_en = translatedText;
+      },
+    });
+    return;
+  }
+
+  projectForm.value.paragraf_penutup_en = nextValue;
+  scheduleTranslation({
+    text: nextValue,
+    source: "en",
+    target: "id",
+    targetKey: closingFieldKey("id"),
+    isSourceCurrent: () => projectForm.value.paragraf_penutup_en === nextValue,
+    apply: (translatedText) => {
+      projectForm.value.paragraf_penutup = translatedText;
+    },
+  });
+}
+
+function translateMissingContent() {
+  projectForm.value.paragraf.forEach((paragraph, index) => {
+    const englishParagraph = projectForm.value.paragraf_en[index] || "";
+    if (paragraph.trim() && !englishParagraph.trim()) {
+      scheduleTranslation({
+        text: paragraph,
+        source: "id",
+        target: "en",
+        targetKey: paragraphFieldKey(index, "en"),
+        isSourceCurrent: () => projectForm.value.paragraf[index] === paragraph,
+        apply: (translatedText) => {
+          projectForm.value.paragraf_en[index] = translatedText;
+        },
+      });
+    } else if (!paragraph.trim() && englishParagraph.trim()) {
+      scheduleTranslation({
+        text: englishParagraph,
+        source: "en",
+        target: "id",
+        targetKey: paragraphFieldKey(index, "id"),
+        isSourceCurrent: () => projectForm.value.paragraf_en[index] === englishParagraph,
+        apply: (translatedText) => {
+          projectForm.value.paragraf[index] = translatedText;
+        },
+      });
+    }
+  });
+
+  const closingId = projectForm.value.paragraf_penutup;
+  const closingEn = projectForm.value.paragraf_penutup_en;
+  if (closingId.trim() && !closingEn.trim()) {
+    scheduleTranslation({
+      text: closingId,
+      source: "id",
+      target: "en",
+      targetKey: closingFieldKey("en"),
+      isSourceCurrent: () => projectForm.value.paragraf_penutup === closingId,
+      apply: (translatedText) => {
+        projectForm.value.paragraf_penutup_en = translatedText;
+      },
+    });
+  } else if (!closingId.trim() && closingEn.trim()) {
+    scheduleTranslation({
+      text: closingEn,
+      source: "en",
+      target: "id",
+      targetKey: closingFieldKey("id"),
+      isSourceCurrent: () => projectForm.value.paragraf_penutup_en === closingEn,
+      apply: (translatedText) => {
+        projectForm.value.paragraf_penutup = translatedText;
+      },
+    });
+  }
+}
+
+function nextPhotoDraftId() {
+  photoDraftSequence += 1;
+  return `project-photo-${photoDraftSequence}`;
+}
+
+function initializePhotoDrafts() {
+  photoDrafts.value = projectForm.value.foto.map((photo) => ({
+    id: nextPhotoDraftId(),
+    kind: "existing" as const,
+    photo,
+  }));
+}
+
+function photoDraftUrl(item: ProjectPhotoDraft) {
+  return item.kind === "existing"
+    ? displayPhotoUrl(item.photo)
+    : item.previewUrl;
+}
+
+function photoDraftName(item: ProjectPhotoDraft) {
+  return item.kind === "existing" ? item.photo.name : item.file.name;
+}
+
+function movePhotoDraft(fromIndex: number, toIndex: number) {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= photoDrafts.value.length ||
+    toIndex >= photoDrafts.value.length
+  ) {
+    return;
+  }
+
+  const next = [...photoDrafts.value];
+  const [movedPhoto] = next.splice(fromIndex, 1);
+  if (!movedPhoto) return;
+  next.splice(toIndex, 0, movedPhoto);
+  photoDrafts.value = next;
+}
+
+function destroyPhotoSortable() {
+  photoSortable?.destroy();
+  photoSortable = null;
+}
+
+function initializePhotoSortable() {
+  if (!photoGrid.value) return;
+
+  photoSortable = new Sortable(photoGrid.value, {
+    animation: 170,
+    draggable: ".photo-preview",
+    filter: ".photo-remove",
+    preventOnFilter: false,
+    ghostClass: "photo-sortable-ghost",
+    chosenClass: "photo-sortable-chosen",
+    dragClass: "photo-sortable-drag",
+    delay: 140,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 4,
+    forceFallback: true,
+    fallbackOnBody: true,
+    fallbackTolerance: 3,
+    scroll: true,
+    onEnd(event) {
+      const fromIndex = event.oldDraggableIndex ?? event.oldIndex;
+      const toIndex = event.newDraggableIndex ?? event.newIndex;
+      if (fromIndex === undefined || toIndex === undefined) return;
+      movePhotoDraft(fromIndex, toIndex);
+    },
+  });
+}
+
+function removePhotoDraft(item: ProjectPhotoDraft) {
+  if (item.kind === "existing") {
+    const photoIndex = projectForm.value.foto.indexOf(item.photo);
+    if (photoIndex >= 0) {
+      const [photo] = projectForm.value.foto.splice(photoIndex, 1);
+      if (photo) removedPhotos.value.push(photo);
+    }
+  } else {
+    const fileIndex = pendingFiles.value.indexOf(item.file);
+    if (fileIndex >= 0) pendingFiles.value.splice(fileIndex, 1);
+
+    const previewIndex = pendingPreviewUrls.value.indexOf(item.previewUrl);
+    if (previewIndex >= 0) pendingPreviewUrls.value.splice(previewIndex, 1);
+    URL.revokeObjectURL(item.previewUrl);
+  }
+
+  photoDrafts.value = photoDrafts.value.filter((photo) => photo.id !== item.id);
+}
+
 function resetPendingFiles() {
   pendingPreviewUrls.value.forEach((url) => URL.revokeObjectURL(url));
   pendingFiles.value = [];
   pendingPreviewUrls.value = [];
   removedPhotos.value = [];
+  photoDrafts.value = [];
+  photoDraftSequence = 0;
   photoProcessingProgress.value = 0;
 }
 
 function openDialogAddProject() {
+  resetTranslationState();
   resetPendingFiles();
   data.formMode = "add";
   projectForm.value = emptyProject();
+  initializePhotoDrafts();
   data.dialogForm = true;
 }
 
 function openDialogEditProject(project: projectWebM) {
+  resetTranslationState();
   resetPendingFiles();
   data.formMode = "edit";
   projectForm.value = cloneProject(project);
+  initializePhotoDrafts();
   if (!projectForm.value.paragraf.length) projectForm.value.paragraf = [""];
+  while (projectForm.value.paragraf_en.length < projectForm.value.paragraf.length) {
+    projectForm.value.paragraf_en.push("");
+  }
   data.dialogForm = true;
+  translateMissingContent();
 }
 
 function closeFormDialog() {
   if (isSaving.value) return;
   data.dialogForm = false;
+  resetTranslationState();
   resetPendingFiles();
 }
 
@@ -187,14 +616,19 @@ function editDetailProject() {
 
 function addParagraph() {
   projectForm.value.paragraf.push("");
+  projectForm.value.paragraf_en.push("");
 }
 
 function removeParagraph(index: number) {
+  resetTranslationState();
   if (projectForm.value.paragraf.length === 1) {
     projectForm.value.paragraf[0] = "";
+    projectForm.value.paragraf_en[0] = "";
     return;
   }
   projectForm.value.paragraf.splice(index, 1);
+  projectForm.value.paragraf_en.splice(index, 1);
+  translateMissingContent();
 }
 
 function addPhotoFiles(event: Event) {
@@ -219,20 +653,17 @@ function addPhotoFiles(event: Event) {
     notificationStore.showInfo("Maksimal 12 foto untuk satu project");
   }
   const acceptedFiles = validFiles.slice(0, availableSlots);
+  const acceptedPreviews = acceptedFiles.map((file) => URL.createObjectURL(file));
   pendingFiles.value.push(...acceptedFiles);
-  pendingPreviewUrls.value.push(...acceptedFiles.map((file) => URL.createObjectURL(file)));
-}
-
-function removePendingPhoto(index: number) {
-  const previewUrl = pendingPreviewUrls.value[index];
-  if (previewUrl) URL.revokeObjectURL(previewUrl);
-  pendingFiles.value.splice(index, 1);
-  pendingPreviewUrls.value.splice(index, 1);
-}
-
-function removeExistingPhoto(index: number) {
-  const [photo] = projectForm.value.foto.splice(index, 1);
-  if (photo) removedPhotos.value.push(photo);
+  pendingPreviewUrls.value.push(...acceptedPreviews);
+  photoDrafts.value.push(
+    ...acceptedFiles.map((file, index) => ({
+      id: nextPhotoDraftId(),
+      kind: "pending" as const,
+      file,
+      previewUrl: acceptedPreviews[index]!,
+    })),
+  );
 }
 
 function documentBytes(value: unknown) {
@@ -354,16 +785,38 @@ async function prepareProjectPhotos(
 
 async function saveProject() {
   if (isSaving.value) return;
+  if (isTranslating.value) {
+    return notificationStore.showInfo("Tunggu terjemahan otomatis selesai");
+  }
 
   const judul = projectForm.value.judul.trim();
   const subJudul = projectForm.value.sub_judul.trim();
-  const paragraf = projectForm.value.paragraf.map((item) => item.trim()).filter(Boolean);
+  const paragraphPairs = projectForm.value.paragraf
+    .map((paragraph, index) => ({
+      id: paragraph.trim(),
+      en: (projectForm.value.paragraf_en[index] || "").trim(),
+    }))
+    .filter((paragraph) => paragraph.id || paragraph.en);
+  const paragraf = paragraphPairs.map((paragraph) => paragraph.id);
+  const paragrafEn = paragraphPairs.map((paragraph) => paragraph.en);
   const paragrafPenutup = projectForm.value.paragraf_penutup.trim();
+  const paragrafPenutupEn = projectForm.value.paragraf_penutup_en.trim();
 
   if (!judul) return notificationStore.showError("Judul tidak boleh kosong");
   if (!subJudul) return notificationStore.showError("Subjudul tidak boleh kosong");
-  if (!paragraf.length) return notificationStore.showError("Tambahkan minimal satu paragraf");
-  if (!paragrafPenutup) return notificationStore.showError("Paragraf penutup tidak boleh kosong");
+  if (!paragraphPairs.length) return notificationStore.showError("Tambahkan minimal satu paragraf");
+  if (paragraphPairs.some((paragraph) => !paragraph.id)) {
+    return notificationStore.showError("Lengkapi semua paragraf Bahasa Indonesia");
+  }
+  if (paragraphPairs.some((paragraph) => !paragraph.en)) {
+    return notificationStore.showError("Lengkapi semua paragraf Bahasa Inggris");
+  }
+  if (!paragrafPenutup) {
+    return notificationStore.showError("Paragraf penutup Bahasa Indonesia tidak boleh kosong");
+  }
+  if (!paragrafPenutupEn) {
+    return notificationStore.showError("Paragraf penutup Bahasa Inggris tidak boleh kosong");
+  }
 
   isSaving.value = true;
   useloadingStore().setLoading(true);
@@ -373,10 +826,21 @@ async function saveProject() {
       judul,
       sub_judul: subJudul,
       paragraf,
+      paragraf_en: paragrafEn,
       paragraf_penutup: paragrafPenutup,
+      paragraf_penutup_en: paragrafPenutupEn,
     };
     const newPhotos = await prepareProjectPhotos(pendingFiles.value, payload);
-    payload.foto = [...payload.foto, ...newPhotos];
+    const preparedPhotos = new Map<File, projectWebPhotoM>();
+    pendingFiles.value.forEach((file, index) => {
+      const photo = newPhotos[index];
+      if (photo) preparedPhotos.set(file, photo);
+    });
+    payload.foto = photoDrafts.value.flatMap((item) => {
+      if (item.kind === "existing") return [item.photo];
+      const preparedPhoto = preparedPhotos.get(item.file);
+      return preparedPhoto ? [preparedPhoto] : [];
+    });
 
     if (documentBytes(payload) > MAX_PROJECT_BYTES) {
       return notificationStore.showError(
@@ -395,6 +859,7 @@ async function saveProject() {
 
     if (saved) {
       data.dialogForm = false;
+      resetTranslationState();
       resetPendingFiles();
     }
   } catch (error) {
@@ -520,9 +985,9 @@ async function deleteProject(project: projectWebM) {
           <template #item.createdAt="{ item }"><span class="date-cell">{{ formatCreatedAt(item.createdAt) }}</span></template>
           <template #item.aksi="{ item }">
             <div class="table-actions">
-              <button type="button" class="table-action-button table-action-button--view" title="Lihat detail project" aria-label="Lihat detail project" @click="openDetailDialog(item)">
+              <!-- <button type="button" class="table-action-button table-action-button--view" title="Lihat detail project" aria-label="Lihat detail project" @click="openDetailDialog(item)">
                 <v-icon icon="mdi-eye-outline" size="16" />
-              </button>
+              </button> -->
               <button type="button" class="table-action-button table-action-button--edit" title="Edit project" aria-label="Edit project" @click="openDialogEditProject(item)">
                 <v-icon icon="mdi-pencil-outline" size="16" />
               </button>
@@ -570,7 +1035,7 @@ async function deleteProject(project: projectWebM) {
       </div>
     </section>
 
-    <v-dialog v-model="data.dialogForm" max-width="860" :fullscreen="$vuetify.display.smAndDown" :persistent="isSaving">
+    <v-dialog v-model="data.dialogForm" max-width="860" :fullscreen="$vuetify.display.smAndDown" persistent>
       <form class="project-dialog" @submit.prevent="saveProject">
         <header class="dialog-header">
           <div class="dialog-heading">
@@ -594,55 +1059,96 @@ async function deleteProject(project: projectWebM) {
 
           <section class="dialog-section">
             <div class="dialog-section-heading section-heading-action">
-              <span>02</span><div><h3>Isi Project</h3><p>Tambahkan satu atau beberapa paragraf secara berurutan.</p></div>
+              <span>02</span><div><h3>Isi Project</h3><p>Isi salah satu bahasa; kolom pasangannya diterjemahkan otomatis.</p></div>
               <button type="button" class="add-inline" @click="addParagraph"><v-icon icon="mdi-plus" size="15" /> Tambah Paragraf</button>
             </div>
             <div class="paragraph-list">
               <div v-for="(_, index) in projectForm.paragraf" :key="index" class="paragraph-item">
                 <span class="paragraph-number">{{ index + 1 }}</span>
-                <a-textarea-new v-model="projectForm.paragraf[index]" :label="`Paragraf ${index + 1}`" placeholder="Tuliskan isi paragraf" rows="3" />
+                <div class="translation-fields">
+                  <a-textarea-new
+                    :model-value="projectForm.paragraf[index]"
+                    :label="`Paragraf ${index + 1} · Bahasa Indonesia`"
+                    placeholder="Tuliskan isi paragraf dalam Bahasa Indonesia"
+                    rows="3"
+                    :hint="isTranslatingField(paragraphFieldKey(index, 'id')) ? 'Menerjemahkan dari Bahasa Inggris...' : ''"
+                    :persistent-hint="isTranslatingField(paragraphFieldKey(index, 'id'))"
+                    @update:model-value="updateParagraph(index, 'id', $event)"
+                  />
+                  <a-textarea-new
+                    :model-value="projectForm.paragraf_en[index]"
+                    :label="`Paragraph ${index + 1} · English`"
+                    placeholder="Write the paragraph in English"
+                    rows="3"
+                    :hint="isTranslatingField(paragraphFieldKey(index, 'en')) ? 'Translating from Indonesian...' : ''"
+                    :persistent-hint="isTranslatingField(paragraphFieldKey(index, 'en'))"
+                    @update:model-value="updateParagraph(index, 'en', $event)"
+                  />
+                </div>
                 <button type="button" class="remove-item" :aria-label="`Hapus paragraf ${index + 1}`" @click="removeParagraph(index)"><v-icon icon="mdi-delete-outline" size="17" /></button>
               </div>
             </div>
           </section>
 
           <section class="dialog-section">
-            <div class="dialog-section-heading"><span>03</span><div><h3>Galeri Foto</h3><p>Maksimal 12 foto; gambar otomatis dikompres sebelum disimpan.</p></div></div>
+            <div class="dialog-section-heading"><span>03</span><div><h3>Galeri Foto</h3><p>Maksimal 12 foto. Seret gambar untuk mengatur urutan; foto pertama menjadi cover.</p></div></div>
             <label class="photo-uploader">
               <input type="file" accept="image/*" multiple @change="addPhotoFiles" />
               <span class="upload-icon"><v-icon icon="mdi-cloud-upload-outline" size="22" /></span>
               <span><strong>Pilih foto project</strong><small>JPG, PNG, WEBP, atau format gambar lainnya</small></span>
             </label>
 
-            <div v-if="projectForm.foto.length || pendingPreviewUrls.length" class="photo-grid">
-              <figure v-for="(photo, index) in projectForm.foto" :key="photo.storagePath || photo.url" class="photo-preview">
-                <img :src="displayPhotoUrl(photo)" :alt="photo.name" />
-                <figcaption>{{ photo.name }}</figcaption>
-                <button type="button" aria-label="Hapus foto" @click="removeExistingPhoto(index)"><v-icon icon="mdi-close" size="14" /></button>
-              </figure>
-              <figure v-for="(previewUrl, index) in pendingPreviewUrls" :key="previewUrl" class="photo-preview photo-preview--new">
-                <img :src="previewUrl" :alt="pendingFiles[index]?.name" />
-                <figcaption>{{ pendingFiles[index]?.name }}</figcaption>
-                <span class="new-badge">Baru</span>
-                <button type="button" aria-label="Hapus foto baru" @click="removePendingPhoto(index)"><v-icon icon="mdi-close" size="14" /></button>
+            <div v-if="photoDrafts.length" ref="photoGrid" class="photo-grid">
+              <figure
+                v-for="(item, index) in photoDrafts"
+                :key="item.id"
+                class="photo-preview"
+                :class="{ 'photo-preview--new': item.kind === 'pending' }"
+              >
+                <img :src="photoDraftUrl(item)" :alt="photoDraftName(item)" draggable="false" />
+                <figcaption>{{ photoDraftName(item) }}</figcaption>
+                <span class="photo-drag-indicator" aria-hidden="true"><v-icon icon="mdi-drag" size="14" />{{ index + 1 }}</span>
+                <span v-if="index === 0" class="cover-badge">Cover</span>
+                <span v-if="item.kind === 'pending'" class="new-badge">Baru</span>
+                <button type="button" class="photo-remove" :aria-label="`Hapus ${photoDraftName(item)}`" @click="removePhotoDraft(item)"><v-icon icon="mdi-close" size="14" /></button>
               </figure>
             </div>
           </section>
 
           <section class="dialog-section">
-            <div class="dialog-section-heading"><span>04</span><div><h3>Paragraf Penutup</h3><p>Tuliskan kesimpulan atau hasil akhir project.</p></div></div>
-            <a-textarea-new v-model="projectForm.paragraf_penutup" label="Paragraf Penutup" placeholder="Tuliskan penutup project" rows="3" />
+            <div class="dialog-section-heading"><span>04</span><div><h3>Paragraf Penutup</h3><p>Isi salah satu bahasa; kolom pasangannya diterjemahkan otomatis.</p></div></div>
+            <div class="translation-fields">
+              <a-textarea-new
+                :model-value="projectForm.paragraf_penutup"
+                label="Paragraf Penutup · Bahasa Indonesia"
+                placeholder="Tuliskan penutup project dalam Bahasa Indonesia"
+                rows="3"
+                :hint="isTranslatingField(closingFieldKey('id')) ? 'Menerjemahkan dari Bahasa Inggris...' : ''"
+                :persistent-hint="isTranslatingField(closingFieldKey('id'))"
+                @update:model-value="updateClosingParagraph('id', $event)"
+              />
+              <a-textarea-new
+                :model-value="projectForm.paragraf_penutup_en"
+                label="Closing Paragraph · English"
+                placeholder="Write the project closing paragraph in English"
+                rows="3"
+                :hint="isTranslatingField(closingFieldKey('en')) ? 'Translating from Indonesian...' : ''"
+                :persistent-hint="isTranslatingField(closingFieldKey('en'))"
+                @update:model-value="updateClosingParagraph('en', $event)"
+              />
+            </div>
           </section>
         </div>
 
         <footer class="dialog-footer">
-          <p v-if="isSaving && pendingFiles.length">
+          <p v-if="isTranslating">Menerjemahkan konten project...</p>
+          <p v-else-if="isSaving && pendingFiles.length">
             {{ photoProcessingProgress ? `Menyiapkan foto ${photoProcessingProgress}%` : "Membaca dan mengompres foto..." }}
           </p>
           <p v-else>Pastikan urutan paragraf dan foto sudah sesuai sebelum disimpan.</p>
           <div>
             <v-btn variant="outlined" color="grey-darken-1" class="text-none dialog-cancel" :disabled="isSaving" @click="closeFormDialog">Batal</v-btn>
-            <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-content-save-outline" class="text-none dialog-save" :loading="isSaving" :disabled="isSaving">
+            <v-btn type="submit" color="primary" variant="flat" prepend-icon="mdi-content-save-outline" class="text-none dialog-save" :loading="isSaving" :disabled="isSaving || isTranslating">
               {{ data.formMode === "add" ? "Simpan Project" : "Simpan Perubahan" }}
             </v-btn>
           </div>
@@ -671,10 +1177,32 @@ async function deleteProject(project: projectWebM) {
               <span><v-icon icon="mdi-text-long" size="15" />{{ detailProject.paragraf.length }} paragraf</span>
               <span><v-icon icon="mdi-image-multiple-outline" size="15" />{{ detailProject.foto.length }} foto</span>
             </div>
-            <div class="detail-paragraphs">
-              <p v-for="(paragraph, index) in detailProject.paragraf" :key="index">{{ paragraph }}</p>
+            <div class="detail-language-grid">
+              <article class="detail-language-card" lang="id">
+                <header class="detail-language-heading">
+                  <span class="language-code">ID</span>
+                  <div><h3>Bahasa Indonesia</h3><small>Konten utama</small></div>
+                </header>
+                <div class="detail-paragraphs">
+                  <p v-for="(paragraph, index) in detailProject.paragraf.filter(Boolean)" :key="`id-${index}`">{{ paragraph }}</p>
+                </div>
+                <blockquote>{{ detailProject.paragraf_penutup }}</blockquote>
+              </article>
+
+              <article class="detail-language-card detail-language-card--en" lang="en">
+                <header class="detail-language-heading">
+                  <span class="language-code">EN</span>
+                  <div><h3>English</h3><small>English content</small></div>
+                </header>
+                <template v-if="detailProject.paragraf_en.some(Boolean) || detailProject.paragraf_penutup_en">
+                  <div class="detail-paragraphs">
+                    <p v-for="(paragraph, index) in detailProject.paragraf_en.filter(Boolean)" :key="`en-${index}`">{{ paragraph }}</p>
+                  </div>
+                  <blockquote>{{ detailProject.paragraf_penutup_en }}</blockquote>
+                </template>
+                <p v-else class="detail-language-empty">Versi Bahasa Inggris belum tersedia.</p>
+              </article>
             </div>
-            <blockquote>{{ detailProject.paragraf_penutup }}</blockquote>
           </section>
         </div>
 
@@ -765,6 +1293,7 @@ async function deleteProject(project: projectWebM) {
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .paragraph-list { display: flex; flex-direction: column; gap: 8px; }
 .paragraph-item { display: grid; grid-template-columns: 24px minmax(0, 1fr) 29px; align-items: start; gap: 7px; }
+.translation-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .paragraph-number { display: grid; width: 24px; height: 24px; margin-top: 5px; place-items: center; color: #6a7886; font-size: 8px; font-weight: 700; background: #f1f4f6; border-radius: 4px; }
 .remove-item { display: grid; width: 29px; height: 29px; margin-top: 3px; padding: 0; place-items: center; color: #9f5151; background: #fff6f6; border: 1px solid #edd6d6; border-radius: 4px; cursor: pointer; }
 .photo-uploader { display: flex; min-height: 76px; padding: 13px; align-items: center; justify-content: center; gap: 10px; color: #52677b; background: #f8fafc; border: 1px dashed #b9c9d7; border-radius: 6px; cursor: pointer; }
@@ -775,11 +1304,19 @@ async function deleteProject(project: projectWebM) {
 .photo-uploader strong { font-size: 10px; }
 .photo-uploader small { margin-top: 2px; color: #8b96a1; font-size: 8px; }
 .photo-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
-.photo-preview { position: relative; min-width: 0; margin: 0; overflow: hidden; background: #f0f3f5; border: 1px solid #dce2e7; border-radius: 5px; }
+.photo-preview { position: relative; min-width: 0; margin: 0; overflow: hidden; background: #f0f3f5; border: 1px solid #dce2e7; border-radius: 5px; cursor: grab; user-select: none; transition: border-color .16s, box-shadow .16s, transform .16s; }
+.photo-preview:active { cursor: grabbing; }
 .photo-preview img { display: block; width: 100%; height: 95px; object-fit: cover; }
 .photo-preview figcaption { padding: 5px 7px; overflow: hidden; color: #697786; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.photo-preview button { position: absolute; top: 5px; right: 5px; display: grid; width: 23px; height: 23px; padding: 0; place-items: center; color: #fff; background: rgba(34, 45, 56, .72); border: 0; border-radius: 50%; cursor: pointer; }
-.new-badge { position: absolute; top: 7px; left: 7px; padding: 2px 5px; color: #fff; font-size: 7px; font-weight: 700; background: #3e8161; border-radius: 8px; }
+.photo-remove { position: absolute; top: 5px; right: 5px; display: grid; width: 23px; height: 23px; padding: 0; place-items: center; color: #fff; background: rgba(34, 45, 56, .72); border: 0; border-radius: 50%; cursor: pointer; }
+.photo-remove:hover { background: rgba(150, 55, 55, .88); }
+.photo-drag-indicator { position: absolute; top: 5px; left: 5px; display: inline-flex; min-width: 29px; height: 23px; padding: 0 5px; align-items: center; justify-content: center; gap: 1px; color: #fff; font-size: 7px; font-weight: 750; background: rgba(34, 45, 56, .72); border-radius: 12px; pointer-events: none; }
+.new-badge, .cover-badge { position: absolute; padding: 2px 5px; color: #fff; font-size: 7px; font-weight: 700; border-radius: 8px; pointer-events: none; }
+.new-badge { top: 7px; left: 39px; background: #3e8161; }
+.cover-badge { bottom: 27px; left: 6px; background: #315f8c; }
+.photo-sortable-ghost { opacity: .28; }
+.photo-sortable-chosen { border-color: #6f94b6; box-shadow: 0 0 0 2px rgba(49, 95, 140, .13); }
+.photo-sortable-drag { transform: rotate(1deg); box-shadow: 0 12px 28px rgba(26, 43, 58, .2); }
 .dialog-footer, .detail-footer { display: flex; flex: 0 0 auto; min-height: 58px; padding: 9px 14px; align-items: center; justify-content: space-between; gap: 16px; background: #fff; border-top: 1px solid #dfe4e8; }
 .dialog-footer p { margin: 0; color: #7d8893; font-size: 9px; }
 .dialog-footer > div { display: flex; gap: 7px; }
@@ -799,9 +1336,19 @@ async function deleteProject(project: projectWebM) {
 .detail-content { margin-top: 10px; padding: 18px 20px; background: #fff; border: 1px solid #e0e5e9; border-radius: 6px; }
 .detail-meta { display: flex; padding-bottom: 12px; align-items: center; gap: 18px; color: #748290; font-size: 9px; border-bottom: 1px solid #e8ecef; }
 .detail-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.detail-language-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 14px; }
+.detail-language-card { min-width: 0; padding: 14px; background: #fbfcfd; border: 1px solid #e1e7eb; border-radius: 6px; }
+.detail-language-card--en { background: #f9fbfd; border-color: #d9e4ed; }
+.detail-language-heading { display: flex; padding-bottom: 10px; align-items: center; gap: 8px; border-bottom: 1px solid #e5eaee; }
+.detail-language-heading > div { display: flex; flex-direction: column; gap: 1px; }
+.detail-language-heading h3 { margin: 0; color: #344554; font-size: 11px; }
+.detail-language-heading small { color: #8a97a3; font-size: 8px; }
+.language-code { display: grid; flex: 0 0 29px; width: 29px; height: 25px; place-items: center; color: #315f8c; font-size: 8px; font-weight: 750; background: #e8f0f7; border-radius: 4px; }
+.detail-language-card--en .language-code { color: #396f60; background: #e8f3ef; }
 .detail-paragraphs { padding: 8px 0; }
 .detail-paragraphs p { margin: 12px 0; color: #445363; font-size: 11px; line-height: 1.8; white-space: pre-line; }
 .detail-content blockquote { margin: 12px 0 0; padding: 12px 14px; color: #3e5264; font-size: 11px; font-weight: 600; line-height: 1.7; background: #f1f5f8; border-left: 3px solid #587a9b; border-radius: 0 5px 5px 0; }
+.detail-language-empty { margin: 18px 0 4px; color: #8a97a3; font-size: 10px; font-style: italic; }
 .detail-footer { justify-content: flex-end; }
 
 @media (max-width: 760px) {
@@ -827,6 +1374,7 @@ async function deleteProject(project: projectWebM) {
   .mobile-actions .delete-action { color: #a14d4d; }
   .project-dialog, .detail-dialog { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; }
   .form-grid { grid-template-columns: 1fr; }
+  .translation-fields { grid-template-columns: 1fr; }
   .section-heading-action { flex-wrap: wrap; }
   .section-heading-action .add-inline { margin-left: 30px; }
   .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -838,5 +1386,6 @@ async function deleteProject(project: projectWebM) {
   .detail-gallery a:first-child:nth-last-child(n + 2) { grid-column: span 2; grid-row: span 2; }
   .detail-content { padding: 14px; }
   .detail-meta { flex-wrap: wrap; gap: 8px 13px; }
+  .detail-language-grid { grid-template-columns: 1fr; }
 }
 </style>

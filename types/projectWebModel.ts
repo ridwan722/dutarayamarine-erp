@@ -11,8 +11,10 @@ export interface projectWebM {
   judul: string;
   sub_judul: string;
   paragraf: string[];
+  paragraf_en: string[];
   foto: projectWebPhotoM[];
   paragraf_penutup: string;
+  paragraf_penutup_en: string;
   createdAt: number;
   createdBy?: string;
   updatedAt?: number;

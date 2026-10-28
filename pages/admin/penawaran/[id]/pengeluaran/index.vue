@@ -474,6 +474,12 @@ const savePengeluaranPdf = async () => {
       108,
       rightY,
     );
+    rightY = drawField(
+      "Total Pengeluaran",
+      rupiah.format(totalPengeluaran.value),
+      108,
+      rightY,
+    );
     y = Math.max(leftY, rightY) + 3;
     if (y > pageHeight - 40) {
       pdf.addPage();
@@ -545,7 +551,7 @@ const savePengeluaranPdf = async () => {
 
     const signatureWidth = Math.min(40, (20 * signature.naturalWidth) / signature.naturalHeight);
     const signatureHeight = (signatureWidth * signature.naturalHeight) / signature.naturalWidth;
-    const signatureContentHeight = 18 + 6 + 3 + signatureHeight + 2;
+    const signatureContentHeight = 6 + 3 + signatureHeight + 2;
     const footerTop = pageHeight - 12;
     const signatureBottomGap = 2;
     if (y + signatureContentHeight + signatureBottomGap > footerTop) {
@@ -553,13 +559,6 @@ const savePengeluaranPdf = async () => {
       drawLetterhead();
     }
     pdf.setTextColor(17, 24, 39);
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(10);
-    pdf.text("Total Pengeluaran", margin, y + 7);
-    pdf.text(rupiah.format(totalPengeluaran.value), pageWidth - margin, y + 7, {
-      align: "right",
-    });
-    y += 18;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9);
     pdf.text("Yours sincerely,", margin, y);
