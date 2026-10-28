@@ -442,6 +442,15 @@ async function deleteProject(project: projectWebM) {
       <div class="project-hero-copy">
         <span class="eyebrow">Master Data</span>
         <h1>Project Website</h1>
+        <p> <a
+            href="https://www.dutarayamarine.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="website-link"
+          >
+            www.dutarayamarine.com
+            <v-icon icon="mdi-open-in-new" size="11" />
+          </a> </p>
         <p>Susun konten project yang akan ditampilkan di website Duta Raya Marine, lengkap dengan narasi dan galeri foto.</p>
       </div>
       <v-btn color="primary" variant="flat" prepend-icon="mdi-plus" class="text-none add-button" @click="openDialogAddProject">
@@ -449,7 +458,7 @@ async function deleteProject(project: projectWebM) {
       </v-btn>
     </header>
 
-    <section class="project-summary" aria-label="Ringkasan project website">
+    <!-- <section class="project-summary" aria-label="Ringkasan project website">
       <article class="summary-card summary-card--primary">
         <span class="summary-icon"><v-icon icon="mdi-briefcase-outline" size="20" /></span>
         <div><small>Total Project</small><strong>{{ projects.length }}</strong><span>Konten project tersimpan</span></div>
@@ -462,7 +471,7 @@ async function deleteProject(project: projectWebM) {
         <span class="summary-icon summary-icon--violet"><v-icon icon="mdi-image-multiple-outline" size="20" /></span>
         <div><small>Total Foto</small><strong>{{ totalPhotos }}</strong><span>Foto dalam galeri project</span></div>
       </article>
-    </section>
+    </section> -->
 
     <section class="project-directory">
       <header class="directory-header">
@@ -680,6 +689,7 @@ async function deleteProject(project: projectWebM) {
 
 <style scoped>
 * { box-sizing: border-box; }
+.website-link { display: inline-flex; align-items: center; gap: 3px; color: #315f8c; font-weight: 650; text-decoration: none; }
 .project-page { width: 100%; max-width: 1500px; min-height: 100vh; margin: 0 auto; padding: 8px 14px 30px; color: #243447; }
 .back-button { min-height: 32px; margin-bottom: 8px; padding-inline: 7px !important; font-size: 11px; font-weight: 650; letter-spacing: 0; }
 .project-hero, .project-directory, .summary-card { background: #fff; border: 1px solid #e0e5ea; box-shadow: 0 6px 18px rgba(34, 51, 68, .035); }

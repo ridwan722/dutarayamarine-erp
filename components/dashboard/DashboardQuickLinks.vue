@@ -6,7 +6,8 @@ const links = [
   { title: "Client", subtitle: "Data Clients", href: "/admin/master/client", icon: "mdi-account-group-outline", tone: "violet" },
   { title: "Vendor", subtitle: "Mitra pengadaan", href: "/admin/master/vendor", icon: "mdi-storefront-outline", tone: "orange" },
   { title: "Keuangan kantor", subtitle: "Transaksi & inventaris", href: "/admin/petty-cash", icon: "mdi-wallet-outline", tone: "green" },
-  { title: "Leads web", subtitle: "Prospek masuk", href: "/admin/master/leads-web", icon: "mdi-account-star-outline", tone: "rose" },
+  { title: "Leads Website", subtitle: "Prospek masuk", href: "/admin/master/leads-web", icon: "mdi-human-queue", tone: "rose" },
+  { title: "Projects Website", subtitle: "Daftar Proyek yang di tampikan di website", href: "/admin/master/project-web", icon: "mdi-format-list-bulleted-square", tone: "rose" },
 ];
 </script>
 

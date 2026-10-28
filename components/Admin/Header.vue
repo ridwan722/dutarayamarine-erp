@@ -60,6 +60,13 @@ const menuItems = [
     to: "/admin/master/leads-web",
     icon: "mdi-human-queue",
   },
+
+  {
+    title: "Projects Website",
+    subtitle: "Daftar Proyek yang di tampikan di website",
+    to: "/admin/master/project-web",
+    icon: "mdi-format-list-bulleted-square",
+  },
   {
     title: "Master Barang / Service",
     subtitle: "Katalog barang dan layanan",
