@@ -1006,6 +1006,7 @@
     <v-data-table
       :headers="data.headPenawaran"
       :items="penawaranTampilTersaring"
+      :loading="isLoading"
       :items-per-page="-1"
       density="compact"
       :sort-by="[{ key: 'created_at', order: 'desc' }]"
@@ -1206,15 +1207,19 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 );
 const activeSuggestionIndex = ref<number | null>(null);
 const savingCustomer = ref(false);
+const isLoading = ref(true);
 
 onMounted(async () => {
   restoreQuotationFilters();
-  useloadingStore().setLoading(true);
-  await penawaranStore.tarikDataPenawaranAct();
-  useloadingStore().setLoading(false);
-  await customerStore.tarikDataCustomerAct();
-  await termconditionStore.tarikDataTermconditionAct();
-  await barangStore.tarikDataBarangAct();
+  try {
+    isLoading.value = true;
+    await penawaranStore.tarikDataPenawaranAct();
+    await customerStore.tarikDataCustomerAct();
+    await termconditionStore.tarikDataTermconditionAct();
+    await barangStore.tarikDataBarangAct();
+  } finally {
+    isLoading.value = false;
+  }
 });
 
 const kosonginPencarian = () => {

@@ -319,23 +319,25 @@ async function hapusVendor(id: string) {
           <template #item.aksi="{ item }">
             <div class="table-actions">
               <v-btn
-                icon="mdi-pencil-outline"
+                icon
                 variant="text"
                 color="primary"
                 size="small"
                 aria-label="Edit vendor"
                 @click="openDialogEditVendor(item)"
               >
+                <v-icon icon="mdi-pencil-outline" size="18" />
                 <v-tooltip activator="parent" location="top">Edit</v-tooltip>
               </v-btn>
               <v-btn
-                icon="mdi-delete-outline"
+                icon
                 variant="text"
                 color="error"
                 size="small"
                 aria-label="Hapus vendor"
                 @click="hapusVendor(item.id_vendor!)"
               >
+                <v-icon icon="mdi-delete-outline" size="18" />
                 <v-tooltip activator="parent" location="top">Hapus</v-tooltip>
               </v-btn>
             </div>

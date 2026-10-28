@@ -615,6 +615,7 @@
     <v-data-table
       :headers="data.headInvoice"
       :items="invoiceTampilTersaring"
+      :loading="isLoading"
       :items-per-page="-1"
       density="compact"
       :sort-by="[{ key: 'createdAt', order: 'desc' }]"
@@ -946,6 +947,7 @@ function formatInvoiceCurrency(value: number, currency?: string) {
 
 const readingPo = ref(false);
 const savingInvoice = ref(false);
+const isLoading = ref(true);
 const MAX_INVOICE_BYTES = 900_000;
 
 async function tambahDokumenPo(event: Event) {
@@ -1063,11 +1065,14 @@ watch(
 
 onMounted(async () => {
   restoreInvoiceFilters();
-  await customerStore.tarikDataCustomerAct();
-  useloadingStore().setLoading(true);
-  await invoiceStore.tarikDataInvoiceAct();
-  data.showAllInvoice = true;
-  useloadingStore().setLoading(false);
+  try {
+    isLoading.value = true;
+    await customerStore.tarikDataCustomerAct();
+    await invoiceStore.tarikDataInvoiceAct();
+    data.showAllInvoice = true;
+  } finally {
+    isLoading.value = false;
+  }
   termconditionStore.tarikDataTermconditionAct();
 });
 
