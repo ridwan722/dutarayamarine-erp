@@ -205,7 +205,7 @@ async function hapusLeads(id?: string) {
       </v-btn>
     </header>
 
-    <section class="leads-summary" aria-label="Ringkasan leads website">
+    <!-- <section class="leads-summary" aria-label="Ringkasan leads website">
       <article class="summary-card summary-card--primary">
         <span class="summary-icon"><v-icon icon="mdi-account-star-outline" size="20" /></span>
         <div><small>Total Leads</small><strong>{{ leads.length }}</strong><span>Prospek dari website</span></div>
@@ -214,11 +214,11 @@ async function hapusLeads(id?: string) {
         <span class="summary-icon summary-icon--green"><v-icon icon="mdi-message-text-outline" size="20" /></span>
         <div><small>Inquiry Tercatat</small><strong>{{ inquiryCount }}</strong><span>Permintaan yang dapat ditindaklanjuti</span></div>
       </article>
-      <!-- <article class="summary-card">
+      <article class="summary-card">
         <span class="summary-icon summary-icon--violet"><v-icon icon="mdi-ferry" size="20" /></span>
         <div><small>Vessel Tercatat</small><strong>{{ vesselCount }}</strong><span>Prospek dengan informasi vessel</span></div>
-      </article> -->
-    </section>
+      </article>
+    </section> -->
 
     <section class="leads-directory">
       <header class="directory-header">

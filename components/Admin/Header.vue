@@ -2,12 +2,47 @@
 import { useDisplay } from "vuetify";
 import { useUserStore } from "@/stores/userStore";
 import { getAuth, signOut } from "firebase/auth";
-import { navigateTo } from "#app";
-import { ref, watch } from "vue";
+import { navigateTo, useRoute } from "#app";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const { mdAndUp } = useDisplay();
+const route = useRoute();
 const useuser = useUserStore();
 const mobileMenuOpen = ref(false);
+const currentTime = ref(new Date());
+let clockInterval;
+
+const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Jakarta",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+const dateFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta",
+  weekday: "long",
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
+
+const digitalTime = computed(() => timeFormatter.format(currentTime.value));
+const digitalDate = computed(() => dateFormatter.format(currentTime.value));
+const clockAriaLabel = computed(
+  () => `${digitalDate.value}, pukul ${digitalTime.value} WIB`,
+);
+
+onMounted(() => {
+  currentTime.value = new Date();
+  clockInterval = window.setInterval(() => {
+    currentTime.value = new Date();
+  }, 1_000);
+});
+
+onBeforeUnmount(() => {
+  if (clockInterval) window.clearInterval(clockInterval);
+});
 
 const menuItems = [
   {
@@ -99,6 +134,86 @@ const menuItems = [
   },
 ];
 
+const mobileMenuGroups = computed(() => {
+  const sectionForItem = (item) => {
+    if (item.to.startsWith("/admin/master/")) return "Master Data";
+    if (["/admin/petty-cash", "/admin/legalitas"].includes(item.to)) {
+      return "Operasional";
+    }
+    return "Utama";
+  };
+
+  return ["Utama", "Master Data", "Operasional"]
+    .map((title) => ({
+      title,
+      items: menuItems.filter((item) => {
+        return sectionForItem(item) === title;
+      }),
+    }))
+    .filter((group) => group.items.length);
+});
+
+const normalizePath = (path) => {
+  const normalized = path.replace(/\/+$/, "");
+  return normalized || "/";
+};
+
+const breadcrumbs = computed(() => {
+  const currentPath = normalizePath(route.path);
+  const dashboard = { title: "Dashboard", to: "/admin/" };
+  if (currentPath === "/admin") return [dashboard];
+
+  const items = [dashboard];
+  if (currentPath.startsWith("/admin/master/")) {
+    items.push({ title: "Master Data" });
+  }
+
+  const currentMenu = [...menuItems]
+    .filter((item) => {
+      const itemPath = normalizePath(item.to);
+      return (
+        itemPath !== "/admin" &&
+        (currentPath === itemPath || currentPath.startsWith(`${itemPath}/`))
+      );
+    })
+    .sort(
+      (left, right) =>
+        normalizePath(right.to).length - normalizePath(left.to).length,
+    )[0];
+
+  if (!currentMenu) return items;
+
+  const menuPath = normalizePath(currentMenu.to);
+  const isNestedPage = currentPath !== menuPath;
+  items.push({
+    title: currentMenu.title,
+    ...(isNestedPage ? { to: currentMenu.to } : {}),
+  });
+
+  if (isNestedPage) {
+    const nestedSegments = currentPath
+      .slice(menuPath.length)
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => decodeURIComponent(segment));
+    const nestedLabels = {
+      pengeluaran: "Pengeluaran",
+      activate: "Aktivasi",
+    };
+    const pageSegment = nestedSegments.at(-1);
+    const pageLabel = nestedLabels[pageSegment];
+
+    if (pageLabel && nestedSegments.length > 1) {
+      items.push({ title: nestedSegments[0] });
+      items.push({ title: pageLabel });
+    } else {
+      items.push({ title: pageLabel || nestedSegments[0] });
+    }
+  }
+
+  return items;
+});
+
 watch(mdAndUp, (isDesktop) => {
   if (isDesktop) mobileMenuOpen.value = false;
 });
@@ -175,7 +290,25 @@ const logout = async () => {
           <span class="company-subtitle">Enterprise Resource Planning</span>
         </div>
 
-        <span class="portal-label d-none d-sm-inline-flex">Admin Portal</span>
+        <nav v-if="mdAndUp" class="header-breadcrumbs" aria-label="Breadcrumb">
+          <span class="header-breadcrumb-divider" aria-hidden="true" />
+          <ol>
+            <li v-for="(item, index) in breadcrumbs" :key="`${item.title}-${index}`">
+              <v-icon
+                v-if="index > 0"
+                icon="mdi-chevron-right"
+                size="14"
+                aria-hidden="true"
+              />
+              <NuxtLink v-if="item.to && index < breadcrumbs.length - 1" :to="item.to">
+                {{ item.title }}
+              </NuxtLink>
+              <span v-else :aria-current="index === breadcrumbs.length - 1 ? 'page' : undefined">
+                {{ item.title }}
+              </span>
+            </li>
+          </ol>
+        </nav>
       </div>
     </template>
 
@@ -183,6 +316,18 @@ const logout = async () => {
 
     <template #append>
       <div class="header-right">
+        <div
+          v-if="mdAndUp"
+          class="header-clock"
+          role="timer"
+          :aria-label="clockAriaLabel"
+        >
+          <span class="header-clock-date">{{ digitalDate }}</span>
+          <time class="header-clock-time" :datetime="currentTime.toISOString()">
+            {{ digitalTime }} <span class="header-clock-date">WIB</span>
+          </time>
+        </div>
+
         <v-menu
           v-if="!mdAndUp"
           v-model="mobileMenuOpen"
@@ -203,57 +348,40 @@ const logout = async () => {
             </v-btn>
           </template>
 
-          <v-card class="mobile-menu-card" width="340" elevation="10">
-            <div class="mobile-menu-header">
-              <div class="mobile-menu-header-icon">
-                <v-icon icon="mdi-apps" size="20" />
-              </div>
-              <div>
-                <strong>Menu Navigasi</strong>
-                <span>Pilih modul ERP yang ingin dibuka</span>
-              </div>
+          <v-card class="mobile-menu-card" width="300" elevation="0">
+            <div class="mobile-nav-scroll">
+              <section v-for="group in mobileMenuGroups" :key="group.title" class="mobile-nav-section">
+                <h3>{{ group.title }}</h3>
+                <v-list density="compact" nav>
+                  <v-list-item
+                    v-for="item in group.items"
+                    :key="`mobile-${item.to}`"
+                    :to="item.to"
+                    :exact="item.exact"
+                    class="mobile-nav-item"
+                    active-class="mobile-nav-item--active"
+                    @click="mobileMenuOpen = false"
+                  >
+                    <template #prepend>
+                      <v-icon class="mobile-nav-icon" :icon="item.icon" size="18" />
+                    </template>
+
+                    <v-list-item-title>{{ item.title }}</v-list-item-title>
+
+                    <template #append>
+                      <v-icon icon="mdi-chevron-right" size="15" />
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </section>
+
             </div>
 
-            <v-divider />
-
-            <v-list class="mobile-nav-list" density="comfortable" nav>
-              <v-list-item
-                v-for="item in menuItems"
-                :key="`mobile-${item.to}`"
-                :to="item.to"
-                :exact="item.exact"
-                class="mobile-nav-item"
-                active-class="mobile-nav-item--active"
-                @click="mobileMenuOpen = false"
-              >
-                <template #prepend>
-                  <span class="mobile-nav-icon">
-                    <v-icon :icon="item.icon" size="18" />
-                  </span>
-                </template>
-
-                <v-list-item-title>{{ item.title }}</v-list-item-title>
-                <v-list-item-subtitle>{{ item.subtitle }}</v-list-item-subtitle>
-
-                <template #append>
-                  <v-icon icon="mdi-chevron-right" size="17" />
-                </template>
-              </v-list-item>
-            </v-list>
-
-            <v-divider />
-
             <div class="mobile-menu-footer">
-              <v-btn
-                block
-                variant="tonal"
-                color="error"
-                prepend-icon="mdi-logout-variant"
-                class="text-none"
-                @click="logout"
-              >
-                Keluar dari aplikasi
-              </v-btn>
+              <button type="button" class="mobile-logout-button" @click="logout">
+                <v-icon icon="mdi-logout-variant" size="17" />
+                Keluar
+              </button>
             </div>
           </v-card>
         </v-menu>
@@ -398,12 +526,13 @@ const logout = async () => {
 .side-nav-item--active::before {
   content: "";
   position: absolute;
-  left: -8px;
-  top: 15%;
-  height: 70%;
-  width: 3px;
+  top: 50%;
+  right: -6px;
+  width: 8px;
+  height: 14px;
   background-color: #ef4444;
-  border-radius: 0 4px 4px 0;
+  clip-path: polygon(100% 0, 100% 100%, 0 50%);
+  transform: translateY(-50%);
 }
 
 .side-nav-item--active .nav-icon-wrapper .v-icon {
@@ -487,6 +616,103 @@ const logout = async () => {
   white-space: nowrap;
 }
 
+.header-breadcrumbs {
+  display: flex;
+  min-width: 0;
+  max-width: min(420px, 36vw);
+  margin-left: 6px;
+  align-items: center;
+}
+
+.header-breadcrumb-divider {
+  width: 1px;
+  height: 28px;
+  margin-right: 14px;
+  flex: 0 0 auto;
+  background: #e2e8f0;
+}
+
+.header-breadcrumbs ol {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  overflow: hidden;
+  list-style: none;
+}
+
+.header-breadcrumbs li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  color: #8491a3;
+  font-size: 10px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.header-breadcrumbs li:not(:last-child) {
+  flex: 0 0 auto;
+}
+
+.header-breadcrumbs li:last-child {
+  flex: 1 1 auto;
+  color: #344256;
+  font-weight: 650;
+}
+
+.header-breadcrumbs li:last-child > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-breadcrumbs .v-icon {
+  margin: 0 5px;
+  flex: 0 0 auto;
+  color: #b0bac6;
+}
+
+.header-breadcrumbs a {
+  color: #748195;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.header-breadcrumbs a:hover {
+  color: #1f6478;
+}
+
+.header-clock {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 15px;
+  border-right: 1px solid #e2e8f0;
+  pointer-events: none;
+}
+
+.header-clock-time {
+  color: #1e293b;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  line-height: 1.1;
+}
+
+.header-clock-date {
+  color: #6e7b8f;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+  line-height: 1.2;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
 .portal-label {
   align-items: center;
   height: 24px;
@@ -507,6 +733,7 @@ const logout = async () => {
 .header-right {
   display: flex;
   align-items: center;
+  gap: 15px;
 }
 
 .mobile-menu-btn {
@@ -519,111 +746,103 @@ const logout = async () => {
 }
 
 .mobile-menu-card {
-  width: min(340px, calc(100vw - 20px)) !important;
+  width: min(300px, calc(100vw - 16px)) !important;
   overflow: hidden !important;
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 16px !important;
+  border: 1px solid #dce2e8 !important;
+  border-radius: 8px !important;
   background: #ffffff !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14) !important;
 }
 
-.mobile-menu-header {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 15px 16px 13px;
-}
-
-.mobile-menu-header-icon {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex: none;
-  border-radius: 11px;
-  background: #eaf5f8;
-  color: #288aa1;
-}
-
-.mobile-menu-header > div:last-child {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.mobile-menu-header strong {
-  color: #18364a;
-  font-size: 13px;
-  letter-spacing: -0.01em;
-}
-
-.mobile-menu-header span {
-  color: #879ca8;
-  font-size: 10px;
-}
-
-.mobile-nav-list {
-  max-height: min(58vh, 480px);
-  overflow-y: auto !important;
-  padding: 8px !important;
+.mobile-nav-scroll {
+  max-height: min(60vh, 500px);
+  padding: 0 7px 7px;
+  overflow-y: auto;
   overscroll-behavior: contain;
 }
 
+.mobile-nav-section h3 {
+  margin: 0;
+  padding: 10px 8px 4px;
+  color: #8b96a5;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.mobile-nav-section .v-list {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
 .mobile-nav-item {
-  min-height: 54px !important;
-  margin-bottom: 3px !important;
-  border-radius: 11px !important;
-  color: #314f60 !important;
+  min-height: 42px !important;
+  margin-bottom: 1px !important;
+  padding-inline: 10px !important;
+  border-left: 2px solid transparent !important;
+  border-radius: 4px !important;
+  color: #3d4a5c !important;
+}
+
+.mobile-nav-section .mobile-nav-item:not(:last-child) {
+  border-bottom: 1px solid #edf0f3 !important;
 }
 
 .mobile-nav-item :deep(.v-list-item__prepend) {
-  margin-right: 11px !important;
+  margin-right: 10px !important;
 }
 
 .mobile-nav-item :deep(.v-list-item__append) {
-  color: #a8bbc4;
+  color: #a5aeba;
 }
 
 .mobile-nav-item :deep(.v-list-item-title) {
-  font-size: 11.5px !important;
-  font-weight: 750 !important;
-}
-
-.mobile-nav-item :deep(.v-list-item-subtitle) {
-  margin-top: 2px;
-  color: #8ca0aa !important;
-  font-size: 9.5px !important;
-  opacity: 1 !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
 }
 
 .mobile-nav-icon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: #f0f6f8;
-  color: #418095;
-  transition: background-color 0.2s, color 0.2s;
+  color: #697688;
 }
 
 .mobile-nav-item:hover {
-  background: #f6fafb !important;
+  background: #f6f7f9 !important;
 }
 
 .mobile-nav-item--active {
-  background: #edf7f9 !important;
-  color: #1d7187 !important;
+  color: #243447 !important;
+  background: #eef1f4 !important;
+  border-left-color: #526579 !important;
 }
 
 .mobile-nav-item--active .mobile-nav-icon {
-  background: #d7eef3;
-  color: #17788f;
+  color: #34465a;
 }
 
 .mobile-menu-footer {
-  padding: 10px;
-  background: #fafcfd;
+  padding: 8px 12px 10px;
+  border-top: 1px solid #e8ecf0;
+}
+
+.mobile-logout-button {
+  display: flex;
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
+  align-items: center;
+  gap: 8px;
+  color: #9b3d3d;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.mobile-logout-button:active {
+  background: #faf0f0;
 }
 
 .logout-btn {
