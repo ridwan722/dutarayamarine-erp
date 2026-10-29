@@ -401,7 +401,7 @@ async function hapusCustomer(id: string) {
 .contact-cell a, .contact-cell > span { display: flex; min-width: 0; align-items: center; gap: 5px; color: #526f88; font-size: 9px; text-decoration: none; }
 .contact-cell a:hover { color: #245f92; text-decoration: underline; }
 .contact-cell a:last-child { overflow: hidden; color: #778492; text-overflow: ellipsis; white-space: nowrap; }
-.address-cell { display: -webkit-box; max-width: 420px; margin: 0; overflow: hidden; color: #697684; font-size: 9px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.address-cell { display: block; max-width: 420px; margin: 0; overflow: visible; color: #697684; font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; white-space: normal; }
 .table-actions { display: flex; min-width: 74px; align-items: center; justify-content: center; gap: 5px; }
 .table-action-button {
   display: grid;

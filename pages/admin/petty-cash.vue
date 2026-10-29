@@ -567,12 +567,12 @@ function downloadExcel() {
 
     <section class="metric-grid" aria-label="Ringkasan keuangan kantor">
       <template v-if="isLoading">
-        <div v-for="index in 4" :key="index" class="metric-card">
+        <div v-for="index in 2" :key="index" class="metric-card">
           <v-skeleton-loader type="text, heading" />
         </div>
       </template>
       <template v-else>
-        <article class="metric-card metric-card--net">
+        <!-- <article class="metric-card metric-card--net">
           <div class="metric-card-heading">
             <span>Selisih Periode</span>
             <span class="metric-icon">
@@ -591,7 +591,7 @@ function downloadExcel() {
           </div>
           <strong class="metric-value--green">{{ formatCurrency(totalIn) }}</strong>
           <small>Transaksi dana masuk</small>
-        </article>
+        </article> -->
         <article class="metric-card">
           <div class="metric-card-heading">
             <span>Total Pengeluaran</span>
@@ -600,7 +600,7 @@ function downloadExcel() {
             </span>
           </div>
           <strong class="metric-value--rose">{{ formatCurrency(totalOut) }}</strong>
-          <small>Seluruh biaya kantor</small>
+          <small>Seluruh biaya yang dikeluarkan</small>
         </article>
         <article class="metric-card">
           <div class="metric-card-heading">
@@ -687,7 +687,7 @@ function downloadExcel() {
         </div>
         <div class="period-summary">
           <div><span>Transaksi</span><strong>{{ transactionsByPeriod.length }}</strong></div>
-          <div><span>Kategori Aktif</span><strong>{{ categoryBreakdown.length }}</strong></div>
+          <!-- <div><span>Kategori Aktif</span><strong>{{ categoryBreakdown.length }}</strong></div> -->
         </div>
       </article>
     </section>
@@ -695,7 +695,7 @@ function downloadExcel() {
     <section class="transaction-panel">
       <div class="transaction-panel-header">
         <div>
-          <span class="section-kicker">Office ledger</span>
+          <!-- <span class="section-kicker">Office ledger</span> -->
           <div class="transaction-title-row">
             <h2>Daftar Transaksi</h2>
             <span>{{ filteredTransactions.length }} data</span>
@@ -1146,7 +1146,7 @@ function downloadExcel() {
   max-width: 1500px;
   min-height: 100vh;
   margin: 0 auto;
-  padding: 8px 14px 28px;
+  padding: 8px 1px 1px;
   color: #243142;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -1218,7 +1218,7 @@ function downloadExcel() {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
 }
@@ -1283,7 +1283,7 @@ function downloadExcel() {
 
 .metric-card--net > strong { color: #ffffff; }
 .metric-card .metric-value--green { color: #25815a; }
-.metric-card .metric-value--rose { color: #b44f5d; }
+.metric-card .metric-value--rose { color: #050404; }
 
 .metric-card small {
   display: block;
@@ -1458,7 +1458,7 @@ function downloadExcel() {
 
 .period-summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: 1px;
   margin-top: 14px;
   overflow: hidden;
@@ -2057,7 +2057,7 @@ function downloadExcel() {
 }
 
 @media (max-width: 767px) {
-  .office-finance-page { padding: 6px 8px 20px; }
+  .office-finance-page { padding: 6px 0px 0px; }
   .finance-hero { align-items: stretch; padding: 17px; flex-direction: column; }
   .finance-hero h1 { font-size: 21px; }
   .finance-hero-actions { display: grid; grid-template-columns: 1fr 1.2fr; }

@@ -517,7 +517,7 @@ export function useDashboardAnalytics() {
         title: item.no_purchaseorder || "Purchase order",
         description: item.nama_vendor || item.perihal_purchaseorder || "Vendor",
         type: "PO vendor",
-        icon: "mdi-truck-outline",
+        icon: "mdi-dolly",
         tone: "violet",
         href: `/admin/penawaran/${encodeURIComponent(item.id_penawaran)}`,
         amount: item.currency === "IDR" || !item.currency ? number(item.grandtotal_purchaseorder) : null,

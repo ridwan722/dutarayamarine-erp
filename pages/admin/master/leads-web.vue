@@ -261,7 +261,7 @@ async function hapusLeads(id?: string) {
             <div class="icon-cell"><v-icon icon="mdi-ferry" size="15" /><span>{{ item.vessel || "—" }}</span></div>
           </template>
           <template #item.inquiry="{ item }"><p class="multiline-cell inquiry-cell">{{ item.inquiry || "—" }}</p></template>
-          <template #item.alamat="{ item }"><p class="multiline-cell">{{ item.alamat || "—" }}</p></template>
+          <template #item.alamat="{ item }"><p class="multiline-cell address-cell">{{ item.alamat || "—" }}</p></template>
           <template #item.aksi="{ item }">
             <div class="table-actions">
               <button
@@ -422,6 +422,7 @@ async function hapusLeads(id?: string) {
 .icon-cell { display: flex; min-width: 0; align-items: center; gap: 5px; color: #586676; }
 .icon-cell .v-icon { flex: 0 0 auto; color: #85919d; }
 .multiline-cell { display: -webkit-box; max-width: 330px; margin: 0; overflow: hidden; color: #697684; font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.address-cell { display: block; overflow: visible; white-space: normal; -webkit-line-clamp: unset; }
 .inquiry-cell { color: #536a7e; }
 .table-actions { display: flex; min-width: 42px; align-items: center; justify-content: center; }
 .table-action-button { display: grid; flex: 0 0 30px; width: 30px; height: 30px; padding: 0; place-items: center; background: #fff; border: 1px solid; border-radius: 5px; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }

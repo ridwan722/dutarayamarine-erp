@@ -69,14 +69,14 @@ const menuItems = [
     title: "Purchase Order",
     subtitle: "Pesanan untuk vendor",
     to: "/admin/purchase-order",
-    icon: "mdi-clipboard-text-outline",
+    icon: "mdi-dolly",
   },
-  {
-    title: "Invoice Success",
-    subtitle: "Invoice yang telah selesai",
-    to: "/admin/invoice/selesai",
-    icon: "mdi-check-decagram-outline",
-  },
+  // {
+  //   title: "Invoice Success",
+  //   subtitle: "Invoice yang telah selesai",
+  //   to: "/admin/invoice/selesai",
+  //   icon: "mdi-check-decagram-outline",
+  // },
   {
     title: "Master Client",
     subtitle: "Data pelanggan",

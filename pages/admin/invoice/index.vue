@@ -573,7 +573,7 @@
 
         <label class="invoice-filter-field invoice-filter-select">
           <select v-model="data.filterStatus" aria-label="Status invoice">
-            <option value="">Status</option>
+            <option value="">All</option>
             <option
               v-for="status in availableInvoiceStatuses"
               :key="status"
@@ -735,6 +735,28 @@
         </div>
       </template>
     </v-data-table>
+
+    <div class="invoice-table-total-wrapper">
+      <div class="invoice-table-total-card">
+        <div class="invoice-table-total-heading">
+          <span>Total Amount</span>
+          <small>{{ invoiceTampilTersaring.length }} invoice</small>
+        </div>
+        <div v-if="invoiceTableTotals.length" class="invoice-table-total-values">
+          <div
+            v-for="total in invoiceTableTotals"
+            :key="total.currency"
+            class="invoice-table-total-row"
+          >
+            <span>{{ total.currency }}</span>
+            <strong>
+              {{ formatInvoiceCurrency(total.amount, total.currency) }}
+            </strong>
+          </div>
+        </div>
+        <strong v-else class="invoice-table-total-empty">—</strong>
+      </div>
+    </div>
   </v-card>
 </template>
 
@@ -1206,6 +1228,27 @@ const invoiceTampilTersaring = computed(() => {
   });
 });
 
+const invoiceTableTotals = computed(() => {
+  const totals = new Map<invoiceCurrencyM, number>();
+
+  invoiceTampilTersaring.value.forEach((invoice) => {
+    const currency = normalizeInvoiceCurrency(invoice.currency_inv);
+    totals.set(
+      currency,
+      (totals.get(currency) || 0) +
+        (Number(invoice.grandtotal_invoice) || 0),
+    );
+  });
+
+  const currencyOrder: invoiceCurrencyM[] = ["IDR", "USD", "SGD"];
+  return currencyOrder
+    .filter((currency) => totals.has(currency))
+    .map((currency) => ({
+      currency,
+      amount: totals.get(currency) || 0,
+    }));
+});
+
 function updateInvoiceAmountFilter(event: Event) {
   const input = event.target as HTMLInputElement;
   const digits = input.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
@@ -1625,6 +1668,81 @@ async function refreshData() {
 }
 .invoice-list-table :deep(tbody tr) { transition: background-color 0.12s ease; }
 .invoice-list-table :deep(tbody tr:hover > td) { background: #fafbfd !important; }
+
+.invoice-table-total-wrapper {
+  display: flex;
+  padding: 10px 14px;
+  justify-content: flex-end;
+  background: #fbfcfd;
+  border-top: 1px solid #e5e9ed;
+}
+
+.invoice-table-total-card {
+  width: min(100%, 280px);
+  padding: 9px 11px;
+  background: #ffffff;
+  border: 1px solid #dce2e8;
+  border-radius: 6px;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.035);
+}
+
+.invoice-table-total-heading {
+  display: flex;
+  padding-bottom: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.invoice-table-total-heading span {
+  color: #637080;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.invoice-table-total-heading small {
+  color: #959faa;
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.invoice-table-total-values {
+  display: flex;
+  padding-top: 6px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.invoice-table-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoice-table-total-row > span {
+  color: #87929e;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.invoice-table-total-row strong,
+.invoice-table-total-empty {
+  color: #25394d;
+  font-size: 11.5px;
+  font-weight: 750;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.invoice-table-total-empty {
+  display: block;
+  padding-top: 6px;
+}
 
 .invoice-row-index { color: #9aa3ae; font-size: 10px; font-variant-numeric: tabular-nums; }
 .invoice-date-cell { color: #556170; font-size: 10.5px; white-space: nowrap; }

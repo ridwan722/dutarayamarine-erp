@@ -226,12 +226,12 @@ async function hapusTnc(id?: string) {
       </v-btn>
     </header>
 
-    <section class="terms-summary" aria-label="Ringkasan term and condition">
+    <!-- <section class="terms-summary" aria-label="Ringkasan term and condition">
       <article class="summary-card summary-card--primary">
         <span class="summary-icon"><v-icon icon="mdi-file-document-check-outline" size="20" /></span>
         <div><small>Total Term & Condition</small><strong>{{ terms.length }}</strong><span>T&C tersimpan di master data</span></div>
       </article>
-    </section>
+    </section> -->
 
     <section class="terms-directory">
       <header class="directory-header">

@@ -428,7 +428,7 @@ onBeforeUnmount(() => {
                   :append-icon="
                     hasPurchaseOrder
                       ? 'mdi-check-circle'
-                      : 'mdi-clipboard-text-outline'
+                      : 'mdi-dolly'
                   "
                   class="corporate-btn btn-po"
                   @click="data.dialogPurchaseOrder = true"

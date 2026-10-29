@@ -79,6 +79,124 @@
   </v-dialog>
 
   <v-dialog
+    v-model="showAddVendorDialog"
+    max-width="680"
+    :fullscreen="$vuetify.display.smAndDown"
+    :persistent="isSavingVendor"
+  >
+    <form class="po-new-vendor-dialog" @submit.prevent="saveNewVendor">
+      <header class="po-new-vendor-header">
+        <div class="po-new-vendor-heading">
+          <span class="po-new-vendor-icon">
+            <v-icon icon="mdi-storefront-plus-outline" size="20" />
+          </span>
+          <div>
+            <h2>Tambah Vendor</h2>
+            <p>Lengkapi identitas dan informasi kontak vendor.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="po-new-vendor-close"
+          :disabled="isSavingVendor"
+          aria-label="Tutup dialog tambah vendor"
+          @click="closeAddVendorDialog"
+        >
+          <v-icon icon="mdi-close" size="20" />
+        </button>
+      </header>
+
+      <div class="po-new-vendor-body">
+        <section class="po-new-vendor-section">
+          <div class="po-new-vendor-section-heading">
+            <span>01</span>
+            <div>
+              <h3>Identitas Vendor</h3>
+              <p>Nama perusahaan dan penanggung jawab utama.</p>
+            </div>
+          </div>
+          <div class="po-new-vendor-grid">
+            <a-text-field-new
+              v-model="newVendor.nama_vendor"
+              label="Nama Vendor"
+              placeholder="Contoh: PT Samudra Teknik"
+            />
+            <a-text-field-new
+              v-model="newVendor.pic_vendor"
+              label="PIC"
+              placeholder="Nama penanggung jawab"
+            />
+          </div>
+        </section>
+
+        <section class="po-new-vendor-section">
+          <div class="po-new-vendor-section-heading">
+            <span>02</span>
+            <div>
+              <h3>Informasi Kontak</h3>
+              <p>Nomor telepon dan email yang dapat dihubungi.</p>
+            </div>
+          </div>
+          <div class="po-new-vendor-grid">
+            <a-text-field-new
+              v-model="newVendor.no_telp_vendor"
+              label="Nomor Telepon"
+              placeholder="Contoh: +62 812 3456 7890"
+            />
+            <a-text-field-new
+              v-model="newVendor.email_vendor"
+              label="Email"
+              placeholder="vendor@perusahaan.com"
+            />
+          </div>
+        </section>
+
+        <section class="po-new-vendor-section">
+          <div class="po-new-vendor-section-heading">
+            <span>03</span>
+            <div>
+              <h3>Alamat Vendor</h3>
+              <p>Alamat lengkap kantor atau lokasi operasional.</p>
+            </div>
+          </div>
+          <a-textarea-new
+            v-model="newVendor.alamat_vendor"
+            label="Alamat"
+            placeholder="Tuliskan alamat lengkap vendor"
+            rows="2"
+          />
+        </section>
+      </div>
+
+      <footer class="po-new-vendor-footer">
+        <p>Vendor baru akan langsung dipilih setelah berhasil disimpan.</p>
+        <div>
+          <v-btn
+            variant="outlined"
+            color="grey-darken-1"
+            class="text-none po-new-vendor-cancel"
+            :disabled="isSavingVendor"
+            @click="closeAddVendorDialog"
+          >
+            Batal
+          </v-btn>
+          <v-btn
+            type="submit"
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-content-save-outline"
+            class="text-none po-new-vendor-save"
+            :loading="isSavingVendor"
+            :disabled="isSavingVendor"
+          >
+            Simpan Vendor
+          </v-btn>
+        </div>
+      </footer>
+    </form>
+  </v-dialog>
+
+  <v-dialog
     v-model="isOpen"
     max-width="1040"
     scrollable
@@ -89,7 +207,7 @@
       <header class="po-header">
         <div class="po-header-content">
           <div class="po-header-icon" aria-hidden="true">
-            <v-icon icon="mdi-truck-delivery-outline" size="20" />
+            <v-icon icon="mdi-dolly" size="20" />
           </div>
           <div>
             <h2 class="po-title">
@@ -151,6 +269,19 @@
               label="Pilih Vendor"
               class="po-vendor-select"
             />
+            <v-btn
+              class="po-add-vendor-btn text-none"
+              variant="outlined"
+              color="primary"
+              prepend-icon="mdi-storefront-plus-outline"
+              aria-label="Tambah vendor baru"
+              @click="openAddVendorDialog"
+            >
+              Add Vendor
+              <v-tooltip activator="parent" location="top">
+                Add New Vendor
+              </v-tooltip>
+            </v-btn>
           </div>
 
           <dl class="po-vendor-details">
@@ -663,6 +794,8 @@ const isOpen = computed({
 });
 
 const vendorStore = usevendorStore();
+const userStore = useUserStore();
+const notificationStore = useNotificationStore();
 const db = useFirestore();
 const perihal_purchaseorder = ref("");
 const payment = ref("");
@@ -685,6 +818,8 @@ const selectedVendorId = ref("");
 const editingPurchaseorder = ref<purchaseorderM | null>(null);
 const isLoadingPurchaseorder = ref(false);
 const isSaving = ref(false);
+const showAddVendorDialog = ref(false);
+const isSavingVendor = ref(false);
 const purchaseorderLoadFailed = ref(false);
 const isEditing = computed(() =>
   Boolean(editingPurchaseorder.value?.id_purchaseorder),
@@ -702,6 +837,86 @@ const selectedVendor = computed<vendorM | undefined>(() =>
     (vendor) => vendor.id_vendor === selectedVendorId.value,
   ),
 );
+
+function emptyVendor(): vendorM {
+  return {
+    nama_vendor: "",
+    pic_vendor: "",
+    no_telp_vendor: "",
+    alamat_vendor: "",
+    email_vendor: "",
+    createdAt: 0,
+    createdBy: "",
+  };
+}
+
+const newVendor = ref<vendorM>(emptyVendor());
+
+function openAddVendorDialog() {
+  newVendor.value = emptyVendor();
+  showAddVendorDialog.value = true;
+}
+
+function closeAddVendorDialog() {
+  if (isSavingVendor.value) return;
+  showAddVendorDialog.value = false;
+}
+
+async function saveNewVendor() {
+  if (isSavingVendor.value) return;
+
+  const vendor = newVendor.value;
+  if (!vendor.nama_vendor.trim()) {
+    return notificationStore.showError("Nama Vendor tidak boleh kosong");
+  }
+  if (!vendor.alamat_vendor.trim()) {
+    return notificationStore.showError("Address tidak boleh kosong");
+  }
+  if (!vendor.pic_vendor.trim()) {
+    return notificationStore.showError("PIC tidak boleh kosong");
+  }
+  if (!vendor.no_telp_vendor.trim()) {
+    return notificationStore.showError("Phone Number tidak boleh kosong");
+  }
+  if (!vendor.email_vendor.trim()) {
+    return notificationStore.showError("Email tidak boleh kosong");
+  }
+
+  const existingVendorIds = new Set(
+    vendorStore.getDataVendor.map((item) => item.id_vendor).filter(Boolean),
+  );
+  const vendorToSave: vendorM = {
+    ...vendor,
+    nama_vendor: vendor.nama_vendor.trim(),
+    pic_vendor: vendor.pic_vendor.trim(),
+    no_telp_vendor: vendor.no_telp_vendor.trim(),
+    alamat_vendor: vendor.alamat_vendor.trim(),
+    email_vendor: vendor.email_vendor.trim(),
+    createdAt: moment().unix(),
+    createdBy: userStore.getEmail,
+  };
+
+  isSavingVendor.value = true;
+  try {
+    await vendorStore.addVendorAct(vendorToSave);
+
+    const savedVendor = vendorStore.getDataVendor.find(
+      (item) =>
+        Boolean(item.id_vendor) &&
+        !existingVendorIds.has(item.id_vendor) &&
+        item.nama_vendor === vendorToSave.nama_vendor &&
+        item.email_vendor === vendorToSave.email_vendor &&
+        item.createdAt === vendorToSave.createdAt,
+    );
+
+    if (!savedVendor?.id_vendor) return;
+
+    selectedVendorId.value = savedVendor.id_vendor;
+    showAddVendorDialog.value = false;
+  } finally {
+    isSavingVendor.value = false;
+  }
+}
 
 onMounted(() => {
   if (!vendorStore.getDataVendor.length) {
@@ -1096,6 +1311,177 @@ async function addpurchaseorder() {
   }
 }
 
+.po-new-vendor-dialog {
+  display: flex;
+  width: 100%;
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  flex-direction: column;
+  color: #263545;
+  background: #f5f6f8;
+  border: 1px solid #d9dee4;
+  border-radius: 9px;
+  box-shadow: 0 22px 60px rgba(20, 31, 43, 0.24);
+}
+
+.po-new-vendor-header {
+  display: flex;
+  min-height: 64px;
+  padding: 11px 15px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  background: #ffffff;
+  border-bottom: 1px solid #dfe4e8;
+}
+
+.po-new-vendor-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.po-new-vendor-icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #315f8c;
+  background: #edf3f8;
+  border: 1px solid #dbe6ef;
+  border-radius: 6px;
+}
+
+.po-new-vendor-heading h2 {
+  margin: 0;
+  color: #202c38;
+  font-size: 14px;
+  font-weight: 730;
+}
+
+.po-new-vendor-heading p {
+  margin: 2px 0 0;
+  color: #818c97;
+  font-size: 9px;
+}
+
+.po-new-vendor-close {
+  display: grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  color: #75818d;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.po-new-vendor-close:hover:not(:disabled) {
+  background: #f0f3f5;
+}
+
+.po-new-vendor-body {
+  display: flex;
+  min-height: 0;
+  padding: 10px;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.po-new-vendor-section {
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #dfe4e8;
+  border-radius: 6px;
+}
+
+.po-new-vendor-section-heading {
+  display: flex;
+  margin-bottom: 10px;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.po-new-vendor-section-heading > span {
+  display: grid;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 21px;
+  place-items: center;
+  color: #607080;
+  font-size: 8px;
+  font-weight: 700;
+  background: #f0f3f5;
+  border: 1px solid #e0e5e9;
+  border-radius: 4px;
+}
+
+.po-new-vendor-section-heading h3 {
+  margin: 0;
+  color: #33404e;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.po-new-vendor-section-heading p {
+  margin: 2px 0 0;
+  color: #8b959f;
+  font-size: 8px;
+}
+
+.po-new-vendor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.po-new-vendor-dialog :deep(.input-field) {
+  border-radius: 4px;
+}
+
+.po-new-vendor-footer {
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 56px;
+  padding: 9px 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  border-top: 1px solid #dfe4e8;
+}
+
+.po-new-vendor-footer p {
+  margin: 0;
+  color: #7d8893;
+  font-size: 9px;
+}
+
+.po-new-vendor-footer > div {
+  display: flex;
+  gap: 7px;
+}
+
+.po-new-vendor-cancel,
+.po-new-vendor-save {
+  min-width: 96px;
+  height: 32px !important;
+  font-size: 10px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
+}
+
+.po-new-vendor-save {
+  min-width: 145px;
+}
+
 .po-card {
   color: #1f2937;
   background: #f5f6f8;
@@ -1253,7 +1639,7 @@ async function addpurchaseorder() {
 
 .po-vendor-picker {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr) auto;
   align-items: flex-end;
   gap: 10px;
   margin-bottom: 14px;
@@ -1262,6 +1648,15 @@ async function addpurchaseorder() {
 .po-date-field,
 .po-vendor-select {
   min-width: 0;
+}
+
+.po-add-vendor-btn {
+  flex: 0 0 auto;
+  height: 32px !important;
+  padding-inline: 13px !important;
+  font-size: 11px !important;
+  letter-spacing: 0 !important;
+  border-radius: 4px !important;
 }
 
 .po-vendor-details {
@@ -1868,6 +2263,51 @@ async function addpurchaseorder() {
 }
 
 @media (max-width: 600px) {
+  .po-new-vendor-dialog {
+    height: 100%;
+    max-height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .po-new-vendor-header {
+    min-height: 62px;
+    padding: 10px 12px;
+  }
+
+  .po-new-vendor-heading p,
+  .po-new-vendor-footer p {
+    display: none;
+  }
+
+  .po-new-vendor-body {
+    padding: 9px;
+  }
+
+  .po-new-vendor-section {
+    padding: 11px;
+  }
+
+  .po-new-vendor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .po-new-vendor-footer {
+    padding: 9px 10px;
+  }
+
+  .po-new-vendor-footer > div {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 1fr 1.35fr;
+  }
+
+  .po-new-vendor-cancel,
+  .po-new-vendor-save {
+    width: 100%;
+    min-width: 0;
+  }
+
   .po-header {
     min-height: 64px;
     padding: 11px 12px;
@@ -1914,6 +2354,10 @@ async function addpurchaseorder() {
   .po-vendor-details,
   .po-transaction-fields {
     grid-template-columns: 1fr;
+  }
+
+  .po-add-vendor-btn {
+    justify-self: start;
   }
 
   .po-transaction-section {
