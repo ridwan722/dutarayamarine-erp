@@ -23,11 +23,21 @@ const headers = [
     align: "center" as const,
     sortable: false,
   },
-  { title: "Date", value: "tgl_purchaseorder", width: "122px" },
-  { title: "PO Ref", value: "no_purchaseorder", width: "210px" },
+  { title: "Date", value: "tgl_purchaseorder", width: "72px" },
+  { title: "PO No.", value: "no_purchaseorder", width: "100px" },
   { title: "Vendor", value: "nama_vendor", width: "230px" },
-  { title: "Based On", value: "no_penawaran", width: "165px" },
-  { title: "Subject", value: "perihal_purchaseorder", width: "220px" },
+  {
+    title: "Subject",
+    value: "perihal_purchaseorder",
+    width: "220px",
+    minWidth: "220px",
+  },
+  {
+    title: "Payment",
+    value: "payment",
+    width: "220px",
+    minWidth: "220px",
+  },
   {
     title: "Total Amount",
     value: "grandtotal_purchaseorder",
@@ -257,6 +267,10 @@ onMounted(() => loadPurchaseOrders());
         <div class="po-subject-cell">{{ item.perihal_purchaseorder || "—" }}</div>
       </template>
 
+      <template #item.payment="{ item }">
+        <div class="po-payment-cell">{{ item.payment || "—" }}</div>
+      </template>
+
       <template #item.grandtotal_purchaseorder="{ item }">
         <strong class="po-amount-cell">
           {{ formatCurrency(item.grandtotal_purchaseorder, item.currency) }}
@@ -382,6 +396,22 @@ onMounted(() => loadPurchaseOrders());
 }
 .po-refresh-btn { color: #527888; }
 
+.po-list-table :deep(.v-table__wrapper) {
+  overflow-x: auto;
+}
+
+.po-list-table :deep(table) {
+  min-width: 1180px;
+}
+
+.po-list-table :deep(th:nth-child(5)),
+.po-list-table :deep(td:nth-child(5)),
+.po-list-table :deep(th:nth-child(6)),
+.po-list-table :deep(td:nth-child(6)) {
+  width: 220px;
+  min-width: 220px;
+}
+
 .po-list-table :deep(.v-data-table__th) {
   height: 43px !important;
   background: #f7fafb !important;
@@ -448,7 +478,10 @@ onMounted(() => loadPurchaseOrders());
   white-space: nowrap;
 }
 .po-vendor-meta i { width: 3px; height: 3px; flex: none; border-radius: 50%; background: #bdcbd1; }
-.po-subject-cell {
+.po-subject-cell,
+.po-payment-cell {
+  width: 100%;
+  min-width: 0;
   max-width: 250px;
   line-height: 1.45;
   overflow-wrap: anywhere;

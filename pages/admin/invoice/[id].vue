@@ -749,7 +749,7 @@
                       {{
                         invoiceLanguage === "id"
                           ? "No. Penawaran"
-                          : "Quotation No"
+                          : "Quotation No."
                       }}
                     </td>
                     <td width="10">:</td>
@@ -774,7 +774,7 @@
 
                   <tr>
                     <td width="110">
-                      {{ invoiceLanguage === "id" ? "No. PO" : "PO No" }}
+                      {{ invoiceLanguage === "id" ? "No. PO" : "PO No." }}
                     </td>
                     <td width="10">:</td>
                     <td>
@@ -795,7 +795,7 @@
                   <tr>
                     <td width="110">
                       {{
-                        invoiceLanguage === "id" ? "No. Invoice" : "Invoice No"
+                        invoiceLanguage === "id" ? "No. Invoice" : "Invoice No."
                       }}
                     </td>
                     <td width="10">:</td>
@@ -989,11 +989,11 @@
 
           <div class="terbilang-strip">
             <span v-if="invoiceLanguage === 'id'">
-              Terbilang: #{{ jadirupiah(invoiceDetail.grandtotal_invoice) }}
+              Terbilang: # {{ jadirupiah(invoiceDetail.grandtotal_invoice) }}
               {{ invoiceCurrencyName }}.
             </span>
             <span v-else>
-              Amount in words: #{{
+              Amount in words: # {{
                 numberToWordsEnglish(invoiceDetail.grandtotal_invoice)
               }}
               {{ invoiceCurrencyName }}.
@@ -1041,7 +1041,13 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>BCA</td>
+                        <td
+                          class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nama bank"
+                          @keydown.enter.prevent="blurEditableDisplay"
+                        >BCA</td>
                       </tr>
 
                       <tr>
@@ -1053,7 +1059,13 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>2671 6250 74 </td>
+                        <td
+                          class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nomor rekening"
+                          @keydown.enter.prevent="blurEditableDisplay"
+                        >2671 6250 74</td>
                       </tr>
 
                       <tr>
@@ -1065,7 +1077,13 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>Lilis Trisnawati</td>
+                        <td
+                          class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nama penerima"
+                          @keydown.enter.prevent="blurEditableDisplay"
+                        >Lilis Trisnawati</td>
                       </tr>
                     </tbody>
 
@@ -1077,7 +1095,11 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>BCA</td>
+                        <td class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nama bank"
+                          @keydown.enter.prevent="blurEditableDisplay">BCA</td>
                       </tr>
 
                       <tr>
@@ -1101,7 +1123,11 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>Seilla Maryana</td>
+                        <td class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nama penerima"
+                          @keydown.enter.prevent="blurEditableDisplay">Seilla Maryana</td>
                       </tr>
                     </tbody>
 
@@ -1115,7 +1141,11 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>BCA</td>
+                        <td class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nama bank"
+                          @keydown.enter.prevent="blurEditableDisplay">BCA</td>
                       </tr>
 
                       <tr>
@@ -1139,7 +1169,11 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>Leo Adiatmaja Sembiring</td>
+                        <td class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nama penerima"
+                          @keydown.enter.prevent="blurEditableDisplay">Leo Adiatmaja Sembiring</td>
                       </tr>
                     </tbody>
 
@@ -1151,7 +1185,11 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>BCA</td>
+                        <td class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nama bank"
+                          @keydown.enter.prevent="blurEditableDisplay">BCA</td>
                       </tr>
 
                       <tr>
@@ -1175,7 +1213,11 @@
                           }}
                         </td>
                         <td>:</td>
-                        <td>Muhammad Ridwan</td>
+                        <td class="editable-display-value"
+                          contenteditable="true"
+                          spellcheck="false"
+                          aria-label="Ubah tampilan nama penerima"
+                          @keydown.enter.prevent="blurEditableDisplay">Muhammad Ridwan</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1310,6 +1352,10 @@ const MAX_INVOICE_BYTES = 900 * 1024;
 const invoiceLanguage = ref<"id" | "en">("en");
 const quotationGrandTotal = ref(0);
 const relatedInvoices = ref<invoiceM[]>([]);
+
+function blurEditableDisplay(event: KeyboardEvent) {
+  (event.currentTarget as HTMLElement | null)?.blur();
+}
 
 function numberToWordsEnglish(value: number): string {
   const number = Math.floor(Math.abs(value || 0));
@@ -1941,8 +1987,11 @@ const handleSavePdf = async () => {
       keepLine: boolean;
     }[] = [];
     let renderedHeightCss = 0;
+    let renderedWidthCss = 0;
     const tableBoundsCss = { bottom: 0 };
     const tableHeaderBoundsCss = { top: 0, bottom: 0 };
+    const tableColumnPositionsCss: number[] = [];
+    const tableRowPositionsCss: number[] = [];
 
     const fullCanvas = await html2canvas(targetElement, {
       scale: 2,
@@ -1967,6 +2016,7 @@ const handleSavePdf = async () => {
         // elements changes vertical positions compared with the live page.
         const containerRect = clonedTarget.getBoundingClientRect();
         renderedHeightCss = containerRect.height;
+        renderedWidthCss = containerRect.width;
 
         const table = clonedTarget.querySelector<HTMLElement>(".main-table");
         const tableHeader = table?.querySelector<HTMLElement>("thead");
@@ -1976,6 +2026,23 @@ const handleSavePdf = async () => {
           tableBoundsCss.bottom = tableRect.bottom - containerRect.top;
           tableHeaderBoundsCss.top = headerRect.top - containerRect.top;
           tableHeaderBoundsCss.bottom = headerRect.bottom - containerRect.top;
+
+          table.querySelectorAll<HTMLElement>("th, td").forEach((cell) => {
+            const cellRect = cell.getBoundingClientRect();
+            tableColumnPositionsCss.push(
+              cellRect.left - containerRect.left,
+              cellRect.right - containerRect.left,
+            );
+            cell.style.setProperty("border-color", "transparent", "important");
+          });
+
+          table.querySelectorAll<HTMLElement>("tr").forEach((row) => {
+            const rowRect = row.getBoundingClientRect();
+            tableRowPositionsCss.push(
+              rowRect.top - containerRect.top,
+              rowRect.bottom - containerRect.top,
+            );
+          });
         }
 
         const addAvoidPosition = (rect: DOMRect, keepLine = false) => {
@@ -2020,7 +2087,7 @@ const handleSavePdf = async () => {
       },
     });
 
-    if (!renderedHeightCss) {
+    if (!renderedHeightCss || !renderedWidthCss) {
       throw new Error("Layout invoice untuk PDF tidak ditemukan");
     }
 
@@ -2034,6 +2101,22 @@ const handleSavePdf = async () => {
     const marginBottomMm = 10;
 
     const scaleY = fullCanvas.height / renderedHeightCss;
+    const scaleX = fullCanvas.width / renderedWidthCss;
+    const columnPositionsPx = [
+      ...new Set(
+        tableColumnPositionsCss.map((position) =>
+          Math.round(position * scaleX),
+        ),
+      ),
+    ].sort((a, b) => a - b);
+    const rowPositionsPx = [
+      ...new Set(
+        tableRowPositionsCss.map((position) =>
+          Math.round(position * scaleY),
+        ),
+      ),
+    ].sort((a, b) => a - b);
+
     const textPaddingPx = 3 * scaleY;
     const avoidPositionsPx = avoidPositionsCss
       .map((position) => ({
@@ -2075,11 +2158,97 @@ const handleSavePdf = async () => {
           fullCanvas.width,
           headerCanvas.height,
         );
-        repeatedHeaderImage = headerCanvas.toDataURL("image/jpeg", 0.94);
+        repeatedHeaderImage = headerCanvas.toDataURL("image/png");
         repeatedHeaderHeightMm =
           (headerCanvas.height * pdfWidth) / fullCanvas.width;
       }
     }
+
+    const canvasPixelToPdfMm = pdfWidth / fullCanvas.width;
+    const tableGridLineWidthMm = Math.max(
+      0.2,
+      Math.min(scaleX, scaleY) * canvasPixelToPdfMm,
+    );
+
+    const prepareTableGridStyle = () => {
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(tableGridLineWidthMm);
+    };
+
+    const drawTableGridForSlice = (
+      sliceStartPx: number,
+      sliceHeightPx: number,
+      contentTopMm: number,
+    ) => {
+      if (!columnPositionsPx.length || !rowPositionsPx.length) return;
+
+      const tableLeftPx = columnPositionsPx[0];
+      const tableRightPx = columnPositionsPx[columnPositionsPx.length - 1];
+      const tableTopPx = rowPositionsPx[0];
+      const tableBottomGridPx = rowPositionsPx[rowPositionsPx.length - 1];
+      const sliceEndPx = sliceStartPx + sliceHeightPx;
+      const visibleTopPx = Math.max(tableTopPx, sliceStartPx);
+      const visibleBottomPx = Math.min(tableBottomGridPx, sliceEndPx);
+
+      if (visibleBottomPx <= visibleTopPx) return;
+
+      prepareTableGridStyle();
+      const visibleTopMm =
+        contentTopMm + (visibleTopPx - sliceStartPx) * canvasPixelToPdfMm;
+      const visibleBottomMm =
+        contentTopMm + (visibleBottomPx - sliceStartPx) * canvasPixelToPdfMm;
+
+      columnPositionsPx.forEach((position) => {
+        const xMm = position * canvasPixelToPdfMm;
+        pdf.line(xMm, visibleTopMm, xMm, visibleBottomMm);
+      });
+
+      rowPositionsPx.forEach((position) => {
+        if (position < visibleTopPx || position > visibleBottomPx) return;
+        const yMm =
+          contentTopMm + (position - sliceStartPx) * canvasPixelToPdfMm;
+        pdf.line(
+          tableLeftPx * canvasPixelToPdfMm,
+          yMm,
+          tableRightPx * canvasPixelToPdfMm,
+          yMm,
+        );
+      });
+    };
+
+    const drawRepeatedTableHeaderGrid = (headerTopMm: number) => {
+      if (
+        !columnPositionsPx.length ||
+        !rowPositionsPx.length ||
+        !repeatedHeaderHeightMm
+      ) return;
+
+      const tableLeftPx = columnPositionsPx[0];
+      const tableRightPx = columnPositionsPx[columnPositionsPx.length - 1];
+      prepareTableGridStyle();
+
+      columnPositionsPx.forEach((position) => {
+        const xMm = position * canvasPixelToPdfMm;
+        pdf.line(
+          xMm,
+          headerTopMm,
+          xMm,
+          headerTopMm + repeatedHeaderHeightMm,
+        );
+      });
+
+      rowPositionsPx.forEach((position) => {
+        if (position < headerTopPx || position > headerBottomPx) return;
+        const yMm =
+          headerTopMm + (position - headerTopPx) * canvasPixelToPdfMm;
+        pdf.line(
+          tableLeftPx * canvasPixelToPdfMm,
+          yMm,
+          tableRightPx * canvasPixelToPdfMm,
+          yMm,
+        );
+      });
+    };
 
     let currentCanvasY = 0;
     let pageCount = 0;
@@ -2158,9 +2327,9 @@ const handleSavePdf = async () => {
         );
       }
 
-      // High-quality JPEG keeps the 2x render crisp while avoiding the much
-      // larger lossless PNG payload for each rasterized PDF page.
-      const imgData = pageCanvas.toDataURL("image/jpeg", 0.94);
+      // Keep the captured document lossless; the table grid is added below as
+      // vector lines so its thickness stays uniform at every PDF zoom level.
+      const imgData = pageCanvas.toDataURL("image/png");
 
       const slicePdfHeightMm =
         (targetSliceHeightPx * pdfWidth) / fullCanvas.width;
@@ -2168,7 +2337,7 @@ const handleSavePdf = async () => {
       if (repeatTableHeader) {
         pdf.addImage(
           repeatedHeaderImage,
-          "JPEG",
+          "PNG",
           0,
           currentTopMarginMm,
           pdfWidth,
@@ -2178,11 +2347,20 @@ const handleSavePdf = async () => {
 
       pdf.addImage(
         imgData,
-        "JPEG",
+        "PNG",
         0,
         contentTopMm,
         pdfWidth,
         slicePdfHeightMm,
+      );
+
+      if (repeatTableHeader) {
+        drawRepeatedTableHeaderGrid(currentTopMarginMm);
+      }
+      drawTableGridForSlice(
+        currentCanvasY,
+        targetSliceHeightPx,
+        contentTopMm,
       );
 
       currentCanvasY += targetSliceHeightPx;
@@ -2518,6 +2696,22 @@ const handleSavePdf = async () => {
   width: 160px;
 }
 
+.editable-display-value {
+  border-radius: 2px;
+  cursor: text;
+  outline: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.editable-display-value:hover {
+  background: #f3f6f9;
+}
+
+.editable-display-value:focus {
+  background: #eef4fa;
+  box-shadow: inset 0 -1px 0 #6d91b3;
+}
+
 .desc-cell {
   padding: 8px !important;
 }
@@ -2595,13 +2789,17 @@ const handleSavePdf = async () => {
     display: none !important;
   }
 
+  .editable-display-value {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
   .bg-light-blue,
   .bg-blue-total,
   .main-table th {
     background-color: #b8cce4 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    border: 1px solid #000;
   }
 
   .page-break-section {

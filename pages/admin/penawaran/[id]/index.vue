@@ -8,7 +8,7 @@ import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import dialogBuatInvoice from "~/components/Admin/Penawaran/dialog-buat-invoice.vue";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
 import { doc } from "firebase/firestore";
-import { ref } from "vue";
+import { nextTick, ref } from "vue";
 import { useDocument, useFirestore } from "vuefire";
 import { queryambilid } from "~/composables/useFirestoreQuery";
 import type { invoiceM } from "~/types/invoice";
@@ -251,6 +251,37 @@ const schedulePreviewLayout = () => {
     updatePreviewLayout();
   });
 };
+
+async function scrollToPurchaseOrderPreview() {
+  if (
+    !import.meta.client ||
+    route.hash !== "#purchase-order-preview" ||
+    !hasPurchaseOrder.value
+  ) return;
+
+  await nextTick();
+
+  if (poWrapper.value) previewObserver?.observe(poWrapper.value);
+  if (poContent.value) previewObserver?.observe(poContent.value);
+  schedulePreviewLayout();
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      poWrapper.value?.scrollIntoView({
+        behavior: "auto",
+        block: "start",
+      });
+    });
+  });
+}
+
+watch(
+  [() => route.hash, hasPurchaseOrder],
+  () => {
+    void scrollToPurchaseOrderPreview();
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   // Ukur langsung pada mount agar skala benar sebelum browser sempat
@@ -563,6 +594,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   position: relative;
   overflow: hidden;
+  scroll-margin-top: 150px;
 }
 
 .po-content {

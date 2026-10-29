@@ -964,7 +964,7 @@
 
         <label class="quotation-filter-field quotation-filter-select">
           <select v-model="data.filterStatus" aria-label="Status quotation">
-            <option value="">Status</option>
+            <option value="">All</option>
             <option
               v-for="status in availableQuotationStatuses"
               :key="status"
@@ -1439,7 +1439,7 @@ async function simpanMasterPerusahaan() {
 }
 
 const availableQuotationStatuses = computed(() => {
-  const defaultStatuses = ["Draft", "INVOICE", "Cancel", "Ditolak"];
+  const defaultStatuses = ["Draft", "INVOICE", "Cancel"];
   const storedStatuses = penawaranStore.getDataPenawaranTampil
     .map((quotation) => quotation.status)
     .filter(Boolean);
