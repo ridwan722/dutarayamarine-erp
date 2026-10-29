@@ -233,6 +233,8 @@ const logout = async () => {
 </script>
 
 <template>
+  <div class="top-brand-line" aria-hidden="true" />
+
   <!-- SIDE NAVIGATION DRAWER -->
   <v-navigation-drawer
     v-if="mdAndUp"
@@ -563,6 +565,17 @@ const logout = async () => {
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
   backdrop-filter: blur(12px);
   padding: 0 18px !important;
+}
+
+.top-brand-line {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 2000;
+  height: 3px;
+  background: #dc2626;
+  pointer-events: none;
 }
 
 .header-left {
