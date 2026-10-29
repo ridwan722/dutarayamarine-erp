@@ -799,7 +799,7 @@
                       }}
                     </td>
                     <td width="10">:</td>
-                    <td>INV/DRM/2026/{{ invoiceDetail.no_inv }}</td>
+                    <td>INV/DRM/{{ invoiceYear }}/{{ invoiceDetail.no_inv }}</td>
                   </tr>
 
                   <tr>
@@ -1422,6 +1422,7 @@ function tutupDialogDoWr() {
 }
 
 const invoiceDetail = computed(() => invoiceStore.getDetailInvoice);
+const invoiceYear = computed(() => invoiceDetail.value.tanggal?.slice(0, 4));
 const invoiceCurrency = computed<invoiceCurrencyM>(() => {
   const currency = invoiceDetail.value.currency_inv;
   return currency === "USD" || currency === "SGD" ? currency : "IDR";

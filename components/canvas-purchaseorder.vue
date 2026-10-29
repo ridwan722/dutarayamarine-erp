@@ -116,7 +116,7 @@
               }}
             </h2>
             <div class="meta-row">
-              <span class="lbl">{{ lang === "id" ? "No. PO" : "PO NO" }}</span>
+              <span class="lbl">{{ lang === "id" ? "No. PO" : "PO No." }}</span>
               <span class="sep">:</span>
               <span class="val bold">{{
                 purchaseorder?.no_purchaseorder || ""
@@ -176,7 +176,7 @@
             </div>
             <div class="meta-row">
               <span class="lbl">{{
-                lang === "id" ? "No. Penawaran" : "Quotation No"
+                lang === "id" ? "No. Penawaran" : "Quotation No."
               }}</span
               ><span class="sep">:</span
               ><span class="val">{{
@@ -591,8 +591,8 @@ const t = computed(() => {
     };
   }
   return {
-    refNo: "Purchase Order No",
-    date: "Date",
+    refNo: "Purchase Order No.",
+    date: "PO Date",
     to: "To",
     attn: "Attn",
     phone: "Phone",

@@ -89,7 +89,7 @@
               <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
             </p>
             <p class="phone-line">
-              E-mail: sales@dutarayamarine.com <br> Phone/WhatsApp : +62823-8450-3953 <br />
+              E-mail: sales@dutarayamarine.com , Phone/WhatsApp : +62823-8450-3953 <br />
               Website: www.dutarayamarine.com
             </p>
           </div>
@@ -108,7 +108,7 @@
 
       <div class="content-body">
          <div class="text-center">
-          <strong style="font-size: 20px">QUOTATION</strong>
+          <strong style="font-size: 20px">{{ t.ref }}</strong>
         </div>
         <div class="info-grid-card">
           <div class="grid-col">
@@ -161,7 +161,7 @@
             <div class="meta-row">
               <span class="lbl">{{ t.address }}</span>
               <span class="sep">:</span>
-              <span class="val bold-navy ">{{
+              <span class="val bold-navy">{{
                 props.detailpenawaran.alamat_perusahaan || "-"
               }}</span>
             </div>
@@ -183,7 +183,7 @@
             </div>
 
             <div class="meta-row">
-              <span class="lbl">Currency</span>
+              <span class="lbl">{{ t.currency }}</span>
               <span class="sep">:</span>
               <span class="val bold-navy">{{ currencyLabel }}</span>
             </div>
@@ -489,6 +489,8 @@ const isSavingPdf = ref(false);
 const t = computed(() => {
   if (lang.value === "id") {
     return {
+      ref: "PENAWARAN",
+      currency: "Mata Uang",
       refNo: "No. Penawaran",
       date: "Tanggal",
       to: "Kepada",
@@ -498,7 +500,7 @@ const t = computed(() => {
       address: "Alamat",
       location: "Lokasi",
       subject: "Perihal",
-      vessel: "Kapal/Vessel",
+      vessel: "Kapal",
       salutationTitle: "Dengan hormat,",
       thDescription: "DESKRIPSI / KETERANGAN",
       thQty: "QTY",
@@ -515,7 +517,9 @@ const t = computed(() => {
     };
   }
   return {
-    refNo: "Quotation Ref No",
+    ref: "QUOTATION",
+    currency: "Currency",
+    refNo: "Quotation Ref No.",
     date: "Date",
     to: "To",
     attn: "Attn",
@@ -665,7 +669,9 @@ function numberToWordsEnglish(n: number): string {
 }
 
 const teksTerbilang = computed(() => {
-  const total = props.detailpenawaran?.grand_total_penawaran || 0;
+  const total = Math.round(
+    Number(props.detailpenawaran?.grand_total_penawaran) || 0,
+  );
   if (!total) return "-";
 
   const currencyName = currencyCode.value === "IDR" ? "Rupiah" : currencyCode.value;
@@ -1440,7 +1446,7 @@ const handleSavePdf = async () => {
 
 .meta-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   font-size: 10.5px;
   margin-bottom: 0px;
 }
@@ -1455,6 +1461,12 @@ const handleSavePdf = async () => {
 
 .meta-row .sep {
   width: 12px;
+  flex-shrink: 0;
+}
+
+.meta-row .val {
+  flex: 1;
+  min-width: 0;
 }
 
 .text-salutation {
@@ -1546,15 +1558,17 @@ const handleSavePdf = async () => {
 
 .terbilang-inner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 10px;
 }
 
 .terbilang-lbl {
+  flex-shrink: 0;
   font-weight: 800;
   color: #64748b;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .terbilang-val {

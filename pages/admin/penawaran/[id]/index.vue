@@ -526,28 +526,30 @@ onBeforeUnmount(() => {
               <canvas-penawaran :detailpenawaran="detailpenawaran" />
             </div>
           </div>
-          <v-divider opacity="100" thickness="2" class="my-4"></v-divider>
-          <div
-            ref="poWrapper"
-            id="purchase-order-preview"
-            class="po-wrapper"
-            :style="{
-              height: isMobile && poHeight ? `${poHeight}px` : undefined,
-            }"
-          >
+          <template v-if="hasPurchaseOrder">
+            <v-divider opacity="100" thickness="2" class="my-4" />
             <div
-              ref="poContent"
-              class="po-content"
+              ref="poWrapper"
+              id="purchase-order-preview"
+              class="po-wrapper"
               :style="{
-                transform: isMobile ? `scale(${poScale})` : undefined,
+                height: isMobile && poHeight ? `${poHeight}px` : undefined,
               }"
             >
-              <canvas-purchaseorder
-                :key="purchaseorderPreviewKey"
-                :detailpenawaran="detailpenawaran"
-              />
+              <div
+                ref="poContent"
+                class="po-content"
+                :style="{
+                  transform: isMobile ? `scale(${poScale})` : undefined,
+                }"
+              >
+                <canvas-purchaseorder
+                  :key="purchaseorderPreviewKey"
+                  :detailpenawaran="detailpenawaran"
+                />
+              </div>
             </div>
-          </div>
+          </template>
         </main>
       </div>
     </div>

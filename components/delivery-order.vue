@@ -17,6 +17,7 @@ type DeliveryOrderDisplayItem = Omit<
 };
 
 const displayItems = ref<DeliveryOrderDisplayItem[]>([]);
+const invoiceYear = computed(() => props.invoiceDetail.tanggal?.slice(0, 4));
 
 watch(
   () => props.invoiceDetail.item_pekerjaan,
@@ -761,7 +762,7 @@ const handleSavePdf = async () => {
 
                 <td>:</td>
 
-                <td>INV/DRM/2026/{{ invoiceDetail.no_inv }}</td>
+                <td>INV/DRM/{{ invoiceYear }}/{{ invoiceDetail.no_inv }}</td>
               </tr>
 
               <tr>
