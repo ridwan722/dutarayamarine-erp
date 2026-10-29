@@ -417,8 +417,8 @@ const savePengeluaranPdf = async () => {
       pdf.text("PT. DUTA RAYA MARINE", centerX, 17, { align: "center" });
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
-      pdf.text("Cipta Grand City G-8, Sagulung, Kota Batam,", centerX, 23, { align: "center" });
-      pdf.text("Kepulauan Riau 29425", centerX, 27, { align: "center" });
+      pdf.text("Ruko Dreamland H3 No. 05 RT. 000 RW. 000, Tanjung Riau,", centerX, 23, { align: "center" });
+      pdf.text("Sekupang, Kota Batam, Kepulauan Riau.", centerX, 27, { align: "center" });
       pdf.text("Jl. Raya Pasar Minggu No. 15A, Jakarta Selatan.", centerX, 31, { align: "center" });
       pdf.text("E-mail: sales@dutarayamarine.com | Phone/WhatsApp: +62823-8450-3953", centerX, 37, { align: "center" });
       pdf.text("Website: www.dutarayamarine.com", centerX, 41, { align: "center" });

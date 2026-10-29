@@ -79,8 +79,11 @@
           <div class="letterhead-info">
             <h1 class="company-name">PT. DUTA RAYA MARINE</h1>
             <p class="address-line">
-              Cipta Grand City G-8, Sagulung, Kota Batam, <br />
-              Kepulauan Riau 29425
+              <!-- Cipta Grand City G-8, Sagulung, Kota Batam, <br />
+              Kepulauan Riau 29425 -->
+
+              Ruko Dreamland H3 No. 05 RT. 000 RW. 000, Tanjung Riau,<br />
+               Sekupang, Kota Batam, Kepulauan Riau.
             </p>
             <p class="phone-line">
               E-mail: sales@dutarayamarine.com, Phone/WhatsApp : +62823-8450-3953 <br />
