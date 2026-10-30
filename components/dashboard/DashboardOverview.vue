@@ -62,7 +62,7 @@ const metricCards = computed(() => [
     value: available.value.penawaran ? summary.value.expenseValue : null,
     kind: "money" as const,
     hint: `${summary.value.expenseCount} transaksi tercatat`,
-    icon: "mdi-dolly",
+    icon: "mdi-cash-fast",
     tone: "rose",
     href: "/admin/penawaran",
   },
