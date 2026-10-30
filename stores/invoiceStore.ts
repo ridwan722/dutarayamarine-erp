@@ -54,10 +54,15 @@ export const useinvoiceStore = defineStore("invoiceStore", {
       }
     },
 
-    async updateInvoiceAct(id: string, data: invoiceM) {
+    async updateInvoiceAct(
+      id: string,
+      data: invoiceM,
+      options: { showLoading?: boolean } = {},
+    ) {
       const notificationStore = useNotificationStore();
+      const showLoading = options.showLoading !== false;
       try {
-        useloadingStore().setLoading(true);
+        if (showLoading) useloadingStore().setLoading(true);
         const plainData = JSON.parse(JSON.stringify(data)) as invoiceM;
         const { id: _documentId, ...updateData } = plainData;
 
@@ -87,7 +92,7 @@ export const useinvoiceStore = defineStore("invoiceStore", {
         notificationStore.showError("Gagal memperbarui invoice");
         return false;
       } finally {
-        useloadingStore().setLoading(false);
+        if (showLoading) useloadingStore().setLoading(false);
       }
     },
 
