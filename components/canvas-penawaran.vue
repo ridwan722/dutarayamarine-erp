@@ -81,7 +81,7 @@
             <p class="address-line">
               <!-- Cipta Grand City G-8, Sagulung, Kota Batam, <br />
               Kepulauan Riau 29425.  -->
-              Ruko Dreamland H3 No. 05 RT. 000 RW. 000, Tanjung Riau,<br />
+              Ruko Dreamland H3 No. 05, Tanjung Riau,<br />
                Sekupang, Kota Batam, Kepulauan Riau.
               <br>
               <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
