@@ -132,10 +132,18 @@ const menuItems = [
     to: "/admin/legalitas",
     icon: "mdi-file-cloud",
   },
+  {
+    title: "Penomoran",
+    subtitle: "Nomor invoice dan quotation",
+    to: "/admin/master/penomoran",
+    icon: "mdi-counter",
+    bottom: true,
+  },
 ];
 
 const mobileMenuGroups = computed(() => {
   const sectionForItem = (item) => {
+    if (item.bottom) return "Pengaturan";
     if (item.to.startsWith("/admin/master/")) return "Master Data";
     if (["/admin/petty-cash", "/admin/legalitas"].includes(item.to)) {
       return "Operasional";
@@ -143,7 +151,7 @@ const mobileMenuGroups = computed(() => {
     return "Utama";
   };
 
-  return ["Utama", "Master Data", "Operasional"]
+  return ["Utama", "Master Data", "Operasional", "Pengaturan"]
     .map((title) => ({
       title,
       items: menuItems.filter((item) => {
@@ -258,7 +266,10 @@ const logout = async () => {
         :key="item.to"
         :to="item.to"
         :exact="item.exact"
-        class="side-nav-item"
+        :class="[
+          'side-nav-item',
+          { 'side-nav-item--bottom': item.bottom },
+        ]"
         active-class="side-nav-item--active"
       >
         <div class="nav-icon-wrapper">
@@ -479,6 +490,10 @@ const logout = async () => {
   margin-bottom: 0 !important;
   overflow: visible !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.side-nav-item--bottom {
+  margin-top: auto !important;
 }
 
 .side-nav-item :deep(.v-list-item__content) {
