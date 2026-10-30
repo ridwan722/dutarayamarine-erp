@@ -264,7 +264,11 @@ onMounted(() => loadPurchaseOrders());
       </template>
 
       <template #item.perihal_purchaseorder="{ item }">
-        <div class="po-subject-cell">{{ item.perihal_purchaseorder || "—" }}</div>
+        <!-- <div class="po-subject-cell">{{ item.perihal_purchaseorder || "—" }}</div> -->
+        <NuxtLink :to="purchaseOrderTarget(item)" class="po-reference">
+          {{ item.perihal_purchaseorder || "—" }}
+
+        </NuxtLink>
       </template>
 
       <template #item.payment="{ item }">

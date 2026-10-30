@@ -1029,9 +1029,16 @@
       </template>
 
       <template v-slot:item.perihal="{ item }">
-        <div class="subject-cell">
+        <!-- <div class="subject-cell">
           <span>{{ item.perihal }}</span>
-        </div>
+        </div> -->
+         <NuxtLink
+          :to="'/admin/penawaran/' + item.id"
+          class="quotation-reference"
+        >
+          {{ item.perihal }}
+          <!-- <v-icon icon="mdi-arrow-top-right" size="12" /> -->
+        </NuxtLink>
       </template>
 
       <template v-slot:item.nama_perusahaan="{ item }">
@@ -2251,36 +2258,70 @@ async function hapusBarisPenawaran(index: number) {
   newPenawaran.value.penawaran_item.splice(index, 1);
 }
 
-async function sinkronkanBarangDariPenawaran() {
-  for (const item of newPenawaran.value.penawaran_item) {
+async function sinkronkanBarangDariPenawaran(
+  penawaranItems: penawaranM["penawaran_item"],
+) {
+  const barangUntukDisinkronkan = new Map<
+    string,
+    { namaBarang: string; hargaHpp: number }
+  >();
+
+  for (const item of penawaranItems) {
     const namaBarang = item.nama?.trim();
     const hargaHpp = Number(item.harga_hpp) || 0;
     if (!namaBarang || hargaHpp <= 0) continue;
 
-    const barangLama = barangStore.getDataBarang.find(
-      (barang) =>
-        barang.nama_barang.trim().toLocaleLowerCase() ===
-        namaBarang.toLocaleLowerCase(),
-    );
-
-    if (barangLama) {
-      if (Number(barangLama.harga_hpp) !== hargaHpp) {
-        await barangStore.updateBarangAct({
-          ...barangLama,
-          harga_hpp: hargaHpp,
-        });
-      }
-      continue;
-    }
-
-    const barangBaru: barangM = {
-      nama_barang: namaBarang,
-      harga_hpp: hargaHpp,
-      createdAt: moment().unix(),
-      createdBy: userStore.getEmail,
-    };
-    await barangStore.addBarangAct(barangBaru);
+    barangUntukDisinkronkan.set(namaBarang.toLocaleLowerCase("id-ID"), {
+      namaBarang,
+      hargaHpp,
+    });
   }
+
+  const barangLamaByName = new Map(
+    barangStore.getDataBarang.map((barang) => [
+      barang.nama_barang.trim().toLocaleLowerCase("id-ID"),
+      barang,
+    ]),
+  );
+
+  const operations = [...barangUntukDisinkronkan.entries()].map(
+    async ([normalizedName, { namaBarang, hargaHpp }]) => {
+      const barangLama = barangLamaByName.get(normalizedName);
+
+      if (barangLama) {
+        if (Number(barangLama.harga_hpp) !== hargaHpp && barangLama.id) {
+          await updatedatabase("barang", barangLama.id, {
+            ...barangLama,
+            harga_hpp: hargaHpp,
+          });
+        }
+        return;
+      }
+
+      const barangBaru: barangM = {
+        nama_barang: namaBarang,
+        harga_hpp: hargaHpp,
+        createdAt: moment().unix(),
+        createdBy: userStore.getEmail,
+      };
+      await tambahdatabase("barang", barangBaru);
+    },
+  );
+
+  if (!operations.length) return;
+  await Promise.all(operations);
+  await barangStore.tarikDataBarangAct();
+}
+
+function sinkronkanBarangDiLatarBelakang(
+  penawaranItems: penawaranM["penawaran_item"],
+) {
+  void sinkronkanBarangDariPenawaran(penawaranItems).catch((error) => {
+    console.error("Gagal menyinkronkan master barang:", error);
+    notificationStore.showError(
+      "Penawaran tersimpan, tetapi master barang gagal disinkronkan",
+    );
+  });
 }
 
 async function simpanPenawaranDialog() {
@@ -2317,8 +2358,6 @@ async function simpanPenawaranDialog() {
   newPenawaran.value.grand_total_penawaran = grandTotalPenawaran.value;
   newPenawaran.value.terbilang = terbilang(grandTotalPenawaran.value);
 
-  await sinkronkanBarangDariPenawaran();
-
   if (data.penawaranAddEdit === "add") {
     newPenawaran.value.no_penawaran ||= generateNoPenawaran();
     newPenawaran.value.id_penawaran =
@@ -2327,23 +2366,30 @@ async function simpanPenawaranDialog() {
     newPenawaran.value.created_by = userStore.getEmail;
     useloadingStore().setLoading(true);
     const result = await setPenawaran(newPenawaran.value);
-    if (result !== "ok") {
+    if (result.status !== "ok") {
       useloadingStore().setLoading(false);
-      notificationStore.showError(result || "Gagal menyimpan penawaran");
+      notificationStore.showError(result.message);
       return;
     }
 
+    penawaranStore.upsertPenawaranLocal(result.data);
     data.dialogTambahPenawaran = false;
     newPenawaran.value = emptyPenawaran();
     useloadingStore().setLoading(false);
-    await penawaranStore.tarikDataPenawaranAct();
+    notificationStore.showSuccess("Penawaran berhasil disimpan");
+    sinkronkanBarangDiLatarBelakang(result.data.penawaran_item);
     return;
   }
 
-  await penawaranStore.updatePenawaranAct(newPenawaran.value);
+  const updatedPenawaran = JSON.parse(
+    JSON.stringify(newPenawaran.value),
+  ) as penawaranM;
+  const updated = await penawaranStore.updatePenawaranAct(updatedPenawaran);
+  if (!updated) return;
 
   data.dialogTambahPenawaran = false;
   newPenawaran.value = emptyPenawaran();
+  sinkronkanBarangDiLatarBelakang(updatedPenawaran.penawaran_item);
 }
 
 async function hapusPenawaran(item: penawaranM) {
@@ -2690,6 +2736,9 @@ async function refreshData() {
   letter-spacing: 0.01em;
   text-decoration: none;
   white-space: nowrap;
+   white-space: normal;      
+  word-break: break-word;
+  max-width: 250px;
 }
 
 .quotation-reference:hover {

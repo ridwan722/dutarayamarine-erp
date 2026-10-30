@@ -607,692 +607,50 @@
       </div>
     </section>
 
-    <!-- ========================================================= -->
-    <!-- INVOICE PAPER - TIDAK DIUBAH -->
-    <!-- ========================================================= -->
-
-    <div class="preview-container d-flex justify-center">
-      <div ref="printArea" class="invoice-paper-wrapper">
-        <v-btn
-          class="no-print text-center mx-auto mb-3"
-          size="x-small"
-          color="primary"
-          prepend-icon="mdi-translate-variant"
-          block
-          @click="invoiceLanguage = invoiceLanguage === 'en' ? 'id' : 'en'"
-        >
-          {{ invoiceLanguage === "en" ? "English" : "Indonesia" }}
-        </v-btn>
-        <v-card width="850" class="pa-10 invoice-paper elevation-2">
-          <div class="letterhead">
-            <div class="header-section">
-              <div class="logo-wrapper">
-                <img src="/logokopsurat.png" alt="Logo Header" />
-              </div>
-
-              <div class="letterhead-info">
-                <h1 class="company-name">PT. DUTA RAYA MARINE</h1>
-                <p class="address-line">
-                  <!-- Cipta Grand City G-8, Sagulung, Kota Batam, <br />
-                  Kepulauan Riau 29425 <br /> -->
-
-                  Ruko Dreamland H3 No. 05, Tanjung Riau,<br />
-               Sekupang, Kota Batam, Kepulauan Riau. <br />
-                  <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
-             Jl. Raya Pasar Minggu No. 15A, Jakarta Selatan.
-              <v-divider class="mx-auto" style="max-width: 60%;" opacity="50"></v-divider>
-                </p>
-                <p class="phone-line">
-                  E-mail: sales@dutarayamarine.com, Phone/WhatsApp : +62823-8450-3953 
-                  <br />
-                  Website: www.dutarayamarine.com
-                </p>
-              </div>
-
-              <div class="header-spacer" aria-hidden="true"></div>
-            </div>
-
-            <div class="header-divider">
-              <div class="accent-bar"></div>
-              <div class="secondary-bar"></div>
-            </div>
-          </div>
-          <div class="text-center my-3 font-weight-bold">
-            <span class="font-weight-bold" style="font-size: 23px"
-              >INVOICE</span
-            >
-          </div>
-
-          <div class="info-grid mb-4">
-            <div class="info-box-left">
-              <table class="w-100">
-                <tbody>
-                  <tr>
-                    <td style="vertical-align: top">
-                      {{ invoiceLanguage === "id" ? "Perihal" : "Subject" }}
-                    </td>
-                    <td style="vertical-align: top">:</td>
-                    <td style="vertical-align: top">
-                      {{ invoiceDetail.perihal }}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td width="80">
-                      {{ invoiceLanguage === "id" ? "Pelanggan" : "Customer" }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>
-                      <span>{{ invoiceDetail.nama_customer }}</span>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td style="vertical-align: top">
-                      {{ invoiceLanguage === "id" ? "Alamat" : "Address" }}
-                    </td>
-                    <td style="vertical-align: top">:</td>
-                    <td style="vertical-align: top">
-                      {{ invoiceDetail.alamat_customer }}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td width="80">
-                      {{ invoiceLanguage === "id" ? "PIC" : "Attn" }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>
-                      <span>{{ invoiceDetail.pic }}</span>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td width="80">
-                      {{ invoiceLanguage === "id" ? "Kapal" : "Vessel" }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>
-                      <span>{{ invoiceDetail.vessel }}</span>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td width="80">
-                      {{ invoiceLanguage === "id" ? "Lokasi" : "Location" }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>
-                      <span> {{ invoiceDetail.location }}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="info-box-right">
-              <table class="w-100">
-                <tbody>
-                  <tr>
-                    <td width="110">
-                      {{
-                        invoiceLanguage === "id"
-                          ? "No. Penawaran"
-                          : "Quotation No."
-                      }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>
-                      {{ invoiceDetail.no_penawaran }}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td width="110">
-                      {{
-                        invoiceLanguage === "id"
-                          ? "Tanggal Penawaran"
-                          : "Quotation Date"
-                      }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>
-                      {{ formatTanggal(invoiceDetail.tanggal_penawaran!) }}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td width="110">
-                      {{ invoiceLanguage === "id" ? "No. PO" : "PO No." }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>
-                      {{ invoiceDetail.no_preorder }}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td width="110">
-                      {{ invoiceLanguage === "id" ? "Tanggal PO" : "PO Date" }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>
-                      {{ formatTanggal(invoiceDetail.tanggal_preorder!) }}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td width="110">
-                      {{
-                        invoiceLanguage === "id" ? "No. Invoice" : "Invoice No."
-                      }}
-                    </td>
-                    <td width="10">:</td>
-                    <td>INV/DRM/{{ invoiceYear }}/{{ invoiceDetail.no_inv }}</td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      {{
-                        invoiceLanguage === "id"
-                          ? "Tanggal Invoice"
-                          : "Invoice Date"
-                      }}
-                    </td>
-                    <td>:</td>
-                    <td>{{ formatTanggal(invoiceDetail.tanggal) }}</td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      {{ invoiceLanguage === "id" ? "Mata Uang" : "Currency" }}
-                    </td>
-                    <td>:</td>
-                    <td>{{ invoiceCurrencyDescription }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <table class="main-table">
-            <thead>
-              <tr>
-                <th width="3%">NO.</th>
-                <th width="47%">
-                  {{ invoiceLanguage === "id" ? "DESKRIPSI" : "DESCRIPTION" }}
-                </th>
-                <th width="5%">QTY</th>
-                <th width="5%">
-                  {{ invoiceLanguage === "id" ? "SATUAN" : "UOM" }}
-                </th>
-                <th width="35%">
-                  {{ invoiceLanguage === "id" ? "JUMLAH" : "AMOUNT" }}
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr
-                v-for="(item, index) in invoiceDetail.item_pekerjaan"
-                :key="index"
-              >
-                <td class="no-cell v-align-middle">
-                  <div class="text-center">
-                    <span>{{ index + 1 }}.</span>
-                  </div>
-                </td>
-
-                <td class="desc-cell">
-                  <div>
-                    <span
-                      v-for="(line, lineIndex) in item.nama.split(/\r?\n/)"
-                      :key="lineIndex"
-                      class="description-line"
-                    >
-                      {{ line }}
-                    </span>
-                  </div>
-                </td>
-
-                <td class="qty-cell v-align-middle">
-                  <div class="align-center text-center">
-                    <span>{{ item.qty }}</span>
-                  </div>
-                </td>
-
-                <td class="qty-cell v-align-middle">
-                  <div class="align-center text-center">
-                    <span>{{ item.uom }}</span>
-                  </div>
-                </td>
-
-                <td class="amount-cell v-align-middle">
-                  <div class="d-flex justify-space-between align-center">
-                    <span>{{ invoiceCurrencyPrefix }}</span>
-                    <span>{{ formatInvoiceNumber(item.amount) }}</span>
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-if="invoiceDetail.dp_persen > 0 || invoiceAmountLabel !== 'Down Payment' || invoiceDetail.pakai_ppn || invoiceDetail.discount_invoice > 0">
-                <td></td>
-                <td></td>
-                <td></td>
-
-                <td class="footer-label">
-                  <span>Total</span>
-                </td>
-
-                <td class="footer-value">
-                  <div class="d-flex justify-space-between">
-                    <span>{{ invoiceCurrencyPrefix }}</span>
-                    <span>{{ formatInvoiceNumber(invoiceDetail.subtotal_invoice) }}</span>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="invoiceDetail.dp_persen > 0 && invoiceAmountLabel !== 'Down Payment' && invoiceDetail.pakai_ppn || invoiceDetail.discount_invoice > 0">
-                <td></td>
-                <td></td>
-                <td></td>
-
-                <td class="footer-label">
-                  <span>Discount</span>
-                </td>
-
-                <td class="footer-value">
-                  <div class="d-flex justify-space-between font-italic">
-                    <span>{{ invoiceCurrencyPrefix }}</span>
-                    <span>{{ formatInvoiceNumber(invoiceDetail.discount_invoice) }}</span>
-                  </div>
-                </td>
-              </tr>
-
-
-              <tr v-if="invoiceAmountLabel === 'Balance' && previousBilledSubtotal > 0">
-                <td></td>
-                <td></td>
-                <td></td>
-
-                <td class="footer-label">
-                  <span>DP {{ previousDpPercent }}%</span>
-                </td>
-
-                <td class="footer-value">
-                  <div class="d-flex justify-space-between">
-                    <span>{{ invoiceCurrencyPrefix }}</span>
-                    <span>{{ formatInvoiceNumber(previousBilledSubtotal) }}</span>
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-if="invoiceDetail.pakai_ppn == true">
-                <td></td>
-                <td></td>
-                <td></td>
-
-                <td class="footer-label">
-                  <strong>{{
-                    invoiceLanguage === "id" ? "PPN 11%" : "VAT 11%"
-                  }}</strong>
-                </td>
-
-                <td class="footer-value">
-                  <div class="d-flex justify-space-between">
-                    <span>{{ invoiceCurrencyPrefix }}</span>
-                    <span>{{ formatInvoiceNumber(invoiceDetail.ppn) }}</span>
-                  </div>
-                </td>
-              </tr>
-
-              <tr
-                v-if="invoiceDetail.dp_persen > 0 || invoiceAmountLabel !== 'Down Payment'"
-              >
-                <td></td>
-                <td></td>
-                <td></td>
-
-                <td class="footer-label">
-                  <strong>
-                    {{ invoiceAmountLabel }}
-                    <template v-if="invoiceAmountLabel === 'Balance'">
-                      {{ balancePercent }}%
-                    </template>
-                    <template v-else-if="invoiceAmountLabel === 'Down Payment'">
-                      {{ invoiceDetail.dp_persen }}%
-                    </template>
-                  </strong>
-                </td>
-
-                <td class="footer-value">
-                  <div class="d-flex justify-space-between">
-                    <span>{{ invoiceCurrencyPrefix }}</span>
-                    <strong>{{
-                      formatInvoiceNumber(invoiceDetail.grandtotal_invoice)
-                    }}</strong>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="terbilang-strip">
-            <span v-if="invoiceLanguage === 'id'">
-              Terbilang: # {{ jadirupiah(invoiceDetail.grandtotal_invoice) }}
-              {{ invoiceCurrencyName }}.
-            </span>
-            <span v-else>
-              Amount in words: # {{
-                numberToWordsEnglish(invoiceDetail.grandtotal_invoice)
-              }}
-              {{ invoiceCurrencyName }}.
-            </span>
-          </div>
-
-          <table class="w-100" v-if="invoiceDetail.termCondition?.length > 0">
-            <tbody>
-              <tr>
-                <td class="remark-cell">
-                  <div class="remark-border-box">
-                    <strong class="text-body-2 font-weight-bold">
-                      {{
-                        invoiceLanguage === "id"
-                          ? "SYARAT & KETENTUAN :"
-                          : "TERMS & CONDITIONS :"
-                      }}
-                    </strong>
-
-                    <ul class="remark-list-style" style="list-style: none">
-                      <li
-                        v-for="(item, index) in invoiceDetail.termCondition"
-                        :key="index"
-                      >
-                        {{ index + 1 }}. {{ item.nama_term }}
-                      </li>
-                    </ul>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="d-flex justify-space-between mt-6 page-break-section">
-            <div class="d-flex justify-space-between">
-              <div class="bank-details">
-                <div>
-                  <table class="bank-table">
-
-                     <tbody v-if="invoiceDetail.sign_by == 'Lilis'">
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id" ? "NAMA BANK" : "BANK NAME"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td
-                          class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nama bank"
-                          @keydown.enter.prevent="blurEditableDisplay"
-                        >BCA</td>
-                      </tr>
-
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id"
-                              ? "NOMOR REKENING"
-                              : "ACCOUNT NUMBER"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td
-                          class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nomor rekening"
-                          @keydown.enter.prevent="blurEditableDisplay"
-                        >2671 6250 74</td>
-                      </tr>
-
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id"
-                              ? "ATAS NAMA"
-                              : "BENEFICIARY NAME"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td
-                          class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nama penerima"
-                          @keydown.enter.prevent="blurEditableDisplay"
-                        >Lilis Trisnawati</td>
-                      </tr>
-                    </tbody>
-
-                    <tbody v-if="invoiceDetail.sign_by == 'Seilla Maryana'">
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id" ? "NAMA BANK" : "BANK NAME"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nama bank"
-                          @keydown.enter.prevent="blurEditableDisplay">BCA</td>
-                      </tr>
-
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id"
-                              ? "NOMOR REKENING"
-                              : "ACCOUNT NUMBER"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td>8551 0635 77</td>
-                      </tr>
-
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id"
-                              ? "ATAS NAMA"
-                              : "BENEFICIARY NAME"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nama penerima"
-                          @keydown.enter.prevent="blurEditableDisplay">Seilla Maryana</td>
-                      </tr>
-                    </tbody>
-
-                    <tbody
-                      v-if="invoiceDetail.sign_by == 'Leo Adiatmaja Sembiring'"
-                    >
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id" ? "NAMA BANK" : "BANK NAME"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nama bank"
-                          @keydown.enter.prevent="blurEditableDisplay">BCA</td>
-                      </tr>
-
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id"
-                              ? "NOMOR REKENING"
-                              : "ACCOUNT NUMBER"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td>8550 7530 23</td>
-                      </tr>
-
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id"
-                              ? "ATAS NAMA"
-                              : "BENEFICIARY NAME"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nama penerima"
-                          @keydown.enter.prevent="blurEditableDisplay">Leo Adiatmaja Sembiring</td>
-                      </tr>
-                    </tbody>
-
-                    <tbody v-if="invoiceDetail.sign_by == 'Muhammad Ridwan'">
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id" ? "NAMA BANK" : "BANK NAME"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nama bank"
-                          @keydown.enter.prevent="blurEditableDisplay">BCA</td>
-                      </tr>
-
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id"
-                              ? "NOMOR REKENING"
-                              : "ACCOUNT NUMBER"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td>8691 8096 92</td>
-                      </tr>
-
-                      <tr>
-                        <td>
-                          {{
-                            invoiceLanguage === "id"
-                              ? "ATAS NAMA"
-                              : "BENEFICIARY NAME"
-                          }}
-                        </td>
-                        <td>:</td>
-                        <td class="editable-display-value"
-                          contenteditable="true"
-                          spellcheck="false"
-                          aria-label="Ubah tampilan nama penerima"
-                          @keydown.enter.prevent="blurEditableDisplay">Muhammad Ridwan</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-8 signature-area">
-            <span class="font-italic">{{
-              invoiceLanguage === "id" ? "Hormat kami," : "Yours sincerely,"
-            }}</span
-            ><br />
-
-            <strong>PT. DUTA RAYA MARINE</strong>
-
-            <v-img
-              v-if="invoiceDetail.sign_by == 'Seilla Maryana'"
-              src="/public/ttd_seilla.png"
-              width="150"
-            />
-            <v-img
-              v-if="invoiceDetail.sign_by == 'Leo Adiatmaja Sembiring'"
-              src="/public/ttd_leo.png"
-              width="150"
-              class="ml-3"
-            />
-            <v-img
-              v-if="invoiceDetail.sign_by == 'Muhammad Ridwan'"
-              src="/public/ttd_ridwan.png"
-              width="150"
-              class="ml-3"
-            />
-
-            <div
-              v-if="invoiceDetail.sign_by == 'Lilis'"
-              width="150"
-              class="ml-3 mt-5 mb-8 font-italic text-grey-lighten-1 text-caption"
-            >
-              No Signature Required
-            </div>
-
-            <strong v-if="invoiceDetail.sign_by == 'Muhammad Ridwan'"
-              >Muhammad Ridwan</strong
-            >
-            <strong v-if="invoiceDetail.sign_by == 'Seilla Maryana'"
-              >Seilla Maryana</strong
-            >
-            <strong v-if="invoiceDetail.sign_by == 'Leo Adiatmaja Sembiring'"
-              >Leo Adiatmaja Sembiring</strong
-            >
-            <strong v-if="invoiceDetail.sign_by == 'Lilis'"
-              >Lilis</strong
-            >
-          </div>
-        </v-card>
+    <div
+      ref="invoiceWrapper"
+      class="penawaran-wrapper"
+      :style="{
+        height:
+          isMobile && invoiceHeight ? `${invoiceHeight}px` : undefined,
+      }"
+    >
+      <div
+        ref="invoiceContent"
+        class="penawaran-content"
+        :style="{
+          transform: isMobile ? `scale(${invoiceScale})` : undefined,
+        }"
+      >
+        <canvas-invoice
+          :invoice-detail="invoiceDetail"
+          :quotation-grand-total="quotationGrandTotal"
+          :related-invoices="relatedInvoices"
+        />
       </div>
-    </div>
-
-    <!-- ACTIONS -->
-    <div class="d-flex justify-center gap-3 mt-4">
-      <v-btn
-        prepend-icon="mdi-printer"
-        color="indigo"
-        variant="elevated"
-        @click="printInvoice"
-      >
-        Print Invoice
-      </v-btn>
-
-      <v-btn
-        prepend-icon="mdi-file-pdf-box"
-        color="red-darken-1"
-        variant="elevated"
-        :loading="isSavingPdf"
-        @click="handleSavePdf"
-        class="ml-2"
-      >
-        Save PDF Invoice
-      </v-btn>
     </div>
 
     <v-divider class="my-1 mt-10" opacity="100" color="primary"></v-divider>
 
-    <div class="preview-container d-flex justify-center mt-8">
-      <DeliveryOrder :invoice-detail="invoiceDetail" />
+    <div
+      ref="deliveryOrderWrapper"
+      class="penawaran-wrapper mt-8"
+      :style="{
+        height:
+          isMobile && deliveryOrderHeight
+            ? `${deliveryOrderHeight}px`
+            : undefined,
+      }"
+    >
+      <div
+        ref="deliveryOrderContent"
+        class="penawaran-content"
+        :style="{
+          transform: isMobile ? `scale(${deliveryOrderScale})` : undefined,
+        }"
+      >
+        <DeliveryOrder :invoice-detail="invoiceDetail" />
+      </div>
     </div>
     <!-- <div class="preview-container d-flex justify-center mt-8">
       <work-complete-report :invoice-detail="invoiceDetail" />
@@ -1328,78 +686,86 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 );
 
 const dialogDikirim = ref(false);
-const isSavingPdf = ref(false);
 const readingBuktiBayar = ref(false);
 const readingDoWr = ref(false);
 const savingInvoice = ref(false);
 const doWrUploadProgress = ref(0);
 const activeDoWrFileName = ref("");
 const MAX_INVOICE_BYTES = 900 * 1024;
-const invoiceLanguage = ref<"id" | "en">("en");
 const quotationGrandTotal = ref(0);
 const relatedInvoices = ref<invoiceM[]>([]);
+const invoiceWrapper = ref<HTMLElement | null>(null);
+const invoiceContent = ref<HTMLElement | null>(null);
+const isMobile = ref(
+  import.meta.client && window.matchMedia("(max-width: 600px)").matches,
+);
+const invoiceScale = ref(1);
+const invoiceHeight = ref(0);
+const deliveryOrderWrapper = ref<HTMLElement | null>(null);
+const deliveryOrderContent = ref<HTMLElement | null>(null);
+const deliveryOrderScale = ref(1);
+const deliveryOrderHeight = ref(0);
 
-function blurEditableDisplay(event: KeyboardEvent) {
-  (event.currentTarget as HTMLElement | null)?.blur();
-}
+let invoicePreviewObserver: ResizeObserver | null = null;
+let invoiceMeasureFrame: number | null = null;
 
-function numberToWordsEnglish(value: number): string {
-  const number = Math.floor(Math.abs(value || 0));
-  const units = [
-    "Zero",
-    "One",
-    "Two",
-    "Three",
-    "Four",
-    "Five",
-    "Six",
-    "Seven",
-    "Eight",
-    "Nine",
-    "Ten",
-    "Eleven",
-    "Twelve",
-    "Thirteen",
-    "Fourteen",
-    "Fifteen",
-    "Sixteen",
-    "Seventeen",
-    "Eighteen",
-    "Nineteen",
-  ];
-  const tens = [
-    "",
-    "",
-    "Twenty",
-    "Thirty",
-    "Fourty",
-    "Fifty",
-    "Sixty",
-    "Seventy",
-    "Eighty",
-    "Ninety",
-  ];
+const updateInvoicePreviewLayout = () => {
+  const mobile = window.matchMedia("(max-width: 600px)").matches;
+  isMobile.value = mobile;
 
-  function convert(n: number): string {
-    if (n < 20) return units[n];
-    if (n < 100)
-      return tens[Math.floor(n / 10)] + (n % 10 ? ` ${units[n % 10]}` : "");
-    if (n < 1000)
-      return `${units[Math.floor(n / 100)]} Hundred${n % 100 ? ` ${convert(n % 100)}` : ""}`;
-    const scales = [
-      [1_000_000_000, "Billion"],
-      [1_000_000, "Million"],
-      [1000, "Thousand"],
-    ] as const;
-    for (const [scale, name] of scales) {
-      if (n >= scale)
-        return `${convert(Math.floor(n / scale))} ${name}${n % scale ? ` ${convert(n % scale)}` : ""}`;
-    }
-    return "";
+  if (!mobile) {
+    invoiceScale.value = 1;
+    invoiceHeight.value = 0;
+    deliveryOrderScale.value = 1;
+    deliveryOrderHeight.value = 0;
+    return;
   }
 
-  return `${value < 0 ? "Minus " : ""}${convert(number)}`;
-}
+  const measurePreview = (
+    wrapper: HTMLElement | null,
+    content: HTMLElement | null,
+  ) => {
+    if (!wrapper || !content) return null;
+
+    const wrapperWidth = wrapper.clientWidth;
+    const documentWidth = content.scrollWidth;
+    const documentHeight = content.scrollHeight;
+    if (!wrapperWidth || !documentWidth) return null;
+
+    const scale = Math.min(1, wrapperWidth / documentWidth);
+    return {
+      scale,
+      height: Math.ceil(documentHeight * scale),
+    };
+  };
+
+  const invoiceMeasurement = measurePreview(
+    invoiceWrapper.value,
+    invoiceContent.value,
+  );
+  if (invoiceMeasurement) {
+    invoiceScale.value = invoiceMeasurement.scale;
+    invoiceHeight.value = invoiceMeasurement.height;
+  }
+
+  const deliveryOrderMeasurement = measurePreview(
+    deliveryOrderWrapper.value,
+    deliveryOrderContent.value,
+  );
+  if (deliveryOrderMeasurement) {
+    deliveryOrderScale.value = deliveryOrderMeasurement.scale;
+    deliveryOrderHeight.value = deliveryOrderMeasurement.height;
+  }
+};
+
+const scheduleInvoicePreviewLayout = () => {
+  if (invoiceMeasureFrame !== null) return;
+
+  invoiceMeasureFrame = window.requestAnimationFrame(() => {
+    invoiceMeasureFrame = null;
+    updateInvoicePreviewLayout();
+  });
+};
 
 onMounted(async () => {
   useloadingStore().setLoading(true);
@@ -1420,24 +786,28 @@ onMounted(async () => {
   }
 });
 
+onMounted(() => {
+  updateInvoicePreviewLayout();
+
+  invoicePreviewObserver = new ResizeObserver(scheduleInvoicePreviewLayout);
+  [
+    invoiceWrapper.value,
+    invoiceContent.value,
+    deliveryOrderWrapper.value,
+    deliveryOrderContent.value,
+  ].forEach((element) => {
+    if (element) invoicePreviewObserver?.observe(element);
+  });
+
+  window.addEventListener("resize", scheduleInvoicePreviewLayout, {
+    passive: true,
+  });
+});
+
 const data = reactive({
   dialogSelesai: false,
   dialogTambahDoWr: false,
 });
-
-const formatTanggal = (tanggal: string) => {
-  if (!tanggal) return "-";
-
-  const date = new Date(tanggal);
-
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })
-    .format(date)
-    .replace(/\//g, "-");
-};
 
 function openDialogSelesai() {
   data.dialogSelesai = true;
@@ -1465,22 +835,6 @@ const invoiceCurrency = computed<invoiceCurrencyM>(() => {
 const invoiceCurrencyPrefix = computed(() =>
   invoiceCurrency.value === "IDR" ? "Rp" : invoiceCurrency.value,
 );
-const invoiceCurrencyName = computed(() => {
-  if (invoiceCurrency.value === "USD") {
-    return invoiceLanguage.value === "id"
-      ? "Dolar Amerika Serikat"
-      : "US Dollars";
-  }
-  if (invoiceCurrency.value === "SGD") {
-    return invoiceLanguage.value === "id"
-      ? "Dolar Singapura"
-      : "Singapore Dollars";
-  }
-  return invoiceLanguage.value === "id" ? "Rupiah" : "Indonesian Rupiah";
-});
-const invoiceCurrencyDescription = computed(
-  () => `${invoiceCurrency.value} – (${invoiceCurrencyName.value})`,
-);
 
 function formatInvoiceNumber(value?: number) {
   const fractionDigits = invoiceCurrency.value === "IDR" ? 0 : 2;
@@ -1493,81 +847,6 @@ function formatInvoiceNumber(value?: number) {
 function formatInvoiceCurrency(value?: number) {
   return `${invoiceCurrencyPrefix.value} ${formatInvoiceNumber(value)}`;
 }
-
-const discountPercent = computed(() => {
-  const subtotal = Number(invoiceDetail.value.subtotal_invoice || 0);
-  const discount = Number(invoiceDetail.value.discount_invoice || 0);
-
-  return subtotal > 0
-    ? Math.round((discount / subtotal) * 10000) / 100
-    : 0;
-});
-
-const billedSubtotal = (invoice: invoiceM) => {
-  const subtotal = Math.max(
-    0,
-    Number(invoice.subtotal_invoice || 0) - Number(invoice.discount_invoice || 0),
-  );
-  return invoice.down_payment
-    ? subtotal * (Number(invoice.dp_persen || 0) / 100)
-    : subtotal;
-};
-
-const previousBilledSubtotal = computed(() => {
-  const currentId = invoiceDetail.value.id || invoiceDetail.value.id_invoice;
-  const invoicesInOrder = [...relatedInvoices.value].sort(
-    (a, b) =>
-      Number(a.createdAt || 0) - Number(b.createdAt || 0) ||
-      Number(a.no_inv || 0) - Number(b.no_inv || 0),
-  );
-  const currentIndex = invoicesInOrder.findIndex(
-    (invoice) => (invoice.id || invoice.id_invoice) === currentId,
-  );
-  if (currentIndex <= 0) return 0;
-
-  return invoicesInOrder
-    .slice(0, currentIndex)
-    .reduce((total, invoice) => total + billedSubtotal(invoice), 0);
-});
-
-const invoiceBaseTotal = computed(() =>
-  Math.max(
-    0,
-    Number(invoiceDetail.value.subtotal_invoice || 0) -
-      Number(invoiceDetail.value.discount_invoice || 0),
-  ),
-);
-const invoiceReferenceTotal = computed(
-  () => quotationGrandTotal.value || invoiceBaseTotal.value,
-);
-const previousDpPercent = computed(() =>
-  invoiceReferenceTotal.value > 0
-    ? Math.round((previousBilledSubtotal.value / invoiceReferenceTotal.value) * 10000) / 100
-    : 0,
-);
-const balancePercent = computed(() =>
-  Math.max(0, Math.round((100 - previousDpPercent.value) * 100) / 100),
-);
-
-const invoiceAmountLabel = computed(() => {
-  const quotationTotal = invoiceReferenceTotal.value;
-  const currentAmount = billedSubtotal(invoiceDetail.value);
-  const isSingleFullInvoice =
-    relatedInvoices.value.length === 1 &&
-    quotationTotal > 0 &&
-    Math.abs(currentAmount - quotationTotal) < 1;
-
-  if (isSingleFullInvoice) return "Grand Total";
-  if (
-    previousBilledSubtotal.value > 0 &&
-    quotationTotal > 0 &&
-    previousBilledSubtotal.value + currentAmount >= quotationTotal - 1
-  ) {
-    return "Balance";
-  }
-
-  return "Down Payment";
-});
 
 const poObjectUrls = new Map<string, string>();
 
@@ -1695,9 +974,13 @@ function bukaDokumenLampiran(document: invoiceBuktiBayarM | invoiceDoWrM) {
 onBeforeUnmount(() => {
   poObjectUrls.forEach((url) => URL.revokeObjectURL(url));
   poObjectUrls.clear();
-});
 
-const printArea = ref<HTMLElement | null>(null);
+  invoicePreviewObserver?.disconnect();
+  window.removeEventListener("resize", scheduleInvoicePreviewLayout);
+  if (invoiceMeasureFrame !== null) {
+    window.cancelAnimationFrame(invoiceMeasureFrame);
+  }
+});
 
 function bukaDialogDikirim() {
   uploadStoreInstance.setReset();
@@ -1981,485 +1264,29 @@ async function ubahStatusSelesai() {
   }
 }
 
-function printInvoice() {
-  const content = printArea.value;
-
-  if (!content) return;
-
-  const printWindow = window.open("", "_blank");
-
-  if (!printWindow) return;
-
-  const styles = Array.from(
-    document.querySelectorAll('style, link[rel="stylesheet"]'),
-  )
-    .map((style) => style.outerHTML)
-    .join("");
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>INV - </title>
-        ${styles}
-
-        <style>
-          body {
-            background: white !important;
-            margin: 0;
-            padding: 0;
-          }
-
-          .invoice-paper {
-            border: none !important;
-            box-shadow: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-          }
-
-          .logo-header {
-            max-width: 100px !important;
-            height: auto !important;
-          }
-
-          @page {
-            margin: 0.5cm;
-          }
-
-          .page-break-section {
-            page-break-inside: avoid;
-            break-inside: avoid;
-          }
-        </style>
-      </head>
-
-      <body>
-        ${content.innerHTML}
-
-        <script>
-          window.onload = () => {
-            window.print();
-            window.close();
-          };
-        <\/script>
-      </body>
-    </html>
-  `);
-
-  printWindow.document.close();
-}
-
-const handleSavePdf = async () => {
-  const targetElement = printArea.value;
-
-  if (!targetElement || isSavingPdf.value) return;
-
-  isSavingPdf.value = true;
-
-  try {
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-      import("html2canvas"),
-      import("jspdf"),
-    ]);
-
-    const avoidPositionsCss: {
-      top: number;
-      bottom: number;
-      keepLine: boolean;
-    }[] = [];
-    let renderedHeightCss = 0;
-    let renderedWidthCss = 0;
-    const tableBoundsCss = { bottom: 0 };
-    const tableHeaderBoundsCss = { top: 0, bottom: 0 };
-    const tableColumnPositionsCss: number[] = [];
-    const tableRowPositionsCss: number[] = [];
-
-    const fullCanvas = await html2canvas(targetElement, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-      logging: false,
-
-      onclone: (clonedDocument, clonedTarget) => {
-        clonedDocument
-          .querySelectorAll(".no-print, .no-print-cell, .drag-icon")
-          .forEach((element) => {
-            (element as HTMLElement).style.display = "none";
-          });
-
-        clonedDocument
-          .querySelectorAll(".print-only-cell")
-          .forEach((element) => {
-            (element as HTMLElement).style.display = "table-cell";
-          });
-
-        // Measure the same layout that html2canvas renders. Hiding no-print
-        // elements changes vertical positions compared with the live page.
-        const containerRect = clonedTarget.getBoundingClientRect();
-        renderedHeightCss = containerRect.height;
-        renderedWidthCss = containerRect.width;
-
-        const table = clonedTarget.querySelector<HTMLElement>(".main-table");
-        const tableHeader = table?.querySelector<HTMLElement>("thead");
-        if (table && tableHeader) {
-          const tableRect = table.getBoundingClientRect();
-          const headerRect = tableHeader.getBoundingClientRect();
-          tableBoundsCss.bottom = tableRect.bottom - containerRect.top;
-          tableHeaderBoundsCss.top = headerRect.top - containerRect.top;
-          tableHeaderBoundsCss.bottom = headerRect.bottom - containerRect.top;
-
-          table.querySelectorAll<HTMLElement>("th, td").forEach((cell) => {
-            const cellRect = cell.getBoundingClientRect();
-            tableColumnPositionsCss.push(
-              cellRect.left - containerRect.left,
-              cellRect.right - containerRect.left,
-            );
-            cell.style.setProperty("border-color", "transparent", "important");
-          });
-
-          table.querySelectorAll<HTMLElement>("tr").forEach((row) => {
-            const rowRect = row.getBoundingClientRect();
-            tableRowPositionsCss.push(
-              rowRect.top - containerRect.top,
-              rowRect.bottom - containerRect.top,
-            );
-          });
-        }
-
-        const addAvoidPosition = (rect: DOMRect, keepLine = false) => {
-          const top = rect.top - containerRect.top;
-          const bottom = rect.bottom - containerRect.top;
-          if (bottom > top) {
-            avoidPositionsCss.push({ top, bottom, keepLine });
-          }
-        };
-
-        clonedTarget
-          .querySelectorAll(
-            ".main-table thead, .description-line, .terbilang-strip, .remark-border-box, .page-break-section, .info-grid",
-          )
-          .forEach((element) => {
-            addAvoidPosition(
-              element.getBoundingClientRect(),
-              element.matches(".main-table thead, .description-line"),
-            );
-          });
-
-        const textWalker = clonedDocument.createTreeWalker(
-          clonedTarget,
-          NodeFilter.SHOW_TEXT,
-          {
-            acceptNode: (node) =>
-              node.textContent?.trim()
-                ? NodeFilter.FILTER_ACCEPT
-                : NodeFilter.FILTER_REJECT,
-          },
-        );
-
-        let textNode = textWalker.nextNode();
-        while (textNode) {
-          const range = clonedDocument.createRange();
-          range.selectNodeContents(textNode);
-          Array.from(range.getClientRects()).forEach((rect) =>
-            addAvoidPosition(rect, true),
-          );
-          textNode = textWalker.nextNode();
-        }
-      },
-    });
-
-    if (!renderedHeightCss || !renderedWidthCss) {
-      throw new Error("Layout invoice untuk PDF tidak ditemukan");
-    }
-
-    const pdf = new jsPDF("p", "mm", "a4");
-
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-
-    const footerGapMm = 5;
-    const marginTopSecondPageMm = 12;
-    const marginBottomMm = 10;
-
-    const scaleY = fullCanvas.height / renderedHeightCss;
-    const scaleX = fullCanvas.width / renderedWidthCss;
-    const columnPositionsPx = [
-      ...new Set(
-        tableColumnPositionsCss.map((position) =>
-          Math.round(position * scaleX),
-        ),
-      ),
-    ].sort((a, b) => a - b);
-    const rowPositionsPx = [
-      ...new Set(
-        tableRowPositionsCss.map((position) =>
-          Math.round(position * scaleY),
-        ),
-      ),
-    ].sort((a, b) => a - b);
-
-    const textPaddingPx = 3 * scaleY;
-    const avoidPositionsPx = avoidPositionsCss
-      .map((position) => ({
-        top: position.top * scaleY,
-        bottom: position.bottom * scaleY,
-        keepLine: position.keepLine,
-      }))
-      .sort((a, b) => a.top - b.top);
-
-    const tableBottomPx = tableBoundsCss.bottom * scaleY;
-    const headerTopPx = Math.max(
-      0,
-      Math.floor(tableHeaderBoundsCss.top * scaleY) - 1,
-    );
-    const headerBottomPx =
-      tableHeaderBoundsCss.bottom > tableHeaderBoundsCss.top
-        ? Math.min(
-            fullCanvas.height,
-            Math.ceil(tableHeaderBoundsCss.bottom * scaleY) + 1,
-          )
-        : 0;
-    let repeatedHeaderImage = "";
-    let repeatedHeaderHeightMm = 0;
-
-    if (headerBottomPx > headerTopPx) {
-      const headerCanvas = document.createElement("canvas");
-      headerCanvas.width = fullCanvas.width;
-      headerCanvas.height = headerBottomPx - headerTopPx;
-      const headerContext = headerCanvas.getContext("2d");
-      if (headerContext) {
-        headerContext.drawImage(
-          fullCanvas,
-          0,
-          headerTopPx,
-          fullCanvas.width,
-          headerCanvas.height,
-          0,
-          0,
-          fullCanvas.width,
-          headerCanvas.height,
-        );
-        repeatedHeaderImage = headerCanvas.toDataURL("image/png");
-        repeatedHeaderHeightMm =
-          (headerCanvas.height * pdfWidth) / fullCanvas.width;
-      }
-    }
-
-    const canvasPixelToPdfMm = pdfWidth / fullCanvas.width;
-    const tableGridLineWidthMm = Math.max(
-      0.2,
-      Math.min(scaleX, scaleY) * canvasPixelToPdfMm,
-    );
-
-    const prepareTableGridStyle = () => {
-      pdf.setDrawColor(0, 0, 0);
-      pdf.setLineWidth(tableGridLineWidthMm);
-    };
-
-    const drawTableGridForSlice = (
-      sliceStartPx: number,
-      sliceHeightPx: number,
-      contentTopMm: number,
-    ) => {
-      if (!columnPositionsPx.length || !rowPositionsPx.length) return;
-
-      const tableLeftPx = columnPositionsPx[0];
-      const tableRightPx = columnPositionsPx[columnPositionsPx.length - 1];
-      const tableTopPx = rowPositionsPx[0];
-      const tableBottomGridPx = rowPositionsPx[rowPositionsPx.length - 1];
-      const sliceEndPx = sliceStartPx + sliceHeightPx;
-      const visibleTopPx = Math.max(tableTopPx, sliceStartPx);
-      const visibleBottomPx = Math.min(tableBottomGridPx, sliceEndPx);
-
-      if (visibleBottomPx <= visibleTopPx) return;
-
-      prepareTableGridStyle();
-      const visibleTopMm =
-        contentTopMm + (visibleTopPx - sliceStartPx) * canvasPixelToPdfMm;
-      const visibleBottomMm =
-        contentTopMm + (visibleBottomPx - sliceStartPx) * canvasPixelToPdfMm;
-
-      columnPositionsPx.forEach((position) => {
-        const xMm = position * canvasPixelToPdfMm;
-        pdf.line(xMm, visibleTopMm, xMm, visibleBottomMm);
-      });
-
-      rowPositionsPx.forEach((position) => {
-        if (position < visibleTopPx || position > visibleBottomPx) return;
-        const yMm =
-          contentTopMm + (position - sliceStartPx) * canvasPixelToPdfMm;
-        pdf.line(
-          tableLeftPx * canvasPixelToPdfMm,
-          yMm,
-          tableRightPx * canvasPixelToPdfMm,
-          yMm,
-        );
-      });
-    };
-
-    const drawRepeatedTableHeaderGrid = (headerTopMm: number) => {
-      if (
-        !columnPositionsPx.length ||
-        !rowPositionsPx.length ||
-        !repeatedHeaderHeightMm
-      ) return;
-
-      const tableLeftPx = columnPositionsPx[0];
-      const tableRightPx = columnPositionsPx[columnPositionsPx.length - 1];
-      prepareTableGridStyle();
-
-      columnPositionsPx.forEach((position) => {
-        const xMm = position * canvasPixelToPdfMm;
-        pdf.line(
-          xMm,
-          headerTopMm,
-          xMm,
-          headerTopMm + repeatedHeaderHeightMm,
-        );
-      });
-
-      rowPositionsPx.forEach((position) => {
-        if (position < headerTopPx || position > headerBottomPx) return;
-        const yMm =
-          headerTopMm + (position - headerTopPx) * canvasPixelToPdfMm;
-        pdf.line(
-          tableLeftPx * canvasPixelToPdfMm,
-          yMm,
-          tableRightPx * canvasPixelToPdfMm,
-          yMm,
-        );
-      });
-    };
-
-    let currentCanvasY = 0;
-    let pageCount = 0;
-
-    while (currentCanvasY < fullCanvas.height) {
-      if (pageCount > 0) {
-        pdf.addPage();
-      }
-
-      const currentTopMarginMm = pageCount > 0 ? marginTopSecondPageMm : 0;
-
-      const currentBottomMarginMm =
-        pageCount > 0 ? marginBottomMm : footerGapMm;
-
-      const repeatTableHeader =
-        pageCount > 0 &&
-        Boolean(repeatedHeaderImage) &&
-        currentCanvasY >= headerBottomPx &&
-        currentCanvasY < tableBottomPx;
-      const contentTopMm =
-        currentTopMarginMm +
-        (repeatTableHeader ? repeatedHeaderHeightMm : 0);
-
-      const maxUsablePdfHeightMm =
-        pdfHeight - contentTopMm - currentBottomMarginMm;
-
-      let targetSliceHeightPx = Math.floor(
-        (maxUsablePdfHeightMm * fullCanvas.width) / pdfWidth,
-      );
-
-      const remainingCanvasHeightPx = fullCanvas.height - currentCanvasY;
-
-      if (remainingCanvasHeightPx > targetSliceHeightPx) {
-        const theoreticalCutY = currentCanvasY + targetSliceHeightPx;
-
-        const conflicts = avoidPositionsPx.filter(
-          (pos) =>
-            theoreticalCutY > pos.top - textPaddingPx &&
-            theoreticalCutY < pos.bottom + textPaddingPx,
-        );
-        const conflictingElement =
-          conflicts.find((pos) => pos.keepLine) || conflicts[0];
-
-        if (conflictingElement) {
-          const safeCutY = Math.floor(conflictingElement.top - textPaddingPx);
-          if (safeCutY > currentCanvasY) {
-            targetSliceHeightPx = safeCutY - currentCanvasY;
-          }
-        }
-      } else {
-        targetSliceHeightPx = remainingCanvasHeightPx;
-      }
-
-      const pageCanvas = document.createElement("canvas");
-
-      pageCanvas.width = fullCanvas.width;
-      pageCanvas.height = targetSliceHeightPx;
-
-      const ctx = pageCanvas.getContext("2d");
-
-      if (ctx) {
-        ctx.fillStyle = "#ffffff";
-
-        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-
-        ctx.drawImage(
-          fullCanvas,
-          0,
-          currentCanvasY,
-          fullCanvas.width,
-          targetSliceHeightPx,
-          0,
-          0,
-          fullCanvas.width,
-          targetSliceHeightPx,
-        );
-      }
-
-      // Keep the captured document lossless; the table grid is added below as
-      // vector lines so its thickness stays uniform at every PDF zoom level.
-      const imgData = pageCanvas.toDataURL("image/png");
-
-      const slicePdfHeightMm =
-        (targetSliceHeightPx * pdfWidth) / fullCanvas.width;
-
-      if (repeatTableHeader) {
-        pdf.addImage(
-          repeatedHeaderImage,
-          "PNG",
-          0,
-          currentTopMarginMm,
-          pdfWidth,
-          repeatedHeaderHeightMm,
-        );
-      }
-
-      pdf.addImage(
-        imgData,
-        "PNG",
-        0,
-        contentTopMm,
-        pdfWidth,
-        slicePdfHeightMm,
-      );
-
-      if (repeatTableHeader) {
-        drawRepeatedTableHeaderGrid(currentTopMarginMm);
-      }
-      drawTableGridForSlice(
-        currentCanvasY,
-        targetSliceHeightPx,
-        contentTopMm,
-      );
-
-      currentCanvasY += targetSliceHeightPx;
-      pageCount++;
-    }
-
-    const year = new Date().getFullYear();
-    const invoiceId = invoiceDetail.value?.id || route.params.id;
-
-    pdf.save(`INV-DRM-${year}-${invoiceId}.pdf`);
-  } catch (error) {
-    console.error("Gagal menyimpan PDF:", error);
-  } finally {
-    isSavingPdf.value = false;
-  }
-};
 </script>
 
 <style scoped>
+.penawaran-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.penawaran-content {
+  width: 100%;
+  transform-origin: top left;
+}
+
+@media (max-width: 600px) {
+  .penawaran-content {
+    width: max-content;
+    min-width: 100%;
+  }
+}
+
 /* ============================================================
    INVOICE OVERVIEW
    ============================================================ */
@@ -2976,222 +1803,6 @@ const handleSavePdf = async () => {
   display: none;
 }
 
-/* ============================================================
-   INVOICE PAPER
-   ============================================================ */
-
-.logo-header {
-  max-width: 140px;
-  height: auto;
-  object-fit: contain;
-  display: block;
-}
-
-.invoice-paper {
-  font-family: "Arial", sans-serif;
-  color: #000;
-  line-height: 1.3;
-}
-
-.invoice-title {
-  font-size: 32px;
-  font-weight: bold;
-  border-bottom: none;
-}
-
-.company-address {
-  font-size: 13px;
-  margin-top: 5px;
-}
-
-.info-grid {
-  display: flex;
-  border: 1px solid #000;
-}
-
-.info-box-left {
-  padding: 10px;
-  font-size: 14px;
-  width: 55%;
-}
-
-.info-box-right {
-  padding: 10px;
-  font-size: 14px;
-  width: 45%;
-  border-left: 1px solid #000;
-}
-
-.main-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 15px;
-}
-
-.main-table th {
-  background-color: #b8cce4 !important;
-  border: 1px solid #000;
-  padding: 8px;
-  font-weight: bold;
-  font-size: 13px;
-}
-
-.main-table td {
-  border: 1px solid #000;
-  padding: 6px;
-  font-size: 14px;
-}
-
-.bg-light-blue {
-  background-color: #b8cce4 !important;
-}
-
-.amount-cell {
-  padding-left: 5px !important;
-  padding-right: 5px !important;
-}
-
-.terbilang-strip {
-  border-top: 2px solid #000;
-  border-bottom: 2px solid #000;
-  padding: 5px 10px;
-  margin: 15px 0;
-  font-style: italic;
-  font-size: 14px;
-}
-
-.bank-details,
-.signature-area {
-  font-size: 14px;
-}
-
-.bank-table {
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.bank-table td {
-  border: none !important;
-  padding: 0px 4px 0px 0px !important;
-  vertical-align: top;
-  line-height: 1.4;
-}
-
-.bank-table td:first-child {
-  width: 160px;
-}
-
-.editable-display-value {
-  border-radius: 2px;
-  cursor: text;
-  outline: none;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.editable-display-value:hover {
-  background: #f3f6f9;
-}
-
-.editable-display-value:focus {
-  background: #eef4fa;
-  box-shadow: inset 0 -1px 0 #6d91b3;
-}
-
-.desc-cell {
-  padding: 8px !important;
-}
-
-.description-line {
-  display: block;
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
-
-.qty-cell {
-  vertical-align: top;
-  width: 15%;
-}
-
-.no-cell {
-  width: 5%;
-}
-
-.amount-cell {
-  vertical-align: top;
-  width: 125%;
-}
-
-.remark-cell {
-  vertical-align: middle;
-}
-
-.remark-border-box {
-  border: 1px solid #000;
-  padding: 8px;
-  min-height: 80px;
-  height: auto;
-}
-
-.remark-list-style {
-  list-style: none;
-  padding-left: 0;
-  margin: 5px 0 0 0;
-  font-size: 12px;
-}
-
-.footer-label {
-  width: 15%;
-  padding-right: 10px !important;
-  white-space: nowrap;
-}
-
-.footer-value {
-  width: 20%;
-}
-
-.v-align-middle {
-  vertical-align: middle !important;
-}
-
-.page-break-section {
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
-
-.remark-border-box,
-.terbilang-strip {
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-}
-
-.main-table tr {
-  page-break-inside: auto;
-  break-inside: auto;
-}
-
-@media print {
-  .no-print {
-    display: none !important;
-  }
-
-  .editable-display-value {
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .bg-light-blue,
-  .bg-blue-total,
-  .main-table th {
-    background-color: #b8cce4 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .page-break-section {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-}
 
 /* ============================================================
    UPLOAD
@@ -3965,58 +2576,4 @@ const handleSavePdf = async () => {
   }
 }
 
-.header-section {
-  display: grid;
-  grid-template-columns: 130px minmax(0, 1fr) 130px;
-  align-items: center;
-  position: relative;
-  z-index: 1;
-  padding: 2px 0 8px;
-}
-
-.logo-wrapper img {
-  width: 205px;
-  height: auto;
-}
-
-.letterhead-info {
-  text-align: center;
-}
-
-.company-name {
-  font-size: 26px;
-  font-weight: 800;
-  color: #0f2b48;
-  letter-spacing: 0.3px;
-  margin: 0;
-  line-height: 1.2;
-}
-
-.address-line,
-.phone-line {
-  font-size: 11.5px;
-  line-height: 1.4;
-  margin: 1px 0 0;
-}
-
-.header-divider {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 6px;
-  margin-bottom: 6px;
-}
-
-.accent-bar {
-  height: 4px;
-  width: 100%;
-  border-radius: 2px;
-  transition: background-color 0.2s ease;
-}
-
-.secondary-bar {
-  height: 2px;
-  width: 100%;
-  background-color: #032752;
-}
 </style>

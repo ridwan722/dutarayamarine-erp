@@ -385,6 +385,10 @@ const createPaginatedDeliveryOrderPdf = async () => {
 
   if (!paperElement || !letterheadElement || !contentElement) return null;
 
+  const previewContainer = paperElement.closest<HTMLElement>(
+    ".penawaran-content",
+  );
+  previewContainer?.classList.add("delivery-order-pdf-unscaled");
   paperElement.classList.add("delivery-order-pdf-capture");
   void paperElement.offsetHeight;
 
@@ -642,6 +646,7 @@ const createPaginatedDeliveryOrderPdf = async () => {
     return pdf;
   } finally {
     paperElement.classList.remove("delivery-order-pdf-capture");
+    previewContainer?.classList.remove("delivery-order-pdf-unscaled");
   }
 };
 
@@ -919,6 +924,10 @@ const handleSavePdf = async () => {
 .delivery-order-wrapper {
   width: 100%;
   margin-top: 20px;
+}
+
+:global(.penawaran-content.delivery-order-pdf-unscaled) {
+  transform: none !important;
 }
 
 .action-bar {

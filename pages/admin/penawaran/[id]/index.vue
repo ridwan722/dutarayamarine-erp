@@ -317,8 +317,8 @@ onBeforeUnmount(() => {
   <dialog-buat-invoice
     v-model="data.dialogAdd"
     :penawaran="detailpenawaran"
-    @saved="navigateTo('/admin/invoice')"
   />
+  <!-- @saved="navigateTo('/admin/invoice')" -->
 
   <dialog-buat-pengeluaran
     v-model="data.dialogAddPengeluaran"

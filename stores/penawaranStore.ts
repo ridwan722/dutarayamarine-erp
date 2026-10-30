@@ -49,6 +49,39 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
   },
 
   actions: {
+    upsertPenawaranLocal(penawaran: penawaranM) {
+      const savedPenawaran = JSON.parse(
+        JSON.stringify(penawaran),
+      ) as penawaranM;
+      const matchesPenawaran = (item: penawaranM) =>
+        Boolean(
+          (savedPenawaran.id && item.id === savedPenawaran.id) ||
+          (savedPenawaran.id_penawaran &&
+            item.id_penawaran === savedPenawaran.id_penawaran) ||
+          (savedPenawaran.no_penawaran &&
+            item.no_penawaran === savedPenawaran.no_penawaran),
+        );
+      const upsert = (items: penawaranM[]) => {
+        const nextItems = [...items];
+        const itemIndex = nextItems.findIndex(matchesPenawaran);
+
+        if (itemIndex >= 0) {
+          nextItems.splice(itemIndex, 1, savedPenawaran);
+        } else {
+          nextItems.unshift(savedPenawaran);
+        }
+
+        return nextItems;
+      };
+
+      this.dataPenawaran = upsert(this.dataPenawaran);
+      this.dataPenawaranTampil = upsert(this.dataPenawaranTampil);
+
+      if (matchesPenawaran(this.detailPenawaran)) {
+        this.detailPenawaran = savedPenawaran;
+      }
+    },
+
     // CREATE
     async addPenawaranAct(lemparPenawaran: penawaranM) {
       const notificationStore = useNotificationStore();
@@ -83,7 +116,7 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
           lemparPenawaran
         );
 
-        // await this.tarikDataPenawaranAct();
+        this.upsertPenawaranLocal(lemparPenawaran);
 
         notificationStore.showSuccess("Penawaran berhasil diperbarui");
         return true;
@@ -125,7 +158,7 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
       const datatarik = await queryambilid("penawaran");
       const hasil = datatarik as unknown as penawaranM[];
       this.dataPenawaran = hasil; // Simpan ke Master
-      this.dataPenawaranTampil = hasil; // Default tampilkan semua
+      this.dataPenawaranTampil = [...hasil]; // Default tampilkan semua
     },
 
 

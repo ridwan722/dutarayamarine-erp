@@ -1019,7 +1019,7 @@ export const setPenawaran = async (data: penawaranM) => {
     // const email = auth.currentUser?.email || data.created_by || "-";
 
     try {
-        return await runTransaction(db, async (transaction) => {
+        const savedPenawaran = await runTransaction(db, async (transaction) => {
             const nomorInvRef = doc(db, "penomoran", "nomor");
             const getnomor = await transaction.get(nomorInvRef);
 
@@ -1045,26 +1045,23 @@ export const setPenawaran = async (data: penawaranM) => {
             const penawaranRef = doc(db, "penawaran", id_penawaran);
             // Simpan dokumen utama laporan
             transaction.set(penawaranRef, setdata, { merge: true });
-            for (const item of data.penawaran_item) {
-                const harga_hpp = Number(item.harga_hpp);
-                if (!Number.isFinite(harga_hpp) || harga_hpp <= 0) continue;
-
-                const barangRef = doc(collection(db, "barang"));
-                transaction.set(barangRef, {
-                    // Keep the existing master barang page compatible.
-                    nama_barang: item.nama,
-                    harga_hpp,
-                    createdAt: now,
-                    createdBy: data.created_by || "-",
-                });
-            }
             transaction.update(nomorInvRef, { no_penawaran: newnumber });
-        }).then(() => {
-            return "ok";
+            return {
+                ...setdata,
+                id: id_penawaran,
+            } as penawaranM;
         });
+
+        return {
+            status: "ok" as const,
+            data: savedPenawaran,
+        };
     } catch (error: any) {
         console.error("Firestore transaction error:", error);
-        return error.message;
+        return {
+            status: "error" as const,
+            message: error.message || "Gagal menyimpan penawaran",
+        };
     }
 };
 

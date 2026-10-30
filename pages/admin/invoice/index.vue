@@ -661,7 +661,11 @@
       </template>
 
       <template #item.perihal="{ item }">
-        <div class="invoice-subject-cell">{{ item.perihal || "—" }}</div>
+        <NuxtLink :to="`/admin/invoice/${item.no_inv}`" class="invoice-reference">
+          {{ item.perihal || "—" }}
+          <!-- <v-icon icon="mdi-arrow-top-right" size="12" /> -->
+        </NuxtLink>
+        <!-- <div class="invoice-subject-cell">{{ item.perihal || "—" }}</div> -->
       </template>
 
       <template #item.grandtotal_invoice="{ item }">
@@ -1749,6 +1753,7 @@ async function refreshData() {
 .invoice-reference {
   display: inline-flex;
   align-items: center;
+  max-width: 250px;
   gap: 4px;
   color: #285f91;
   font-size: 10.5px;
@@ -1756,6 +1761,8 @@ async function refreshData() {
   letter-spacing: 0.005em;
   text-decoration: none;
   white-space: nowrap;
+  white-space: normal;      
+  word-break: break-word;
 }
 .invoice-reference:hover,
 .invoice-quotation-reference:hover {
@@ -1856,7 +1863,7 @@ async function refreshData() {
 .invoice-empty-state { padding: 44px 16px; color: #8a949f; font-size: 11px; text-align: center; }
 .invoice-empty-state .v-icon { display: block; margin: 0 auto 8px; }
 
-/* Invoice form dialog */
+
 .invoice-dialog-card {
   overflow: hidden;
   color: #1f2937;
@@ -2067,7 +2074,7 @@ async function refreshData() {
   color: #5f6c7a;
 }
 
-/* Upload Box */
+
 .po-upload-box {
   position: relative;
   width: 142px;
@@ -2128,7 +2135,7 @@ async function refreshData() {
   font-size: 8px;
 }
 
-/* Files */
+
 .po-file-list {
   display: flex;
   flex-direction: column;
