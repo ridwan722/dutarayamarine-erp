@@ -396,7 +396,10 @@
           </ul>
         </div>
 
-        <div class="signatures-wrapper">
+        <div
+          class="signatures-wrapper"
+          :class="{ 'is-lilis': detailpenawaran.sign_by == 'Lilis' }"
+        >
           <div class="sig-block">
             <p class="sig-header">{{ t.sigHeaderLeft }}</p>
             <p class="sig-sub">PT. DUTA RAYA MARINE</p>
@@ -404,7 +407,8 @@
               <img src="/ttd_ridwan.png" v-if="detailpenawaran.sign_by == 'Muhammad Ridwan'" alt="Signature" class="sig-image" />
               <img src="/ttd_seilla.png" v-if="detailpenawaran.sign_by == 'Seilla Maryana'" alt="Signature" class="sig-image" />
               <img src="/ttd_leo.png" v-if="detailpenawaran.sign_by == 'Leo Adiatmaja Sembiring'" alt="Signature" class="sig-image" />
-              <div v-if="detailpenawaran.sign_by == 'Lilis'" class="sig-image font-italic text-grey-lighten-1 text-caption" >No Signature Required</div>
+              <img src="/ttd_lilis_hitam.png" v-if="detailpenawaran.sign_by == 'Lilis'" alt="Signature" class="sig-image-lilis" />
+              <!-- <div v-if="detailpenawaran.sign_by == 'Lilis'" class="sig-image font-italic text-grey-lighten-1 text-caption" >No Signature Required</div> -->
             </div>
             <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Muhammad Ridwan'">Muhammad Ridwan</p>
             <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Seilla Maryana'">Seilla Maryana</p>
@@ -1686,6 +1690,17 @@ const handleSavePdf = async () => {
   max-height: 68px;
   max-width: 130px;
   object-fit: contain;
+}
+
+.sig-image-lilis {
+  max-height: 118px;
+  max-width: 150px;
+  object-fit: contain;
+}
+
+.signatures-wrapper.is-lilis .sig-img-container,
+.signatures-wrapper.is-lilis .sig-placeholder {
+  height: 120px;
 }
 
 .sig-placeholder {

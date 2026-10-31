@@ -406,8 +406,8 @@
               v-if="signatureImage"
               :src="signatureImage"
               :alt="`Tanda tangan ${signatureName}`"
-              width="150"
-              :class="{ 'ml-3': invoiceDetail.sign_by !== 'Seilla Maryana' }"
+              :width="invoiceDetail.sign_by === 'Lilis' ? 210 : 150"
+              :class="{ 'ml-2': invoiceDetail.sign_by !== 'Seilla Maryana' }"
             />
             <div
               v-else
@@ -416,7 +416,7 @@
               No Signature Required
             </div>
 
-            <strong>{{ signatureName }}</strong>
+            <strong class="signature-name">{{ signatureName }}</strong>
           </div>
         </v-card>
       </div>
@@ -667,6 +667,7 @@ const signatureImage = computed(() => {
     "Seilla Maryana": "/ttd_seilla.png",
     "Leo Adiatmaja Sembiring": "/ttd_leo.png",
     "Muhammad Ridwan": "/ttd_ridwan.png",
+    "Lilis": "/ttd_lilis_hitam.png",
   };
   return images[props.invoiceDetail.sign_by || ""] || "";
 });
@@ -1154,6 +1155,11 @@ const handleSavePdf = async () => {
 .bank-details,
 .signature-area {
   font-size: 14px;
+}
+
+.signature-name {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .bank-table {

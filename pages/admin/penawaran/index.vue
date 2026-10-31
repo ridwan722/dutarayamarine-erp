@@ -666,12 +666,13 @@
                 <div class="signature-line"></div>
                 <div class="signature-name">Muhammad Ridwan</div>
               </div>
+              
 
               <div
-                v-if="newPenawaran.sign_by == 'Lilis'"
+                 v-if="newPenawaran.sign_by == 'Lilis'"
                 class="signature-content"
               >
-                <v-img width="130" height="65" contain />
+                <v-img width="130" height="65" contain src="/ttd_lilis_hitam.png" />
                 <div class="signature-line"></div>
                 <div class="signature-name">Lilis</div>
               </div>
