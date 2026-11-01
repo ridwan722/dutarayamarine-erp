@@ -8,6 +8,7 @@ const links = [
   { title: "Keuangan kantor", subtitle: "Transaksi & inventaris", href: "/admin/petty-cash", icon: "mdi-wallet-outline", tone: "green" },
   { title: "Leads Website", subtitle: "Leads masuk dari website www.dutarayaarine.com", href: "/admin/master/leads-web", icon: "mdi-human-queue", tone: "rose" },
   { title: "Projects Website", subtitle: "Daftar Proyek yang di tampikan di website", href: "/admin/master/project-web", icon: "mdi-format-list-bulleted-square", tone: "rose" },
+  { title: "Product & Service", subtitle: "Kelola katalog website", href: "/admin/master/product-service", icon: "mdi-package", tone: "cyan" },
 ];
 </script>
 

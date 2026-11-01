@@ -102,6 +102,14 @@ const menuItems = [
     to: "/admin/master/project-web",
     icon: "mdi-format-list-bulleted-square",
   },
+
+  {
+    title: "Product / Service Website",
+    subtitle: "Daftar Proyek yang di tampikan di website",
+    to: "/admin/master/product-service",
+    icon: "mdi-package",
+  },
+  
   {
     title: "Master Barang / Service",
     subtitle: "Katalog barang dan layanan",

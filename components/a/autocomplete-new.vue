@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="form-group">
     <label v-if="label" class="input-label">
@@ -274,10 +273,6 @@ function onSearch(event) {
   isOpen.value = true;
   activeIndex.value = -1;
 
-  /*
-   * Saat user mengetik,
-   * selected value direset.
-   */
   emit("update:modelValue", null);
 
   errorMessages.value = [];
@@ -395,18 +390,10 @@ function clearValue() {
 ========================= */
 
 function onBlur() {
-  /*
-   * Delay supaya click dropdown
-   * masih sempat diproses.
-   */
   setTimeout(() => {
     isOpen.value = false;
     validate();
 
-    /*
-     * Kembalikan text ke selected value
-     * jika user mengetik tapi tidak memilih.
-     */
     if (
       props.modelValue !== null &&
       props.modelValue !== undefined
@@ -665,6 +652,14 @@ defineExpose({
 
   transition:
     background-color 0.1s ease;
+
+  /* Garis pemisah antar item list */
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* Menghilangkan garis pemisah pada item terakhir */
+.dropdown-item:last-child {
+  border-bottom: none;
 }
 
 .dropdown-item:hover,
@@ -696,4 +691,3 @@ defineExpose({
   color: #dc3545;
 }
 </style>
-```
