@@ -659,7 +659,7 @@
                 v-if="newPenawaran.sign_by == 'Seilla Maryana'"
                 class="signature-content"
               >
-                <v-img width="130" height="65" contain src="/ttd_seilla.png" />
+                <v-img width="130" height="65" contain src="/ttd_seilla_hitam.png" />
                 <div class="signature-line"></div>
                 <div class="signature-name">Seilla Maryana</div>
               </div>

@@ -398,16 +398,20 @@
 
         <div
           class="signatures-wrapper"
-          :class="{ 'is-lilis': detailpenawaran.sign_by == 'Lilis' }"
+          :class="{
+            'has-stamped-signature': ['Seilla Maryana', 'Lilis'].includes(
+              detailpenawaran.sign_by,
+            ),
+          }"
         >
           <div class="sig-block">
             <p class="sig-header">{{ t.sigHeaderLeft }}</p>
             <p class="sig-sub">PT. DUTA RAYA MARINE</p>
             <div class="sig-img-container">
               <img src="/ttd_ridwan.png" v-if="detailpenawaran.sign_by == 'Muhammad Ridwan'" alt="Signature" class="sig-image" />
-              <img src="/ttd_seilla.png" v-if="detailpenawaran.sign_by == 'Seilla Maryana'" alt="Signature" class="sig-image" />
+              <img src="/ttd_seilla_hitam.png" v-if="detailpenawaran.sign_by == 'Seilla Maryana'" alt="Signature" class="sig-image-stamped" />
               <img src="/ttd_leo.png" v-if="detailpenawaran.sign_by == 'Leo Adiatmaja Sembiring'" alt="Signature" class="sig-image" />
-              <img src="/ttd_lilis_hitam.png" v-if="detailpenawaran.sign_by == 'Lilis'" alt="Signature" class="sig-image-lilis" />
+              <img src="/ttd_lilis_hitam.png" v-if="detailpenawaran.sign_by == 'Lilis'" alt="Signature" class="sig-image-stamped sig-image-lilis" />
               <!-- <div v-if="detailpenawaran.sign_by == 'Lilis'" class="sig-image font-italic text-grey-lighten-1 text-caption" >No Signature Required</div> -->
             </div>
             <p class="sig-person-name" v-if="detailpenawaran.sign_by == 'Muhammad Ridwan'">Muhammad Ridwan</p>
@@ -737,6 +741,48 @@ const loadWatermarkImage = (): Promise<HTMLImageElement> => {
   });
 };
 
+const createSaturatedImageDataUrl = async (
+  image: HTMLImageElement | null,
+  saturation: number,
+): Promise<string | null> => {
+  if (!image) return null;
+
+  if (!image.complete || !image.naturalWidth) {
+    await new Promise<void>((resolve, reject) => {
+      image.addEventListener("load", () => resolve(), { once: true });
+      image.addEventListener("error", () => reject(), { once: true });
+    });
+  }
+
+  await image.decode?.().catch(() => undefined);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+
+  context.drawImage(image, 0, 0);
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  const saturationLevel = Math.max(0, saturation);
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const red = pixels[index];
+    const green = pixels[index + 1];
+    const blue = pixels[index + 2];
+    const luminance = red * 0.213 + green * 0.715 + blue * 0.072;
+
+    pixels[index] = luminance + (red - luminance) * saturationLevel;
+    pixels[index + 1] =
+      luminance + (green - luminance) * saturationLevel;
+    pixels[index + 2] = luminance + (blue - luminance) * saturationLevel;
+  }
+
+  context.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+};
+
 type PdfTextFragment = {
   text: string;
   left: number;
@@ -747,7 +793,7 @@ type PdfTextFragment = {
   fontWeight: number;
   isItalic: boolean;
   color: [number, number, number];
-  alignment: "left" | "center";
+  alignment: "left" | "center" | "right";
 };
 
 const parseCssColor = (value: string): [number, number, number] => {
@@ -825,14 +871,30 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
               .map(({ character }) => character)
               .join("")
               .replace(/\s+/g, " ");
+            const alignment = centeredSignatureLine
+              ? "center"
+              : style.textAlign === "right" || style.textAlign === "end"
+                ? "right"
+                : style.textAlign === "center"
+                  ? "center"
+                  : "left";
+            const firstCharacterRect = visibleCharacters[0].rect;
+            const lastCharacterRect =
+              visibleCharacters[visibleCharacters.length - 1].rect;
+            const textAnchor = centeredSignatureLine
+              ? centeredSignatureLine.getBoundingClientRect().left -
+                rootRect.left +
+                centeredSignatureLine.getBoundingClientRect().width / 2
+              : alignment === "right"
+                ? lastCharacterRect.right - rootRect.left
+                : alignment === "center"
+                  ? (firstCharacterRect.left + lastCharacterRect.right) / 2 -
+                    rootRect.left
+                  : firstCharacterRect.left - rootRect.left;
 
             fragments.push({
               text: applyTextTransform(normalizedText, style.textTransform),
-              left: centeredSignatureLine
-                ? centeredSignatureLine.getBoundingClientRect().left -
-                  rootRect.left +
-                  centeredSignatureLine.getBoundingClientRect().width / 2
-                : visibleCharacters[0].rect.left - rootRect.left,
+              left: textAnchor,
               top: lineTop - rootRect.top,
               height: lineBottom - lineTop,
               baseline: lineTop - rootRect.top + (lineBottom - lineTop) * 0.8,
@@ -840,7 +902,7 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
               fontWeight: Number.parseInt(style.fontWeight, 10) || 400,
               isItalic: style.fontStyle === "italic",
               color: parseCssColor(style.color),
-              alignment: centeredSignatureLine ? "center" : "left",
+              alignment,
             });
           }
 
@@ -907,12 +969,24 @@ const createPaginatedQuotationPdf = async () => {
   ]);
   await document.fonts?.ready;
 
+  const lilisSignaturePdfSource = await createSaturatedImageDataUrl(
+    offerElement.querySelector<HTMLImageElement>(".sig-image-lilis"),
+    0.7,
+  );
+
   const letterheadRect = letterheadElement.getBoundingClientRect();
   const contentRect = contentElement.getBoundingClientRect();
   const letterheadTextFragments = extractPdfTextFragments(letterheadElement);
   const contentTextFragments = extractPdfTextFragments(contentElement);
 
   const preparePrintClone = (clonedDocument: Document) => {
+    const clonedLilisSignature =
+      clonedDocument.querySelector<HTMLImageElement>(".sig-image-lilis");
+    if (clonedLilisSignature && lilisSignaturePdfSource) {
+      clonedLilisSignature.src = lilisSignaturePdfSource;
+      clonedLilisSignature.style.filter = "none";
+    }
+
     // The live document uses the same capture class, so these display changes
     // stay aligned with the positions used by the pagination calculation.
     clonedDocument.querySelectorAll(".no-print, .drag-icon").forEach((element) => {
@@ -1692,14 +1766,18 @@ const handleSavePdf = async () => {
   object-fit: contain;
 }
 
-.sig-image-lilis {
+.sig-image-stamped {
   max-height: 118px;
   max-width: 150px;
   object-fit: contain;
 }
 
-.signatures-wrapper.is-lilis .sig-img-container,
-.signatures-wrapper.is-lilis .sig-placeholder {
+.sig-image-lilis {
+  filter: saturate(70%);
+}
+
+.signatures-wrapper.has-stamped-signature .sig-img-container,
+.signatures-wrapper.has-stamped-signature .sig-placeholder {
   height: 120px;
 }
 

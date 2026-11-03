@@ -424,7 +424,7 @@
             <p class="sig-sub">PT. DUTA RAYA MARINE</p>
             <div class="sig-img-container">
               <img src="/ttd_ridwan.png" v-if="purchaseorder?.sign_po_by == 'Muhammad Ridwan'" alt="Signature" class="sig-image" />
-              <img src="/ttd_seilla.png" v-if="purchaseorder?.sign_po_by == 'Seilla Maryana'" alt="Signature" class="sig-image" />
+              <img src="/ttd_seilla_hitam.png" v-if="purchaseorder?.sign_po_by == 'Seilla Maryana'" alt="Signature" class="sig-image" />
               <img src="/ttd_leo.png" v-if="purchaseorder?.sign_po_by == 'Leo Adiatmaja Sembiring'" alt="Signature" class="sig-image" />
             </div>
             <p class="sig-person-name" v-if="purchaseorder?.sign_po_by == 'Muhammad Ridwan'">Muhammad Ridwan</p>

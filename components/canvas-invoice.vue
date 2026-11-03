@@ -406,8 +406,12 @@
               v-if="signatureImage"
               :src="signatureImage"
               :alt="`Tanda tangan ${signatureName}`"
-              :width="invoiceDetail.sign_by === 'Lilis' ? 210 : 150"
-              :class="{ 'ml-2': invoiceDetail.sign_by !== 'Seilla Maryana' }"
+              :width="usesStampedSignature ? 210 : 150"
+              :class="{
+                'ml-2': true,
+                'signature-image-stamped': usesStampedSignature,
+                'signature-image-lilis': invoiceDetail.sign_by === 'Lilis',
+              }"
             />
             <div
               v-else
@@ -664,7 +668,7 @@ const bankAccount = computed(() => {
 
 const signatureImage = computed(() => {
   const images: Record<string, string> = {
-    "Seilla Maryana": "/ttd_seilla.png",
+    "Seilla Maryana": "/ttd_seilla_hitam.png",
     "Leo Adiatmaja Sembiring": "/ttd_leo.png",
     "Muhammad Ridwan": "/ttd_ridwan.png",
     "Lilis": "/ttd_lilis_hitam.png",
@@ -672,6 +676,51 @@ const signatureImage = computed(() => {
   return images[props.invoiceDetail.sign_by || ""] || "";
 });
 const signatureName = computed(() => props.invoiceDetail.sign_by || "Lilis");
+const usesStampedSignature = computed(() =>
+  ["Seilla Maryana", "Lilis"].includes(props.invoiceDetail.sign_by || ""),
+);
+
+const createSaturatedImageDataUrl = async (
+  image: HTMLImageElement | null,
+  saturation: number,
+): Promise<string | null> => {
+  if (!image) return null;
+
+  if (!image.complete || !image.naturalWidth) {
+    await new Promise<void>((resolve, reject) => {
+      image.addEventListener("load", () => resolve(), { once: true });
+      image.addEventListener("error", () => reject(), { once: true });
+    });
+  }
+
+  await image.decode?.().catch(() => undefined);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+
+  context.drawImage(image, 0, 0);
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  const saturationLevel = Math.max(0, saturation);
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const red = pixels[index];
+    const green = pixels[index + 1];
+    const blue = pixels[index + 2];
+    const luminance = red * 0.213 + green * 0.715 + blue * 0.072;
+
+    pixels[index] = luminance + (red - luminance) * saturationLevel;
+    pixels[index + 1] =
+      luminance + (green - luminance) * saturationLevel;
+    pixels[index + 2] = luminance + (blue - luminance) * saturationLevel;
+  }
+
+  context.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+};
 
 function blurEditableDisplay(event: KeyboardEvent) {
   (event.currentTarget as HTMLElement | null)?.blur();
@@ -820,6 +869,13 @@ const handleSavePdf = async () => {
       }),
     );
 
+    const lilisSignaturePdfSource = await createSaturatedImageDataUrl(
+      targetElement.querySelector<HTMLImageElement>(
+        ".signature-image-lilis img",
+      ),
+      0.7,
+    );
+
     const targetRect = targetElement.getBoundingClientRect();
     const isSmallViewport = window.matchMedia("(max-width: 600px)").matches;
     const requestedScale = isSmallViewport ? 3 : 4;
@@ -835,6 +891,18 @@ const handleSavePdf = async () => {
       backgroundColor: "#ffffff",
       logging: false,
       onclone: (_clonedDocument, clonedTarget) => {
+        const clonedLilisSignatureContainer =
+          clonedTarget.querySelector<HTMLElement>(".signature-image-lilis");
+        const clonedLilisSignature =
+          clonedLilisSignatureContainer?.querySelector<HTMLImageElement>("img");
+        if (clonedLilisSignature && lilisSignaturePdfSource) {
+          clonedLilisSignature.removeAttribute("srcset");
+          clonedLilisSignature.src = lilisSignaturePdfSource;
+          if (clonedLilisSignatureContainer) {
+            clonedLilisSignatureContainer.style.filter = "none";
+          }
+        }
+
         clonedTarget.querySelectorAll(".editable-display-value").forEach(
           (element) => {
             const htmlElement = element as HTMLElement;
@@ -1160,6 +1228,10 @@ const handleSavePdf = async () => {
 .signature-name {
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.signature-image-lilis {
+  filter: saturate(70%);
 }
 
 .bank-table {
