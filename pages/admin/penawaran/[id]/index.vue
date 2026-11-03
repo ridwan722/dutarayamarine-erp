@@ -393,17 +393,20 @@ onBeforeUnmount(() => {
             <div class="info-section">
               <!-- PERIHAL -->
               <div class="info-field">
-                <div class="field-label">PERIHAL</div>
+                <div class="field-label">SUBJECT</div>
                 <div class="field-value">
                   {{ detailpenawaran.perihal || "-" }}
                 </div>
               </div>
 
               <div class="info-field">
-                <div class="field-label">CLIENT / PERUSAHAAN</div>
+                <!-- <div class="field-label">CLIENT / PERUSAHAAN</div> -->
                 <div class="field-value strong">
                   {{ detailpenawaran.nama_perusahaan || "-" }}
                 </div>
+                 <span class="text-caption text-grey font-weight-bold">
+                  {{ detailpenawaran.vessel || "-" }}
+                </span>
               </div>
             </div>
 

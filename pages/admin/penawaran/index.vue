@@ -492,7 +492,11 @@
                       v-for="persentase in [10, 20, 30]"
                       :key="persentase"
                       type="button"
+                      :class="{
+                        'is-active': isMarkupActive(item, persentase),
+                      }"
                       :disabled="!Number(item.harga_hpp)"
+                      :aria-pressed="isMarkupActive(item, persentase)"
                       @click="terapkanMarkup(item, persentase)"
                     >
                       +{{ persentase }}%
@@ -524,6 +528,8 @@
                   v-model="item.amount"
                   :label="`Unit Price (${currencyLabel(newPenawaran.currency)})`"
                   placeholder="0"
+                  :allow-decimal="newPenawaran.currency !== 'IDR'"
+                  :step="newPenawaran.currency === 'IDR' ? 1 : 0.01"
                 />
                 <a-text-field-new
                   :model-value="
@@ -2209,6 +2215,18 @@ function terapkanMarkup(
   item.amount = hargaHpp * (1 + persentase / 100);
 }
 
+function isMarkupActive(
+  item: { harga_hpp?: number; amount: number },
+  persentase: number,
+) {
+  const hargaHpp = Number(item.harga_hpp) || 0;
+  const amount = Number(item.amount) || 0;
+  if (hargaHpp <= 0 || amount <= 0) return false;
+
+  const expectedAmount = hargaHpp * (1 + persentase / 100);
+  return Math.abs(amount - expectedAmount) < 0.000001;
+}
+
 function customMarkupPercentage(
   item: penawaranM["penawaran_item"][number],
 ) {
@@ -3380,6 +3398,19 @@ async function refreshData() {
   color: #155e3a;
   background: #e6f5ec;
   border-color: #81bf98;
+}
+
+.quotation-markup-actions > button.is-active {
+  color: #ffffff;
+  background: #21764b;
+  border-color: #21764b;
+  box-shadow: 0 0 0 2px rgba(33, 118, 75, 0.14);
+}
+
+.quotation-markup-actions > button.is-active:hover:not(:disabled) {
+  color: #ffffff;
+  background: #155e3a;
+  border-color: #155e3a;
 }
 
 .quotation-markup-actions button:focus-visible,
