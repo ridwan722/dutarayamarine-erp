@@ -1231,7 +1231,7 @@ const handleSavePdf = async () => {
 }
 
 .signature-image-lilis {
-  filter: saturate(70%);
+  filter: saturate(60%);
 }
 
 .bank-table {

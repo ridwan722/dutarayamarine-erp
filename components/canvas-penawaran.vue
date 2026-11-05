@@ -1773,7 +1773,7 @@ const handleSavePdf = async () => {
 }
 
 .sig-image-lilis {
-  filter: saturate(70%);
+  filter: saturate(60%);
 }
 
 .signatures-wrapper.has-stamped-signature .sig-img-container,
