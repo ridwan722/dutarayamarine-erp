@@ -54,11 +54,11 @@
           class="mb-2"
         ></a-date-picker-new>
         <a-select-new
-        :items="['Leo', 'Seilla']"
+        :items="['Leo','Seilla','Ridwan']"
             v-model="form.dikeluarkan_oleh"
             label="Dikeluarkan Oleh"
             :disabled="saving"
-            placeholder="nama"
+
             class="my-2"
           />
         <a-textarea-new
@@ -298,7 +298,7 @@ const emptyForm = (): PengeluaranForm => ({
   keterangan: "",
   nominal: 0,
   satuan: "Pcs",
-  dikeluarkan_oleh: "Leo",
+  dikeluarkan_oleh: "",
   qty: 1,
   nama_vendor: "-",
   doc_pengeluaran: [],

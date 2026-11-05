@@ -3,6 +3,7 @@ import type { invoiceM } from "~/types/invoice";
 
 const props = defineProps<{
   invoiceDetail: invoiceM;
+  actionsTarget?: HTMLElement | null;
 }>();
 
 const printArea = ref<HTMLElement | null>(null);
@@ -894,36 +895,44 @@ const handleSavePdf = async () => {
         </div>
       </v-card>
     </div>
-    <div class="no-print action-bar d-flex justify-center gap-2 mt-4">
-
-       <v-btn
-        color="primary"
-        variant="elevated"
-        prepend-icon="mdi-printer"
-
-        @click="printDeliveryOrder"
+    <Teleport
+      :to="actionsTarget || 'body'"
+      :disabled="!actionsTarget"
+    >
+      <div
+        class="no-print action-bar d-flex flex-wrap justify-center gap-2 mt-4"
       >
-        Cetak Delivery Order
-      </v-btn>
+        <v-btn
+          class="delivery-order-action"
+          color="primary"
+          variant="elevated"
+          prepend-icon="mdi-printer"
+          @click="printDeliveryOrder"
+        >
+          Cetak Delivery Order
+        </v-btn>
 
-       <v-btn
-        color="red"
-        variant="elevated"
-        prepend-icon="mdi-file-pdf-box"
-        :loading="isSavingPdf"
-        class="ml-2"
-        @click="handleSavePdf"
-      >
-        Save PDF Delivery Order
-      </v-btn>
-    </div>
+        <v-btn
+          class="delivery-order-action ml-2"
+          color="red"
+          variant="elevated"
+          prepend-icon="mdi-file-pdf-box"
+          :loading="isSavingPdf"
+          @click="handleSavePdf"
+        >
+          Save PDF Delivery Order
+        </v-btn>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
 .delivery-order-wrapper {
+  box-sizing: border-box;
   width: 100%;
-  margin-top: 20px;
+  padding-top: 20px;
+  padding-bottom: 12px;
 }
 
 :global(.penawaran-content.delivery-order-pdf-unscaled) {
@@ -935,6 +944,26 @@ const handleSavePdf = async () => {
   max-width: 850px;
 
   margin: 0 auto;
+}
+
+@media screen and (max-width: 600px) {
+  .action-bar {
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    padding: 0 8px;
+  }
+
+  .delivery-order-action {
+    min-width: 0 !important;
+    height: 26px !important;
+    padding: 0 8px !important;
+    font-size: 9px !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  .delivery-order-action :deep(.v-icon) {
+    font-size: 13px !important;
+  }
 }
 
 .invoice-paper-wrapper {

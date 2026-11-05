@@ -17,50 +17,64 @@
     <!-- // DIALOG SELESAI \\ -->
     <v-dialog
       v-model="data.dialogSelesai"
-      max-width="700"
+      max-width="520"
       scrollable
       :persistent="readingBuktiBayar"
     >
-      <v-card class="finish-invoice-dialog" rounded="xl">
-        <!-- HEADER -->
+      <v-card class="finish-invoice-dialog" rounded="lg">
         <div class="finish-dialog-header">
-          <div class="finish-header-icon">
-            <v-icon icon="mdi-check-circle-outline" size="28" />
-          </div>
+          <div class="finish-dialog-heading">
+            <div class="finish-header-icon">
+              <v-icon icon="mdi-check-circle-outline" size="20" />
+            </div>
 
-          <div>
-            <div class="finish-header-title">Selesaikan Invoice</div>
-            <div class="finish-header-subtitle">
-              Lengkapi tanggal pembayaran dan bukti pembayaran
+            <div>
+              <div class="finish-header-title">Selesaikan Invoice</div>
+              <div class="finish-header-subtitle">
+                Catat pembayaran dan lampirkan bukti transaksi.
+              </div>
             </div>
           </div>
+
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            aria-label="Tutup dialog"
+            :disabled="readingBuktiBayar || savingInvoice"
+            @click="data.dialogSelesai = false"
+          />
         </div>
 
         <v-divider />
 
-        <v-card-text class="pa-6">
-          <!-- TANGGAL PEMBAYARAN -->
-          <div class="form-section">
-            <div class="section-title">
-              <v-icon
-                icon="mdi-calendar-check-outline"
-                size="19"
-                class="mr-2"
-              />
-              Informasi Pembayaran
-            </div>
+        <v-card-text class="finish-dialog-body">
+          <div class="finish-form-section">
+            <!-- <div class="finish-section-heading">
+              <div>
+                <div class="finish-section-title">Tanggal pembayaran</div>
+                <div class="finish-section-description">
+                  Tanggal dana diterima untuk invoice ini.
+                </div>
+              </div>
+              <span class="finish-required-label">Wajib</span>
+            </div> -->
 
             <a-date-picker-new
-              label="Tanggal Dibayar"
+              label="Tanggal pembayaran *"
               v-model="invoiceDetail.tanggal_bayar"
             />
           </div>
 
-          <!-- UPLOAD BUKTI BAYAR -->
-          <div class="form-section mt-6">
-            <div class="section-title">
-              <v-icon icon="mdi-file-document-outline" size="19" class="mr-2" />
-              Bukti Pembayaran
+          <div class="finish-form-section">
+            <div class="finish-section-heading">
+              <div>
+                <div class="finish-section-title">Bukti pembayaran</div>
+                <div class="finish-section-description">
+                  Wajib lampirkan dokumen bukti bayar.
+                </div>
+              </div>
+              <span class="finish-required-label">Wajib</span>
             </div>
 
             <div class="upload-card">
@@ -69,27 +83,27 @@
                   id="upload-po"
                   type="file"
                   multiple
+                  required
+                  aria-required="true"
                   class="po-file-input"
                   :disabled="readingBuktiBayar"
                   @change="addfile"
                 />
 
                 <div class="upload-icon-wrapper">
-                  <v-icon icon="mdi-cloud-upload-outline" size="30" />
+                  <v-icon icon="mdi-tray-arrow-up" size="20" />
                 </div>
 
                 <div class="upload-content">
-                  <div class="upload-title">Klik untuk memilih file</div>
-
+                  <div class="upload-title">Pilih bukti pembayaran</div>
                   <div class="upload-description">
-                    Upload bukti pembayaran invoice
+                    Klik untuk memilih satu atau beberapa file
                   </div>
-
-                  <div class="upload-limit">Maksimal ukuran file 650 KB</div>
                 </div>
+
+                <div class="upload-limit">Maks. 650 KB</div>
               </label>
 
-              <!-- LOADING -->
               <div v-if="readingBuktiBayar" class="upload-loading">
                 <v-progress-circular
                   indeterminate
@@ -101,10 +115,9 @@
               </div>
             </div>
 
-            <!-- FILE TERPILIH -->
-            <div v-if="poFiles.length" class="selected-files mt-4">
+            <div v-if="poFiles.length" class="selected-files">
               <div class="selected-files-header">
-                <div class="selected-files-title">File Terpilih</div>
+                <div class="selected-files-title">File terpilih</div>
 
                 <div class="file-count">{{ poFiles.length }} file</div>
               </div>
@@ -145,13 +158,13 @@
           </div>
         </v-card-text>
 
-        <!-- FOOTER -->
         <v-divider />
 
         <v-card-actions class="dialog-footer">
           <v-btn
             variant="text"
             color="grey-darken-1"
+            size="small"
             :disabled="readingBuktiBayar || savingInvoice"
             @click="data.dialogSelesai = false"
           >
@@ -161,13 +174,14 @@
           <v-btn
             color="primary"
             variant="flat"
-            rounded="lg"
+            rounded="md"
+            size="small"
             prepend-icon="mdi-check-circle-outline"
             :loading="savingInvoice"
             :disabled="readingBuktiBayar || savingInvoice"
             @click="ubahStatusSelesai"
           >
-            Simpan Bukti Bayar
+            Selesaikan Invoice
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -519,7 +533,7 @@
                 <v-icon icon="mdi-open-in-new" size="13" />
               </a>
             </div>
-            <div v-else class="invoice-file-empty">Belum ada dokumen</div>
+            <div v-else class="invoice-file-empty"><v-icon>mdi-cancel</v-icon> Belum ada dokumen</div>
           </div>
         </article>
 
@@ -545,7 +559,7 @@
           </v-btn>
 
           <div class="invoice-file-group invoice-file-group--do">
-            <span class="invoice-file-label">Dokumen tersimpan</span>
+            <!-- <span class="invoice-file-label">Dokumen tersimpan</span> -->
             <div
               v-if="invoiceDetail.doc_do_wr?.length"
               class="invoice-file-list"
@@ -564,7 +578,7 @@
                 <v-icon icon="mdi-open-in-new" size="13" />
               </a>
             </div>
-            <div v-else class="invoice-file-empty">Belum ada dokumen</div>
+            <div v-else class="invoice-file-empty"><v-icon>mdi-cancel</v-icon> Belum ada dokumen</div>
           </div>
         </article>
       </div>
@@ -649,9 +663,13 @@
           transform: isMobile ? `scale(${deliveryOrderScale})` : undefined,
         }"
       >
-        <DeliveryOrder :invoice-detail="invoiceDetail" />
+        <DeliveryOrder
+          :invoice-detail="invoiceDetail"
+          :actions-target="deliveryOrderActionsHost"
+        />
       </div>
     </div>
+    <div ref="deliveryOrderActionsHost"></div>
     <!-- <div class="preview-container d-flex justify-center mt-8">
       <work-complete-report :invoice-detail="invoiceDetail" />
     </div> -->
@@ -703,6 +721,7 @@ const invoiceScale = ref(1);
 const invoiceHeight = ref(0);
 const deliveryOrderWrapper = ref<HTMLElement | null>(null);
 const deliveryOrderContent = ref<HTMLElement | null>(null);
+const deliveryOrderActionsHost = ref<HTMLElement | null>(null);
 const deliveryOrderScale = ref(1);
 const deliveryOrderHeight = ref(0);
 
@@ -1208,17 +1227,28 @@ async function simpanDoWr() {
 
 async function ubahStatusSelesai() {
   if (savingInvoice.value) return;
-  if (!invoiceDetail.value.tanggal_bayar) {
-    notificationStore.showError("Tanggal di Bayar wajib diisi!");
+
+  const hasPaymentDate = Boolean(invoiceDetail.value.tanggal_bayar);
+  const hasPaymentProof = poFiles.value.length > 0;
+
+  if (!hasPaymentDate && !hasPaymentProof) {
+    notificationStore.showError(
+      "Tanggal pembayaran dan bukti pembayaran wajib diisi.",
+    );
     return;
   }
 
-  const confirmed = await confirmationDialog.value?.show(
-    "Konfirmasi Selesai",
-    "Anda yakin ingin mengubah status invoice menjadi Selesai?",
-  );
+  if (!hasPaymentDate) {
+    notificationStore.showError("Tanggal pembayaran wajib diisi.");
+    return;
+  }
 
-  if (!confirmed) return;
+  if (!hasPaymentProof) {
+    notificationStore.showError("bukti bayar wajib dilampirkan min 1");
+    return;
+  }
+
+
 
   savingInvoice.value = true;
   readingBuktiBayar.value = true;
@@ -2283,80 +2313,133 @@ async function ubahStatusSelesai() {
 
 .finish-invoice-dialog {
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #dfe5ec;
+  background: #ffffff;
 }
 
-/* HEADER */
 .finish-dialog-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 22px 24px;
-  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+}
+
+.finish-dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
 }
 
 .finish-header-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #e8f5e9;
-  color: #2e7d32;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cce8d5;
+  border-radius: 8px;
+  background: #f0faf3;
+  color: #237a3b;
 }
 
 .finish-header-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1f2937;
-  line-height: 1.3;
+  color: #243648;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
 }
 
 .finish-header-subtitle {
-  margin-top: 3px;
-  font-size: 13px;
-  color: #6b7280;
+  margin-top: 2px;
+  color: #7b8794;
+  font-size: 10px;
+  line-height: 1.45;
 }
 
-/* SECTION */
-.form-section {
-  width: 100%;
+.finish-dialog-body {
+  display: grid;
+  gap: 20px;
+  padding: 18px !important;
+  background: #fbfcfd;
 }
 
-.section-title {
+.finish-form-section {
+  min-width: 0;
+}
+
+.finish-section-heading {
   display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #374151;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 9px;
 }
 
-/* UPLOAD */
+.finish-section-title {
+  color: #34495c;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.finish-section-description {
+  margin-top: 2px;
+  color: #8a96a3;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.finish-required-label,
+.finish-optional-label {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.finish-required-label {
+  background: #eaf2fb;
+  color: #326892;
+}
+
+.finish-optional-label {
+  background: #eef1f4;
+  color: #71808f;
+}
+
 .upload-card {
   width: 100%;
 }
 
 .upload-area {
   position: relative;
-  min-height: 150px;
-  padding: 25px;
-  border: 1.5px dashed #cbd5e1;
-  border-radius: 14px;
-  background: #f8fafc;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  gap: 11px;
+  min-height: 68px;
+  padding: 11px 12px;
+  border: 1px dashed #cbd5df;
+  border-radius: 9px;
+  background: #ffffff;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .upload-area:hover {
-  border-color: #1976d2;
-  background: #f5f9ff;
+  border-color: #6d8ba5;
+  background: #f7fafc;
+}
+
+.upload-area:focus-within {
+  border-color: #3f6f8f;
+  box-shadow: 0 0 0 2px rgb(63 111 143 / 10%);
 }
 
 .po-file-input {
@@ -2369,94 +2452,97 @@ async function ubahStatusSelesai() {
 }
 
 .upload-icon-wrapper {
-  width: 58px;
-  height: 58px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #e3f2fd;
-  color: #1976d2;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #dce5ed;
+  border-radius: 7px;
+  background: #f5f8fa;
+  color: #516b80;
 }
 
 .upload-content {
+  min-width: 0;
+  flex: 1;
   text-align: left;
 }
 
 .upload-title {
-  font-size: 15px;
+  color: #34495c;
+  font-size: 11px;
   font-weight: 700;
-  color: #1f2937;
+  line-height: 1.35;
 }
 
 .upload-description {
-  margin-top: 3px;
-  font-size: 13px;
-  color: #6b7280;
+  margin-top: 2px;
+  color: #8a96a3;
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .upload-limit {
-  margin-top: 7px;
-  font-size: 11px;
-  color: #9ca3af;
+  flex: 0 0 auto;
+  color: #8492a0;
+  font-size: 9px;
+  white-space: nowrap;
 }
 
-/* LOADING */
 .upload-loading {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 9px;
-  background: #f8fafc;
-  color: #6b7280;
-  font-size: 13px;
+  margin-top: 7px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: #f1f5f8;
+  color: #667789;
+  font-size: 10px;
 }
 
-/* SELECTED FILE */
 .selected-files {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
   overflow: hidden;
+  margin-top: 10px;
+  border: 1px solid #e1e7ed;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .selected-files-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 11px 14px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e7ebef;
+  background: #f7f9fb;
 }
 
 .selected-files-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #374151;
+  color: #526171;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .file-count {
-  padding: 3px 9px;
-  border-radius: 20px;
-  background: #e3f2fd;
-  color: #1976d2;
-  font-size: 11px;
-  font-weight: 600;
+  color: #71808f;
+  font-size: 9px;
+  font-weight: 650;
 }
 
 .po-file-list {
-  padding: 6px;
+  padding: 4px;
 }
 
 .po-file-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 9px;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 6px;
   transition: background 0.15s ease;
 }
 
@@ -2467,20 +2553,19 @@ async function ubahStatusSelesai() {
 .file-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 .file-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ecfdf5;
-  color: #059669;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #edf7f0;
+  color: #33804a;
 }
 
 .file-info {
@@ -2488,34 +2573,34 @@ async function ubahStatusSelesai() {
 }
 
 .po-file-name {
-  max-width: 480px;
+  max-width: 360px;
   overflow: hidden;
+  color: #3d4f60;
+  font-size: 10px;
+  font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
 }
 
 .file-size {
-  margin-top: 2px;
-  font-size: 11px;
-  color: #9ca3af;
+  margin-top: 1px;
+  color: #95a0ab;
+  font-size: 9px;
 }
 
 .po-file-remove {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
   background: transparent;
   color: #9ca3af;
   cursor: pointer;
   transition: all 0.15s ease;
-  flex-shrink: 0;
 }
 
 .po-file-remove:hover {
@@ -2523,12 +2608,11 @@ async function ubahStatusSelesai() {
   color: #dc2626;
 }
 
-/* FOOTER */
 .dialog-footer {
-  min-height: 72px;
-  padding: 14px 24px;
-  background: #fafafa;
-  gap: 8px;
+  min-height: 56px;
+  padding: 10px 14px !important;
+  background: #ffffff;
+  gap: 4px;
 }
 
 /* MOBILE */
@@ -2546,33 +2630,33 @@ async function ubahStatusSelesai() {
   }
 
   .finish-dialog-header {
-    padding: 18px;
+    padding: 14px 15px;
   }
 
   .finish-header-title {
-    font-size: 16px;
+    font-size: 13px;
   }
 
   .finish-header-subtitle {
-    font-size: 12px;
+    font-size: 9px;
+  }
+
+  .finish-dialog-body {
+    gap: 17px;
+    padding: 15px !important;
   }
 
   .upload-area {
-    flex-direction: column;
-    text-align: center;
-    padding: 22px 15px;
-  }
-
-  .upload-content {
-    text-align: center;
+    min-height: 62px;
+    padding: 9px 10px;
   }
 
   .dialog-footer {
-    padding: 12px 16px;
+    padding: 9px 12px !important;
   }
 
   .po-file-name {
-    max-width: 250px;
+    max-width: 230px;
   }
 }
 
