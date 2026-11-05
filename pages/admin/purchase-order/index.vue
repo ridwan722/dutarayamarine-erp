@@ -135,20 +135,21 @@ onMounted(() => loadPurchaseOrders());
 </script>
 
 <template>
-  <v-btn
-    variant="text"
-    color="grey-darken-3"
-    prepend-icon="mdi-arrow-left"
-    class="text-capitalize font-weight-bold mb-2"
-    @click="$router.go(-1)"
-  >
-    Kembali
-  </v-btn>
-
   <div class="po-page-heading">
-    <div>
-      <h1>Purchase Order</h1>
-      <p>Kelola daftar purchase order vendor dari seluruh quotation.</p>
+    <div class="po-page-title">
+      <v-btn
+        icon="mdi-arrow-left"
+        variant="text"
+        color="grey-darken-3"
+        size="small"
+        class="po-back-btn"
+        aria-label="Kembali"
+        @click="$router.go(-1)"
+      />
+      <div>
+        <h3>Purchase Order</h3>
+        <p>Kelola daftar purchase order vendor dari seluruh quotation.</p>
+      </div>
     </div>
     <v-btn
       to="/admin/penawaran"
@@ -331,10 +332,33 @@ onMounted(() => loadPurchaseOrders());
   margin-bottom: 16px;
 }
 
-.po-page-heading h1 {
+.po-page-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.po-page-title > div {
+  min-width: 0;
+}
+
+.po-back-btn {
+  flex: 0 0 34px;
+  width: 34px !important;
+  height: 34px !important;
+  color: #596675 !important;
+  border-radius: 5px !important;
+}
+
+.po-back-btn:hover {
+  background: #eef2f5 !important;
+}
+
+.po-page-heading h3 {
   margin: 0;
   color: #17384b;
-  font-size: 27px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.04em;
 }

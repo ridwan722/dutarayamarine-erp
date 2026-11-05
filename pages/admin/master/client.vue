@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import moment from "moment";
 import type { ConfirmationDialog } from "#components";
 import type { customerM } from "~/types/customerModel";
@@ -43,6 +43,57 @@ function emptyCustomer(): customerM {
 }
 
 const newCustomer = ref<customerM>(emptyCustomer());
+
+type CustomerSuggestionField =
+  | "nama"
+  | "pic"
+  | "vessel"
+  | "no_telp"
+  | "email"
+  | "alamat";
+
+function saranFieldCustomer(
+  field: CustomerSuggestionField,
+  value: string | null | undefined,
+) {
+  if (data.customerAddEdit !== "add") return [];
+
+  const query = value?.trim().toLocaleLowerCase("id-ID") ?? "";
+  if (!query) return [];
+
+  return [
+    ...new Set(
+      customerStore.getDataCustomer
+        .map((customer) => customer[field]?.trim())
+        .filter(
+          (suggestion): suggestion is string =>
+            Boolean(suggestion) &&
+            suggestion.toLocaleLowerCase("id-ID").includes(query) &&
+            suggestion.toLocaleLowerCase("id-ID") !== query,
+        ),
+    ),
+  ];
+}
+
+watch(
+  () => newCustomer.value.pic,
+  (pic) => {
+    if (data.customerAddEdit !== "add") return;
+
+    const query = pic?.trim().toLocaleLowerCase("id-ID");
+    if (!query) return;
+
+    const customer = customerStore.getDataCustomer.find(
+      (item) => item.pic?.trim().toLocaleLowerCase("id-ID") === query,
+    );
+    if (!customer) return;
+
+    newCustomer.value.no_telp = customer.no_telp || "";
+    newCustomer.value.email = customer.email || "";
+    newCustomer.value.alamat = customer.alamat || "";
+  },
+);
+
 const customers = computed(() => customerStore.getDataCustomer);
 const completeContactCount = computed(
   () => customers.value.filter((customer) => customer.no_telp?.trim() && customer.email?.trim()).length,
@@ -304,23 +355,128 @@ async function hapusCustomer(id: string) {
 
         <div class="client-dialog-body">
           <section class="dialog-section">
-            <div class="dialog-section-heading"><span>01</span><div><h3>Identitas Client</h3><p>Nama perusahaan, PIC, dan vessel yang ditangani.</p></div></div>
+
             <div class="dialog-form-grid">
-              <a-text-field-new v-model="newCustomer.nama" label="Nama Client" placeholder="Contoh: PT Samudra Indonesia" />
-              <a-text-field-new v-model="newCustomer.pic" label="PIC" placeholder="Nama penanggung jawab" />
-              <a-text-field-new v-model="newCustomer.vessel" label="Vessel" placeholder="Nama vessel" class="dialog-field-wide" />
+              <div class="dialog-field-with-suggestions">
+                <a-text-field-new v-model="newCustomer.nama" label="Nama Client" placeholder="Perusahaan" />
+                <div
+                  v-if="saranFieldCustomer('nama', newCustomer.nama).length"
+                  class="customer-field-suggestions"
+                >
+                  <v-chip
+                    v-for="value in saranFieldCustomer('nama', newCustomer.nama)"
+                    :key="value"
+                    size="x-small"
+                    class="customer-suggestion-chip"
+                    @mousedown.prevent
+                    @click="newCustomer.nama = value"
+                  >
+                    {{ value }}
+                  </v-chip>
+                </div>
+              </div>
+
+              <div class="dialog-field-with-suggestions">
+                <a-text-field-new v-model="newCustomer.pic" label="PIC" placeholder="Nama penanggung jawab" />
+                <div
+                  v-if="saranFieldCustomer('pic', newCustomer.pic).length"
+                  class="customer-field-suggestions"
+                >
+                  <v-chip
+                    v-for="value in saranFieldCustomer('pic', newCustomer.pic)"
+                    :key="value"
+                    size="x-small"
+                    class="customer-suggestion-chip"
+                    @mousedown.prevent
+                    @click="newCustomer.pic = value"
+                  >
+                    {{ value }}
+                  </v-chip>
+                </div>
+              </div>
+
+              <div class="dialog-field-with-suggestions dialog-field-wide">
+                <a-text-field-new v-model="newCustomer.vessel" label="Vessel" placeholder="vessel" />
+                <div
+                  v-if="saranFieldCustomer('vessel', newCustomer.vessel).length"
+                  class="customer-field-suggestions"
+                >
+                  <v-chip
+                    v-for="value in saranFieldCustomer('vessel', newCustomer.vessel)"
+                    :key="value"
+                    size="x-small"
+                    class="customer-suggestion-chip"
+                    @mousedown.prevent
+                    @click="newCustomer.vessel = value"
+                  >
+                    {{ value }}
+                  </v-chip>
+                </div>
+              </div>
             </div>
           </section>
           <section class="dialog-section">
-            <div class="dialog-section-heading"><span>02</span><div><h3>Informasi Kontak</h3><p>Nomor telepon dan email yang dapat dihubungi.</p></div></div>
+
             <div class="dialog-form-grid">
-              <a-text-field-new v-model="newCustomer.no_telp" label="Nomor Telepon" placeholder="Contoh: +62 812 3456 7890" />
-              <a-text-field-new v-model="newCustomer.email" label="Email" placeholder="client@perusahaan.com" />
+              <div class="dialog-field-with-suggestions">
+                <a-text-field-new v-model="newCustomer.no_telp" label="Nomor Telepon" placeholder="Contoh: +62 812 3456 7890" />
+                <div
+                  v-if="saranFieldCustomer('no_telp', newCustomer.no_telp).length"
+                  class="customer-field-suggestions"
+                >
+                  <v-chip
+                    v-for="value in saranFieldCustomer('no_telp', newCustomer.no_telp)"
+                    :key="value"
+                    size="x-small"
+                    class="customer-suggestion-chip"
+                    @mousedown.prevent
+                    @click="newCustomer.no_telp = value"
+                  >
+                    {{ value }}
+                  </v-chip>
+                </div>
+              </div>
+
+              <div class="dialog-field-with-suggestions">
+                <a-text-field-new v-model="newCustomer.email" label="Email" placeholder="client@perusahaan.com" />
+                <div
+                  v-if="saranFieldCustomer('email', newCustomer.email).length"
+                  class="customer-field-suggestions"
+                >
+                  <v-chip
+                    v-for="value in saranFieldCustomer('email', newCustomer.email)"
+                    :key="value"
+                    size="x-small"
+                    class="customer-suggestion-chip"
+                    @mousedown.prevent
+                    @click="newCustomer.email = value"
+                  >
+                    {{ value }}
+                  </v-chip>
+                </div>
+              </div>
             </div>
           </section>
           <section class="dialog-section">
-            <div class="dialog-section-heading"><span>03</span><div><h3>Alamat Client</h3><p>Alamat lengkap kantor atau lokasi operasional.</p></div></div>
-            <a-textarea-new v-model="newCustomer.alamat" label="Alamat" placeholder="Tuliskan alamat lengkap client" rows="2" />
+
+            <div class="dialog-field-with-suggestions">
+              <a-textarea-new v-model="newCustomer.alamat" label="Alamat" placeholder="alamat lengkap perusahaan" rows="2" />
+              <div
+                v-if="saranFieldCustomer('alamat', newCustomer.alamat).length"
+                class="customer-field-suggestions"
+              >
+                <v-chip
+                  v-for="value in saranFieldCustomer('alamat', newCustomer.alamat)"
+                  :key="value"
+                  size="x-small"
+                  class="customer-suggestion-chip"
+                  @mousedown.prevent
+                  @click="newCustomer.alamat = value"
+                >
+                  {{ value }}
+                </v-chip>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -440,7 +596,12 @@ async function hapusCustomer(id: string) {
 .dialog-section-heading h3 { margin: 0; color: #33404e; font-size: 11px; line-height: 1.25; }
 .dialog-section-heading p { margin: 2px 0 0; color: #8b959f; font-size: 8px; }
 .dialog-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.dialog-field-with-suggestions { min-width: 0; }
 .dialog-field-wide { grid-column: 1 / -1; }
+.customer-field-suggestions { display: flex; margin-top: 5px; flex-wrap: wrap; gap: 4px; }
+.customer-suggestion-chip { max-width: 100%; color: #647383 !important; font-size: 8px !important; background: #f3f5f7 !important; border: 1px solid #e0e5e9 !important; cursor: pointer; }
+.customer-suggestion-chip:hover { color: #315f8c !important; background: #edf3f8 !important; border-color: #d4e0eb !important; }
+.customer-suggestion-chip :deep(.v-chip__content) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .client-dialog :deep(.input-field) { border-radius: 4px; }
 .client-dialog-footer { display: flex; flex: 0 0 auto; min-height: 56px; padding: 9px 14px; align-items: center; justify-content: space-between; gap: 16px; background: #fff; border-top: 1px solid #dfe4e8; }
 .client-dialog-footer p { margin: 0; color: #7d8893; font-size: 9px; }

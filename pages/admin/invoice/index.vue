@@ -2,14 +2,14 @@
   <ConfirmationDialog ref="confirmationDialog" />
   <div class="invoice-page-topbar">
     <v-btn
-      variant="text"
-      color="grey-darken-3"
-      icon="mdi-arrow-left"
-      @click="$router.go(-1)"
-      class="invoice-back-btn text-capitalize font-weight-bold"
-    >
-
-    </v-btn>
+        icon="mdi-arrow-left"
+        variant="text"
+        color="grey-darken-3"
+        size="small"
+        class="invoice-back-btn"
+        aria-label="Kembali"
+        @click="$router.go(-1)"
+      />
 
     <div class="invoice-page-heading">
       <div>

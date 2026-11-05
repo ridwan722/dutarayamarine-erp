@@ -174,17 +174,6 @@
     </v-card>
   </v-dialog>
 
-  <!-- Tombol Kembali -->
-  <v-btn
-    variant="text"
-    color="grey-darken-3"
-    prepend-icon="mdi-arrow-left"
-    @click="$router.go(-1)"
-    class="text-capitalize font-weight-bold mb-2"
-  >
-    Kembali
-  </v-btn>
-
   <!-- Dialog Tambah / Edit Quotation -->
   <v-dialog
     v-model="data.dialogTambahPenawaran"
@@ -690,7 +679,7 @@
           <div class="quotation-section-header quotation-terms-header">
             <div>
               <span class="quotation-section-index">05</span>
-              <h3>Terms &amp; Conditions</h3>
+              <h3>T&amp;C</h3>
             </div>
             <span class="quotation-selected-count">
               {{ (newPenawaran.termCondition ?? []).length }} selected
@@ -725,63 +714,129 @@
               :loading="savingTermCondition"
               @click="tambahTermConditionDariPencarian"
             >
-              {{ existingTermCondition ? "Available" : "Add master T&C" }}
+              {{
+                existingTermCondition
+                  ? searchedTermConditionIsSelected
+                    ? "Selected"
+                    : "Available"
+                  : "Add master T&C"
+              }}
             </v-btn>
           </div>
 
-          <div class="quotation-terms-table-wrap">
-            <table class="quotation-terms-table">
-              <thead>
-                <tr>
-                  <th scope="col" aria-label="Ubah urutan"></th>
-                  <th scope="col">No.</th>
-                  <th scope="col">Select</th>
-                  <th scope="col">Description</th>
-                </tr>
-              </thead>
-              <tbody ref="termConditionsSortableContainer">
-                <tr
-                  v-for="(item, index) in sortedTermConditions"
-                  :key="termConditionKey(item)"
-                  class="quotation-term-row"
-                >
-                  <td>
-                    <button
-                      type="button"
-                      class="quotation-term-drag-handle"
-                      :aria-label="`Pindahkan term ${index + 1}`"
-                      title="Tarik untuk mengubah urutan term"
-                      @keydown.up.prevent="moveTermCondition(index, index - 1)"
-                      @keydown.down.prevent="moveTermCondition(index, index + 1)"
-                    >
-                      <v-icon icon="mdi-drag-vertical" size="17" />
-                    </button>
-                  </td>
-                  <td>{{ index + 1 }}</td>
-                  <td>
-                    <v-checkbox
-                      v-model="newPenawaran.termCondition"
-                      :value="{ id: item.id ?? '', nama_term: item.nama_term }"
-                      :value-comparator="sameTermCondition"
-                      density="compact"
-                      hide-details
-                      color="primary"
-                      class="quotation-term-checkbox"
-                      @update:model-value="scheduleSelectedTermOrderSync"
-                    />
-                  </td>
-                  <td>{{ item.nama_term }}</td>
-                </tr>
-                <tr v-if="!sortedTermConditions.length">
-                  <td colspan="4" class="quotation-terms-empty">
-                    <strong>Term tidak ditemukan.</strong>
-                    <span v-if="canAddTermCondition">
-                      Klik “Tambah T&amp;C” untuk menyimpannya ke master.
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="quotation-terms-lists">
+            <div class="quotation-terms-table-wrap">
+              <table class="quotation-terms-table">
+                <caption>
+                  Dipilih
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col" aria-label="Ubah urutan"></th>
+                    <th scope="col">No.</th>
+                    <th scope="col">Selected</th>
+                    <th scope="col">Description</th>
+                  </tr>
+                </thead>
+                <tbody ref="termConditionsSortableContainer">
+                  <tr
+                    v-for="(item, index) in selectedTermConditions"
+                    :key="termConditionKey(item)"
+                    class="quotation-term-row"
+                  >
+                    <td>
+                      <button
+                        type="button"
+                        class="quotation-term-drag-handle"
+                        :aria-label="`Pindahkan term ${index + 1}`"
+                        title="Tarik untuk mengubah urutan term"
+                        @keydown.up.prevent="moveTermCondition(index, index - 1)"
+                        @keydown.down.prevent="
+                          moveTermCondition(index, index + 1)
+                        "
+                      >
+                        <v-icon icon="mdi-drag-vertical" size="17" />
+                      </button>
+                    </td>
+                    <td>{{ index + 1 }}</td>
+                    <td>
+                      <v-checkbox
+                        v-model="newPenawaran.termCondition"
+                        :value="item"
+                        :value-comparator="sameTermCondition"
+                        density="compact"
+                        hide-details
+                        color="primary"
+                        class="quotation-term-checkbox"
+                        @update:model-value="scheduleTermConditionSelectionSync"
+                      />
+                    </td>
+                    <td>{{ item.nama_term }}</td>
+                  </tr>
+                  <tr v-if="!selectedTermConditions.length">
+                    <td colspan="4" class="quotation-terms-empty">
+                      <strong>Belum ada T&amp;C yang dipilih.</strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="quotation-terms-table-wrap">
+              <table
+                class="quotation-terms-table quotation-terms-table--available"
+              >
+                <caption>
+                  Pilihan
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">No.</th>
+                    <th scope="col">Select</th>
+                    <th scope="col">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(item, index) in availableTermConditions"
+                    :key="termConditionKey(item)"
+                    class="quotation-term-row"
+                  >
+                    <td>{{ index + 1 }}</td>
+                    <td>
+                      <v-checkbox
+                        v-model="newPenawaran.termCondition"
+                        :value="{
+                          id: item.id ?? '',
+                          nama_term: item.nama_term,
+                        }"
+                        :value-comparator="sameTermCondition"
+                        density="compact"
+                        hide-details
+                        color="primary"
+                        class="quotation-term-checkbox"
+                        @update:model-value="scheduleTermConditionSelectionSync"
+                      />
+                    </td>
+                    <td>{{ item.nama_term }}</td>
+                  </tr>
+                  <tr v-if="!availableTermConditions.length">
+                    <td colspan="3" class="quotation-terms-empty">
+                      <strong>
+                        {{
+                          termConditionSearch
+                            ? "Term tidak ditemukan."
+                            : "Semua T&C sudah dipilih."
+                        }}
+                      </strong>
+                      <span v-if="canAddTermCondition">
+                        Klik “Add master T&amp;C” untuk menyimpannya ke master.
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       </v-card-text>
@@ -822,9 +877,20 @@
 
   <!-- Header & Top Action -->
   <div class="quotation-page-heading">
-    <div>
-      <h1>Quotation</h1>
-      <p>Manage quotation, client, status, and transaction value.</p>
+    <div class="quotation-page-title">
+      <v-btn
+        icon="mdi-arrow-left"
+        variant="text"
+        color="grey-darken-3"
+        size="small"
+        class="quotation-back-btn"
+        aria-label="Kembali"
+        @click="$router.go(-1)"
+      />
+      <div>
+        <h1>Quotation</h1>
+        <p>Manage quotation, client, status, and transaction value.</p>
+      </div>
     </div>
     <v-btn
       color="primary"
@@ -906,8 +972,7 @@
         <div>
           <span class="quotation-filter-eyebrow">Filter pencarian</span>
           <p>
-            Filter dapat digabungkan dan akan tetap tersimpan saat membuka
-            detail quotation.
+            Filter dapat digabungkan dan akan tetap tersimpan.
           </p>
         </div>
       </div>
@@ -1700,16 +1765,22 @@ function orderTermConditions<T extends TermConditionOrderItem>(terms: T[]) {
   });
 }
 
-const sortedTermConditions = computed(() => {
+const selectedTermConditions = computed(
+  () => newPenawaran.value.termCondition ?? [],
+);
+
+const availableTermConditions = computed(() => {
   const search = normalizeTermCondition(
     termConditionSearch.value,
   ).toLocaleLowerCase("id-ID");
 
   return orderTermConditions(
-    termconditionStore.getDataTermcondition.filter((term) =>
-      normalizeTermCondition(term.nama_term)
-        .toLocaleLowerCase("id-ID")
-        .includes(search),
+    termconditionStore.getDataTermcondition.filter(
+      (term) =>
+        !isTermConditionSelected(term) &&
+        normalizeTermCondition(term.nama_term)
+          .toLocaleLowerCase("id-ID")
+          .includes(search),
     ),
   );
 });
@@ -1768,6 +1839,11 @@ const existingTermCondition = computed(() => {
   );
 });
 
+const searchedTermConditionIsSelected = computed(() => {
+  const existingTerm = existingTermCondition.value;
+  return existingTerm ? isTermConditionSelected(existingTerm) : false;
+});
+
 const canAddTermCondition = computed(
   () =>
     Boolean(normalizeTermCondition(termConditionSearch.value)) &&
@@ -1820,7 +1896,7 @@ async function tambahTermConditionDariPencarian() {
     ) {
       newPenawaran.value.termCondition.push(selectedTerm);
     }
-    syncSelectedTermConditionOrder();
+    rebuildTermConditionOrderFromSelection();
     termConditionSearch.value = "";
   } finally {
     savingTermCondition.value = false;
@@ -1834,6 +1910,17 @@ function sameTermCondition(
   return left.id && right.id
     ? left.id === right.id
     : left.nama_term === right.nama_term;
+}
+
+function isTermConditionSelected(term: TermConditionOrderItem) {
+  const comparableTerm = {
+    id: term.id ?? "",
+    nama_term: term.nama_term,
+  };
+
+  return (newPenawaran.value.termCondition ?? []).some((selectedTerm) =>
+    sameTermCondition(selectedTerm, comparableTerm),
+  );
 }
 
 function initializeTermConditionOrder() {
@@ -1856,26 +1943,24 @@ function initializeTermConditionOrder() {
   ];
 }
 
-function syncSelectedTermConditionOrder() {
-  const selectedTerms = newPenawaran.value.termCondition;
-  if (!selectedTerms?.length) return;
+function rebuildTermConditionOrderFromSelection() {
+  const selectedKeys = (newPenawaran.value.termCondition ?? [])
+    .map(termConditionKey)
+    .filter((key, index, keys) => keys.indexOf(key) === index);
+  const availableKeys = orderTermConditions(
+    termconditionStore.getDataTermcondition.filter(
+      (term) => !isTermConditionSelected(term),
+    ),
+  ).map(termConditionKey);
 
-  const orderIndex = new Map(
-    termConditionOrder.value.map((key, index) => [key, index]),
-  );
-  selectedTerms.sort((left, right) => {
-    const leftIndex = orderIndex.get(termConditionKey(left));
-    const rightIndex = orderIndex.get(termConditionKey(right));
-
-    if (leftIndex === undefined && rightIndex === undefined) return 0;
-    if (leftIndex === undefined) return 1;
-    if (rightIndex === undefined) return -1;
-    return leftIndex - rightIndex;
-  });
+  termConditionOrder.value = [
+    ...selectedKeys,
+    ...availableKeys.filter((key) => !selectedKeys.includes(key)),
+  ];
 }
 
-function scheduleSelectedTermOrderSync() {
-  void nextTick(syncSelectedTermConditionOrder);
+function scheduleTermConditionSelectionSync() {
+  void nextTick(rebuildTermConditionOrderFromSelection);
 }
 
 function moveQuotationItem(fromIndex: number, toIndex: number) {
@@ -1897,32 +1982,21 @@ function moveQuotationItem(fromIndex: number, toIndex: number) {
 }
 
 function moveTermCondition(fromIndex: number, toIndex: number) {
-  const visibleTerms = [...sortedTermConditions.value];
+  const selectedTerms = newPenawaran.value.termCondition ?? [];
   if (
     fromIndex === toIndex ||
     fromIndex < 0 ||
     toIndex < 0 ||
-    fromIndex >= visibleTerms.length ||
-    toIndex >= visibleTerms.length
+    fromIndex >= selectedTerms.length ||
+    toIndex >= selectedTerms.length
   ) {
     return;
   }
 
-  const [movedTerm] = visibleTerms.splice(fromIndex, 1);
+  const [movedTerm] = selectedTerms.splice(fromIndex, 1);
   if (!movedTerm) return;
-  visibleTerms.splice(toIndex, 0, movedTerm);
-
-  const visibleKeys = new Set(visibleTerms.map(termConditionKey));
-  const reorderedVisibleTerms = [...visibleTerms];
-  const allTerms = orderTermConditions(
-    termconditionStore.getDataTermcondition,
-  ).map((term) => {
-    if (!visibleKeys.has(termConditionKey(term))) return term;
-    return reorderedVisibleTerms.shift() ?? term;
-  });
-
-  termConditionOrder.value = allTerms.map(termConditionKey);
-  syncSelectedTermConditionOrder();
+  selectedTerms.splice(toIndex, 0, movedTerm);
+  rebuildTermConditionOrderFromSelection();
 }
 
 function sortableEventIndexes(event: Sortable.SortableEvent) {
@@ -2478,6 +2552,29 @@ async function refreshData() {
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 16px;
+}
+
+.quotation-page-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.quotation-page-title > div {
+  min-width: 0;
+}
+
+.quotation-back-btn {
+  flex: 0 0 34px;
+  width: 34px !important;
+  height: 34px !important;
+  color: #596675 !important;
+  border-radius: 5px !important;
+}
+
+.quotation-back-btn:hover {
+  background: #eef2f5 !important;
 }
 
 .quotation-page-heading h1 {
@@ -3605,6 +3702,11 @@ async function refreshData() {
   border-radius: 4px;
 }
 
+.quotation-terms-lists {
+  display: grid;
+  gap: 12px;
+}
+
 .quotation-term-controls {
   display: flex;
   max-width: 680px;
@@ -3668,6 +3770,16 @@ async function refreshData() {
   border-collapse: collapse;
 }
 
+.quotation-terms-table caption {
+  padding: 7px 10px;
+  color: #3f4d5c;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: left;
+  background: #ffffff;
+  border-bottom: 1px solid #dfe3e8;
+}
+
 .quotation-terms-table th {
   height: 32px;
   padding: 7px 10px;
@@ -3699,6 +3811,24 @@ async function refreshData() {
   width: 58px;
   padding: 0;
   text-align: center;
+}
+
+.quotation-terms-table--available th:first-child,
+.quotation-terms-table--available td:first-child {
+  width: 44px;
+}
+
+.quotation-terms-table--available th:nth-child(2),
+.quotation-terms-table--available td:nth-child(2) {
+  width: 58px;
+  padding: 0;
+}
+
+.quotation-terms-table--available th:nth-child(3),
+.quotation-terms-table--available td:nth-child(3) {
+  width: auto;
+  padding: 6px 10px;
+  text-align: left;
 }
 
 .quotation-term-drag-handle {
@@ -3743,7 +3873,7 @@ async function refreshData() {
 }
 
 .quotation-terms-empty {
-  height: 72px;
+  height: 52px;
   color: #8b95a1;
   text-align: center !important;
 }

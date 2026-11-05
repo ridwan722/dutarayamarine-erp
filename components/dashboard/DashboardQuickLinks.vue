@@ -3,7 +3,7 @@ const links = [
   { title: "Penawaran", subtitle: "Kelola proyek & penawaran", href: "/admin/penawaran", icon: "mdi-file-document-edit-outline", tone: "blue" },
   { title: "Invoice", subtitle: "Tagihan dan pembayaran", href: "/admin/invoice", icon: "mdi-receipt-text-outline", tone: "cyan" },
   { title: "Purchase Order", subtitle: "Pesanan ke vendor", href: "/admin/purchase-order", icon: "mdi-dolly", tone: "blue" },
-  { title: "Client", subtitle: "Data Clients", href: "/admin/master/client", icon: "mdi-account-group-outline", tone: "violet" },
+  { title: "Client", subtitle: "Data Clients", href: "/admin/master/client", icon: "mdi-domain", tone: "violet" },
   { title: "Vendor", subtitle: "Mitra pengadaan", href: "/admin/master/vendor", icon: "mdi-storefront-outline", tone: "orange" },
   { title: "Keuangan kantor", subtitle: "Transaksi & inventaris", href: "/admin/petty-cash", icon: "mdi-wallet-outline", tone: "green" },
   { title: "Leads Website", subtitle: "Leads masuk dari website www.dutarayaarine.com", href: "/admin/master/leads-web", icon: "mdi-human-queue", tone: "rose" },

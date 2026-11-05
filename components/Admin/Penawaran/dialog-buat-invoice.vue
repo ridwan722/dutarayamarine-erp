@@ -325,7 +325,7 @@
           <div class="invoice-section-header invoice-terms-header">
             <div>
               <span class="invoice-section-index">06</span>
-              <h3>Terms &amp; Conditions</h3>
+              <h3>T&amp;C</h3>
             </div>
             <span class="invoice-selected-count">
               {{ (form.termCondition ?? []).length }} selected
@@ -360,23 +360,32 @@
               :loading="savingTermCondition"
               @click="tambahTermConditionDariPencarian"
             >
-              {{ existingTermCondition ? "Available" : "Add master T&C" }}
+              {{
+                existingTermCondition
+                  ? searchedTermConditionIsSelected
+                    ? "Selected"
+                    : "Available"
+                  : "Add master T&C"
+              }}
             </v-btn>
           </div>
 
           <div class="invoice-terms-table-wrap">
             <table class="invoice-terms-table">
+              <caption>
+                Dipilih
+              </caption>
               <thead>
                 <tr>
                   <th scope="col" aria-label="Ubah urutan"></th>
                   <th scope="col">No.</th>
-                  <th scope="col">Select</th>
+                  <th scope="col">Selected</th>
                   <th scope="col">Description</th>
                 </tr>
               </thead>
               <tbody ref="termConditionsSortableContainer">
                 <tr
-                  v-for="(item, index) in sortedTermConditions"
+                  v-for="(item, index) in selectedTermConditions"
                   :key="termConditionKey(item)"
                   class="invoice-term-row"
                 >
@@ -407,14 +416,69 @@
                       hide-details
                       color="primary"
                       class="invoice-term-checkbox"
-                      @update:model-value="scheduleSelectedTermOrderSync"
+                      @update:model-value="scheduleTermConditionSelectionSync"
                     />
                   </td>
                   <td>{{ item?.nama_term }}</td>
                 </tr>
-                <tr v-if="!sortedTermConditions.length">
+                <tr v-if="!selectedTermConditions.length">
                   <td colspan="4" class="invoice-terms-empty">
-                    <strong>Term tidak ditemukan.</strong>
+                    <strong>Belum ada T&amp;C yang dipilih.</strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="invoice-terms-table-wrap">
+            <table
+              class="invoice-terms-table invoice-terms-table--available"
+            >
+              <caption>
+                Pilihan
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">No.</th>
+                  <th scope="col">Select</th>
+                  <th scope="col">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(item, index) in availableTermConditions"
+                  :key="termConditionKey(item)"
+                  class="invoice-term-row"
+                >
+                  <td>{{ index + 1 }}</td>
+                  <td>
+                    <v-checkbox
+                      v-model="form.termCondition"
+                      :value="{
+                        id: item?.id ?? '',
+                        nama_term: item?.nama_term ?? '',
+                        createdAt: item?.createdAt ?? 0,
+                        createdBy: item?.createdBy ?? '',
+                      }"
+                      :value-comparator="sameTermCondition"
+                      density="compact"
+                      hide-details
+                      color="primary"
+                      class="invoice-term-checkbox"
+                      @update:model-value="scheduleTermConditionSelectionSync"
+                    />
+                  </td>
+                  <td>{{ item?.nama_term }}</td>
+                </tr>
+                <tr v-if="!availableTermConditions.length">
+                  <td colspan="3" class="invoice-terms-empty">
+                    <strong>
+                      {{
+                        termConditionSearch
+                          ? "Term tidak ditemukan."
+                          : "Semua T&C sudah dipilih."
+                      }}
+                    </strong>
                     <span v-if="canAddTermCondition">
                       Klik “Add master T&amp;C” untuk menyimpannya ke master.
                     </span>
@@ -742,16 +806,20 @@ function orderTermConditions<T extends TermConditionOrderItem>(terms: T[]) {
   });
 }
 
-const sortedTermConditions = computed(() => {
+const selectedTermConditions = computed(() => form.value.termCondition ?? []);
+
+const availableTermConditions = computed(() => {
   const search = normalizeTermCondition(
     termConditionSearch.value,
   ).toLocaleLowerCase("id-ID");
 
   return orderTermConditions(
-    termconditionStore.getDataTermcondition.filter((term) =>
-      normalizeTermCondition(term.nama_term)
-        .toLocaleLowerCase("id-ID")
-        .includes(search),
+    termconditionStore.getDataTermcondition.filter(
+      (term) =>
+        !isTermConditionSelected(term) &&
+        normalizeTermCondition(term.nama_term)
+          .toLocaleLowerCase("id-ID")
+          .includes(search),
     ),
   );
 });
@@ -769,6 +837,11 @@ const existingTermCondition = computed(() => {
   );
 });
 
+const searchedTermConditionIsSelected = computed(() => {
+  const existingTerm = existingTermCondition.value;
+  return existingTerm ? isTermConditionSelected(existingTerm) : false;
+});
+
 const canAddTermCondition = computed(
   () =>
     Boolean(normalizeTermCondition(termConditionSearch.value)) &&
@@ -777,13 +850,19 @@ const canAddTermCondition = computed(
 );
 
 function sameTermCondition(
-  left: termconditionM,
-  right: termconditionM,
+  left: TermConditionOrderItem,
+  right: TermConditionOrderItem,
 ) {
   if (!left || !right) return false;
   return left.id && right.id
     ? left.id === right.id
     : left.nama_term === right.nama_term;
+}
+
+function isTermConditionSelected(term: TermConditionOrderItem) {
+  return (form.value.termCondition ?? []).some((selectedTerm) =>
+    sameTermCondition(selectedTerm, term),
+  );
 }
 
 async function tambahTermConditionDariPencarian() {
@@ -833,7 +912,7 @@ async function tambahTermConditionDariPencarian() {
     ) {
       form.value.termCondition.push(selectedTerm);
     }
-    syncSelectedTermConditionOrder();
+    rebuildTermConditionOrderFromSelection();
     termConditionSearch.value = "";
   } finally {
     savingTermCondition.value = false;
@@ -861,55 +940,42 @@ function initializeTermConditionOrder() {
   ];
 }
 
-function syncSelectedTermConditionOrder() {
-  const selectedTerms = form.value.termCondition;
-  if (!selectedTerms?.length) return;
+function rebuildTermConditionOrderFromSelection() {
+  const selectedKeys = (form.value.termCondition ?? [])
+    .map(termConditionKey)
+    .filter((key, index, keys) => keys.indexOf(key) === index);
+  const availableKeys = orderTermConditions(
+    termconditionStore.getDataTermcondition.filter(
+      (term) => !isTermConditionSelected(term),
+    ),
+  ).map(termConditionKey);
 
-  const orderIndex = new Map(
-    termConditionOrder.value.map((key, index) => [key, index]),
-  );
-  selectedTerms.sort((left, right) => {
-    const leftIndex = orderIndex.get(termConditionKey(left));
-    const rightIndex = orderIndex.get(termConditionKey(right));
-
-    if (leftIndex === undefined && rightIndex === undefined) return 0;
-    if (leftIndex === undefined) return 1;
-    if (rightIndex === undefined) return -1;
-    return leftIndex - rightIndex;
-  });
+  termConditionOrder.value = [
+    ...selectedKeys,
+    ...availableKeys.filter((key) => !selectedKeys.includes(key)),
+  ];
 }
 
-function scheduleSelectedTermOrderSync() {
-  void nextTick(syncSelectedTermConditionOrder);
+function scheduleTermConditionSelectionSync() {
+  void nextTick(rebuildTermConditionOrderFromSelection);
 }
 
 function moveTermCondition(fromIndex: number, toIndex: number) {
-  const visibleTerms = [...sortedTermConditions.value];
+  const selectedTerms = form.value.termCondition ?? [];
   if (
     fromIndex === toIndex ||
     fromIndex < 0 ||
     toIndex < 0 ||
-    fromIndex >= visibleTerms.length ||
-    toIndex >= visibleTerms.length
+    fromIndex >= selectedTerms.length ||
+    toIndex >= selectedTerms.length
   ) {
     return;
   }
 
-  const [movedTerm] = visibleTerms.splice(fromIndex, 1);
+  const [movedTerm] = selectedTerms.splice(fromIndex, 1);
   if (!movedTerm) return;
-  visibleTerms.splice(toIndex, 0, movedTerm);
-
-  const visibleKeys = new Set(visibleTerms.map(termConditionKey));
-  const reorderedVisibleTerms = [...visibleTerms];
-  const allTerms = orderTermConditions(
-    termconditionStore.getDataTermcondition,
-  ).map((term) => {
-    if (!visibleKeys.has(termConditionKey(term))) return term;
-    return reorderedVisibleTerms.shift() ?? term;
-  });
-
-  termConditionOrder.value = allTerms.map(termConditionKey);
-  syncSelectedTermConditionOrder();
+  selectedTerms.splice(toIndex, 0, movedTerm);
+  rebuildTermConditionOrderFromSelection();
 }
 
 function destroyTermConditionSortable() {
@@ -1789,11 +1855,25 @@ function addfile(event: Event) {
   border-radius: 5px;
 }
 
+.invoice-terms-table-wrap + .invoice-terms-table-wrap {
+  margin-top: 12px;
+}
+
 .invoice-terms-table {
   width: 100%;
   color: #485462;
   font-size: 11px;
   border-collapse: collapse;
+}
+
+.invoice-terms-table caption {
+  padding: 7px 10px;
+  color: #3f4d5c;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: left;
+  background: #ffffff;
+  border-bottom: 1px solid #dfe3e8;
 }
 
 .invoice-terms-table th {
@@ -1827,6 +1907,24 @@ function addfile(event: Event) {
   width: 58px;
   padding: 0;
   text-align: center;
+}
+
+.invoice-terms-table--available th:first-child,
+.invoice-terms-table--available td:first-child {
+  width: 44px;
+}
+
+.invoice-terms-table--available th:nth-child(2),
+.invoice-terms-table--available td:nth-child(2) {
+  width: 58px;
+  padding: 0;
+}
+
+.invoice-terms-table--available th:nth-child(3),
+.invoice-terms-table--available td:nth-child(3) {
+  width: auto;
+  padding: 6px 10px;
+  text-align: left;
 }
 
 .invoice-term-drag-handle {
