@@ -1350,7 +1350,7 @@ const previewImage = (dataUrl: string) => {
           <div class="table-title">Daftar Pengeluaran</div>
 
           <div class="table-subtitle">
-            Semua biaya proyek; ringkasan, PDF, dan Excel mengikuti invoice terpilih
+            Semua Pengeluaran proyek; ringkasan, PDF, dan Excel mengikuti invoice terpilih
           </div>
         </div>
 

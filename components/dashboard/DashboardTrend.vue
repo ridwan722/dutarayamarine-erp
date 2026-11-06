@@ -18,7 +18,7 @@ const y = (value: number) => top + plotHeight - (value / maxValue.value) * plotH
 const series = computed(() => [
   { key: "invoice" as const, label: "Invoice", color: "#1699c0" },
   { key: "paid" as const, label: "Selesai", color: "#31ad83" },
-  { key: "expense" as const, label: "Biaya proyek", color: "#f0a15c" },
+  { key: "expense" as const, label: "Pengeluaran proyek", color: "#f0a15c" },
 ].map((item) => ({ ...item, points: props.rows.map((row, index) => `${x(index)},${y(row[item.key])}`).join(" ") })));
 const ticks = computed(() => [0, .25, .5, .75, 1].map((fraction) => ({ y: top + (1 - fraction) * plotHeight, value: maxValue.value * fraction })));
 const hasData = computed(() => props.rows.some((row) => row.invoice || row.paid || row.expense));
@@ -30,7 +30,7 @@ const hasData = computed(() => props.rows.some((row) => row.invoice || row.paid 
     <div v-if="!available" class="empty">Data invoice atau penawaran belum dapat dimuat.</div>
     <div v-else-if="!hasData" class="empty">Belum ada transaksi pada periode ini.</div>
     <div v-else class="chart-wrap">
-      <svg class="chart" :viewBox="`0 0 ${width} ${height}`" role="img" aria-label="Grafik tren nilai invoice, invoice selesai, dan biaya proyek per bulan">
+      <svg class="chart" :viewBox="`0 0 ${width} ${height}`" role="img" aria-label="Grafik tren nilai invoice, invoice selesai, dan Pengeluaran proyek per bulan">
         <g v-for="tick in ticks" :key="tick.y"><line :x1="left" :x2="width-right" :y1="tick.y" :y2="tick.y" stroke="#eaf0f2" stroke-dasharray="4 5" /><text :x="left-9" :y="tick.y+3" text-anchor="end" class="axis-text">{{ formatDashboardCompactMoney(tick.value).replace('Rp ', '') }}</text></g>
         <g v-for="(month, index) in rows" :key="month.key"><text :x="x(index)" :y="height-5" text-anchor="middle" class="axis-text">{{ month.label }}</text></g>
         <polyline v-for="line in series" :key="line.key" :points="line.points" fill="none" :stroke="line.color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />

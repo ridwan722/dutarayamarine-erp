@@ -619,7 +619,7 @@ function downloadExcel() {
       <article class="category-overview-card">
         <div class="section-heading">
           <div>
-            <span class="section-kicker">Expense allocation</span>
+            <!-- <span class="section-kicker">Expense allocation</span> -->
             <h2>Pengeluaran per Kategori</h2>
           </div>
           <span class="section-count">{{ categoryBreakdown.length }} kategori</span>
@@ -657,7 +657,7 @@ function downloadExcel() {
       <article class="period-card">
         <div class="section-heading">
           <div>
-            <span class="section-kicker">Reporting period</span>
+            <!-- <span class="section-kicker">Reporting period</span> -->
             <h2>Periode Laporan</h2>
           </div>
           <v-icon icon="mdi-calendar-month-outline" size="21" />
@@ -776,7 +776,10 @@ function downloadExcel() {
               class="transaction-type-badge"
               :class="`transaction-type-badge--${transaction.type}`"
             >
-              {{ transaction.type === "in" ? "Masuk" : "Keluar" }}
+              <v-icon icon="mdi-arrow-up-right" />
+              <v-tooltip activator="parent" location="top">
+                {{ transaction.type === "in" ? "Masuk" : "Keluar" }}
+              </v-tooltip>
             </span>
           </div>
           <div v-if="transaction.itemName" class="mobile-asset-info">
@@ -847,7 +850,10 @@ function downloadExcel() {
                   class="transaction-type-badge"
                   :class="`transaction-type-badge--${transaction.type}`"
                 >
-                  {{ transaction.type === "in" ? "Masuk" : "Keluar" }}
+                  <v-icon icon="mdi-arrow-up-right" />
+                  <v-tooltip activator="parent" location="top">
+                    {{ transaction.type === "in" ? "Masuk" : "Keluar" }}
+                  </v-tooltip>
                 </span>
               </td>
               <td>

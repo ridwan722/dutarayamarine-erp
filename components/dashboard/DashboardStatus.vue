@@ -20,7 +20,7 @@ const donut = computed(() => {
 });
 const rows = computed(() => [
   { label: "Selesai", value: props.statuses.Selesai, color: "#31ad83" },
-  { label: "Dikirim", value: props.statuses.Dikirim, color: "#1699c0" },
+  // { label: "Dikirim", value: props.statuses.Dikirim, color: "#1699c0" },
   { label: "Draft", value: props.statuses.Draft, color: "#f0a15c" },
   { label: "Lainnya", value: props.statuses.Lainnya, color: "#9fa8bb" },
 ]);

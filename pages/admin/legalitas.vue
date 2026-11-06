@@ -349,17 +349,17 @@ async function saveDocument() {
 
     <section class="legal-hero">
       <div class="hero-copy">
-        <span class="eyebrow">
+        <!-- <span class="eyebrow">
           <v-icon icon="mdi-shield-check-outline" size="14" />
           Pusat Dokumen Perusahaan
-        </span>
+        </span> -->
         <h1>Legalitas PT Duta Raya Marine</h1>
         <p>
           Akses dokumen legal perusahaan dalam satu tempat. Pratinjau,
           cetak, atau unduh berkas PDF sesuai kebutuhan administrasi.
         </p>
         <div class="hero-status">
-          <span><i class="status-dot" />Dokumen tersedia</span>
+          <!-- <span><i class="status-dot" />Dokumen tersedia</span> -->
           <span><v-icon icon="mdi-lock-outline" size="14" />Akses internal</span>
         </div>
       </div>
@@ -382,7 +382,7 @@ async function saveDocument() {
     <section class="document-library">
       <header class="library-header">
         <div>
-          <span class="section-kicker">Document Library</span>
+          <!-- <span class="section-kicker">Document Library</span> -->
           <div class="library-title-row">
             <h2>Dokumen Legalitas</h2>
             <span>{{ filteredDocuments.length }} dokumen</span>

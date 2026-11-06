@@ -501,7 +501,7 @@ export function useDashboardAnalytics() {
         id: `expense-${expense.projectId}-${expense.item.id_pengeluaran}`,
         title: expense.item.keterangan || "Pengeluaran proyek",
         description: expense.projectName,
-        type: "Biaya proyek",
+        type: "Pengeluaran proyek",
         icon: "mdi-cash-minus",
         tone: "orange",
         href: `/admin/penawaran/${encodeURIComponent(expense.projectId)}/pengeluaran`,

@@ -178,7 +178,7 @@ const expenseShare = computed(() => {
           <p>
             <strong>Pembacaan data:</strong> invoice selesai dipakai sebagai
             indikasi pembayaran, sedangkan nilai invoice adalah tagihan yang
-            diterbitkan. Biaya proyek hanya berasal dari pengeluaran penawaran;
+            diterbitkan. Pengeluaran proyek hanya berasal dari pengeluaran penawaran;
             keuangan kantor dicatat terpisah.<template
               v-if="expenseShare !== null"
             >

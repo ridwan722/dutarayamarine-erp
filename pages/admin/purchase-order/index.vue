@@ -505,7 +505,7 @@ onMounted(() => loadPurchaseOrders());
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.po-vendor-meta i { width: 3px; height: 3px; flex: none; border-radius: 50%; background: #bdcbd1; }
+.po-vendor-meta i { width: 3px; height: 3px; flex: none; border-radius: 50%; background: #efefef; }
 .po-subject-cell,
 .po-payment-cell {
   width: 100%;

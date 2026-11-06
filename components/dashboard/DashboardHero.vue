@@ -30,7 +30,7 @@ defineProps<{
       </div>
       <div class="hero-stat-grid">
         <div class="hero-stat"><span>Invoice selesai</span><strong>{{ formatDashboardCompactMoney(paidValue) }}</strong><small>Indikasi pembayaran</small></div>
-        <div class="hero-stat"><span>Biaya proyek</span><strong>{{ formatDashboardCompactMoney(expenseValue) }}</strong><small>Tercatat di penawaran</small></div>
+        <div class="hero-stat"><span>Pengeluaran proyek</span><strong>{{ formatDashboardCompactMoney(expenseValue) }}</strong><small>Tercatat di penawaran</small></div>
       </div>
     </div>
     <div class="hero-orbit orbit-one" /><div class="hero-orbit orbit-two" />

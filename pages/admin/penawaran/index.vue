@@ -1020,6 +1020,8 @@
     </v-btn>
   </div>
 
+  <summary-quotation :loading="isLoading" />
+
   <!-- Main Table Card -->
   <v-card class="quotation-list-card" flat>
     <div class="quotation-list-toolbar">
