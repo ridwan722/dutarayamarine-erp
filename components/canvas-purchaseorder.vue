@@ -364,8 +364,8 @@
                     {{ rupiah(purchaseorder?.diskon_purchaseorder || 0) }} %
                   </template>
                 </td>
-                <td class="text-right  text-navy gt-text font-italic">
-                  - {{ formatCurrency(purchaseorderDiscountAmount) }}
+                <td class="text-right  text-navy gt-text">
+                  ({{ formatCurrency(purchaseorderDiscountAmount) }})
                 </td>
               </tr>
 

@@ -161,7 +161,7 @@ function printDeliveryOrder() {
           }
 
           @page :first {
-            margin-top: 0;
+            margin: 0;
           }
         </style>
       </head>
@@ -407,8 +407,7 @@ const createExactDeliveryOrderPdf = async () => {
         const pseudoTextStyle = clonedDocument.createElement("style");
         pseudoTextStyle.textContent = `
           .invoice-paper .document-meta dt::after,
-          .invoice-paper .party-details dt::after,
-          .invoice-paper .receipt-details dt::after {
+          .invoice-paper .party-details dt::after {
             color: #111827 !important;
             -webkit-text-fill-color: #111827 !important;
           }
@@ -468,15 +467,20 @@ const createExactDeliveryOrderPdf = async () => {
     while (sourceY < canvas.height) {
       const pageTopPadding =
         pageIndex === 0 ? 0 : CONTINUATION_PAGE_TOP_PADDING_MM;
+      const pageBottomPadding =
+        pageIndex === 0 ? 0 : PAGE_BOTTOM_PADDING_MM;
       const availablePageHeight =
-        pageHeight - pageTopPadding - PAGE_BOTTOM_PADDING_MM;
+        pageHeight - pageTopPadding - pageBottomPadding;
       const pageSliceHeight = Math.floor(
         canvas.width * (availablePageHeight / pageWidth),
       );
-      const sliceHeight = Math.min(
-        pageSliceHeight,
-        canvas.height - sourceY,
-      );
+      const remainingHeight = canvas.height - sourceY;
+      // html2canvas can round an exact A4 height up by a pixel. Keep that
+      // rounding residue on the current page instead of creating a blank page.
+      const sliceHeight =
+        remainingHeight <= pageSliceHeight + Math.ceil(canvasScale)
+          ? remainingHeight
+          : pageSliceHeight;
       const pageCanvas = document.createElement("canvas");
       pageCanvas.width = canvas.width;
       pageCanvas.height = sliceHeight;
@@ -710,18 +714,21 @@ const handleSavePdf = async () => {
           <div class="receipt-fields">
             <div class="receipt-signature">
               <span class="receipt-label">Signature</span>
-              <span class="signature-writing-line"></span>
+              <!-- <span class="signature-writing-line"></span> -->
             </div>
 
             <dl class="receipt-details">
               <div>
                 <dt>Date</dt>
+                <span class="receipt-separator" aria-hidden="true">:</span>
               </div>
               <div>
                 <dt>Name</dt>
+                <span class="receipt-separator" aria-hidden="true">:</span>
               </div>
               <div>
                 <dt>Position</dt>
+                <span class="receipt-separator" aria-hidden="true">:</span>
               </div>
             </dl>
           </div>
@@ -1008,7 +1015,7 @@ const handleSavePdf = async () => {
 .party-details dt {
   position: relative;
   padding-right: 4mm;
-  font-weight: 700;
+
 }
 
 .party-details dt::after {
@@ -1020,7 +1027,7 @@ const handleSavePdf = async () => {
 .party-details dd {
   min-width: 0;
   margin: 0;
-  font-weight: 600;
+
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -1199,7 +1206,7 @@ const handleSavePdf = async () => {
 
 .receipt-signature {
   display: flex;
-  min-height: 26mm;
+  min-height: 36mm;
   flex-direction: column;
   justify-content: space-between;
   padding: 2.5mm 3mm 3mm;
@@ -1246,9 +1253,10 @@ const handleSavePdf = async () => {
   text-transform: uppercase;
 }
 
-.receipt-details dt::after {
-  float: right;
-  content: ":";
+.receipt-separator {
+  grid-column: 2;
+  font-size: 8.5px;
+  font-weight: 800;
 }
 
 .receipt-details dd {
@@ -1339,7 +1347,7 @@ const handleSavePdf = async () => {
   }
 
   @page :first {
-    margin-top: 0;
+    margin: 0;
   }
 }
 </style>
