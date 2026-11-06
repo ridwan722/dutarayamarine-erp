@@ -386,7 +386,7 @@
           <div class="invoice-overview-copy">
             <div class="invoice-overview-kicker">Detail Invoice</div>
             <div class="invoice-title-row">
-              <h3>INV/DRM/{{ invoiceYear }}/{{ invoiceDetail.no_inv }}</h3>
+              <h4>INV/DRM/{{ invoiceYear }}/{{ invoiceDetail.no_inv }}</h4>
               <span class="invoice-status-badge">
                 <span class="invoice-status-dot" aria-hidden="true"></span>
                 {{ invoiceDetail.status }}
@@ -413,8 +413,8 @@
           </v-btn>
 
           <div class="invoice-created-at">
-            <span>Dibuat</span>
-            <strong>{{ rubahtanggalunix(invoiceDetail.createdAt) }}</strong>
+            <span>Inv Terbit :</span>
+            <strong>{{ formatInvoiceUnixDate(invoiceDetail.createdAt) }}</strong>
           </div>
         </div>
       </header>
@@ -442,7 +442,7 @@
             <v-icon icon="mdi-wallet-outline" size="16" />
           </span>
           <span>
-            <small>Project</small>
+            <!-- <small>Project</small> -->
             <strong>Pengeluaran Project</strong>
           </span>
           <v-icon icon="mdi-arrow-right" size="16" />
@@ -472,7 +472,7 @@
             </div>
             <div>
               <dt>Tanggal PO</dt>
-              <dd>{{ invoiceDetail.tanggal_preorder || "-" }}</dd>
+              <dd>{{ formatInvoiceDate(invoiceDetail.tanggal_preorder) }}</dd>
             </div>
           </dl>
 
@@ -509,7 +509,7 @@
           <dl class="invoice-reference-details invoice-reference-details--single">
             <div>
               <dt>Tanggal Bayar</dt>
-              <dd>{{ invoiceDetail.tanggal_bayar || "-" }}</dd>
+              <dd>{{ formatInvoiceDate(invoiceDetail.tanggal_bayar) }}</dd>
             </div>
           </dl>
 
@@ -601,7 +601,7 @@
         </div>
 
         <div class="invoice-financial-item">
-          <span>Total Pengeluaran</span>
+          <span>Total Pengeluaran / Modal</span>
           <strong>
             {{ formatInvoiceCurrency(invoiceDetail.grandtotal_pengeluaran) }}
           </strong>
@@ -865,6 +865,20 @@ function formatInvoiceNumber(value?: number) {
 
 function formatInvoiceCurrency(value?: number) {
   return `${invoiceCurrencyPrefix.value} ${formatInvoiceNumber(value)}`;
+}
+
+function formatInvoiceDate(value?: string) {
+  if (!value) return "-";
+
+  const date = moment(value, "YYYY-MM-DD", true);
+  return date.isValid() ? date.format("DD-MM-YYYY") : "-";
+}
+
+function formatInvoiceUnixDate(value?: number) {
+  if (!value) return "-";
+
+  const date = moment.unix(value);
+  return date.isValid() ? date.format("DD-MM-YYYY") : "-";
 }
 
 const poObjectUrls = new Map<string, string>();
@@ -1410,10 +1424,10 @@ async function ubahStatusSelesai() {
   gap: 9px;
 }
 
-.invoice-title-row h1 {
+.invoice-title-row h4 {
   margin: 0;
   color: #172b3f;
-  font-size: clamp(19px, 2.2vw, 25px);
+  font-size: clamp(16px, 2vw, 21px);
   font-weight: 720;
   letter-spacing: -0.025em;
   line-height: 1.25;

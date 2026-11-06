@@ -594,7 +594,7 @@
                     class="quotation-markup-actions"
                   >
                     <button
-                      v-for="persentase in [10, 20, 30]"
+                      v-for="persentase in [10, 20, 30, 50]"
                       :key="persentase"
                       type="button"
                       :class="{

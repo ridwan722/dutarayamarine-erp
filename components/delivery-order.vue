@@ -8,7 +8,8 @@ const props = defineProps<{
 
 const printArea = ref<HTMLElement | null>(null);
 const isSavingPdf = ref(false);
-const showInvoiceDate = ref(true);
+const CONTINUATION_PAGE_TOP_PADDING_MM = 8;
+const PAGE_BOTTOM_PADDING_MM = 8;
 
 type DeliveryOrderDisplayItem = Omit<
   invoiceM["item_pekerjaan"][number],
@@ -16,9 +17,31 @@ type DeliveryOrderDisplayItem = Omit<
 > & {
   qty: number | string;
 };
-
 const displayItems = ref<DeliveryOrderDisplayItem[]>([]);
 const invoiceYear = computed(() => props.invoiceDetail.tanggal?.slice(0, 4));
+
+const isDeliveryItem = (item: DeliveryOrderDisplayItem) =>
+  ["Barang", "Barang & Jasa"].includes(item.kategori_item);
+
+const deliveryItems = computed(() =>
+  displayItems.value
+    .map((item, sourceIndex) => ({ item, sourceIndex }))
+    .filter(({ item }) => isDeliveryItem(item)),
+);
+
+const emptyItemRows = computed(() =>
+  Math.max(0, 4 - deliveryItems.value.length),
+);
+
+const deliveryOrderNumber = computed(
+  () =>
+    `DO/DRM/${invoiceYear.value || "-"}/${props.invoiceDetail.no_inv || "-"}`,
+);
+
+const invoiceNumber = computed(
+  () =>
+    `INV/DRM/${invoiceYear.value || "-"}/${props.invoiceDetail.no_inv || "-"}`,
+);
 
 watch(
   () => props.invoiceDetail.item_pekerjaan,
@@ -51,7 +74,12 @@ function updateDisplayItem(
 const formatTanggal = (tanggal: string) => {
   if (!tanggal) return "-";
 
+  const isoDate = /^(\d{4})-(\d{2})-(\d{2})/.exec(tanggal);
+  if (isoDate) return `${isoDate[3]}-${isoDate[2]}-${isoDate[1]}`;
+
   const date = new Date(tanggal);
+
+  if (Number.isNaN(date.getTime())) return "-";
 
   return new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
@@ -62,22 +90,9 @@ const formatTanggal = (tanggal: string) => {
     .replace(/\//g, "-");
 };
 
-const formatTanggalPanjang = (tanggal: string | undefined | null) => {
-  if (!tanggal) return "-";
-
-  const date = new Date(tanggal);
-
-  if (isNaN(date.getTime())) return "-";
-
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-};
-
 function printDeliveryOrder() {
-  const content = printArea.value;
+  const content =
+    printArea.value?.querySelector<HTMLElement>(".invoice-paper");
 
   if (!content) return;
 
@@ -88,111 +103,51 @@ function printDeliveryOrder() {
     return;
   }
 
-  /* Ambil semua CSS dari halaman */
   const styles = Array.from(
     document.querySelectorAll('style, link[rel="stylesheet"]'),
   )
     .map((style) => style.outerHTML)
     .join("");
 
-  printWindow.document.write(`
-    <!DOCTYPE html>
-
+  printWindow.document.write(`<!DOCTYPE html>
     <html>
-
       <head>
-
         <meta charset="UTF-8" />
-
-        <title>
-          Delivery Order
-        </title>
-
+        <base href="${document.baseURI}" />
+        <title>${deliveryOrderNumber.value}</title>
         ${styles}
-
         <style>
-
-          
-
-
           html,
           body {
+            width: 210mm !important;
             margin: 0 !important;
             padding: 0 !important;
-
-            width: 100% !important;
-
             background: #ffffff !important;
-
-            font-family: Arial, Helvetica, sans-serif;
           }
 
-
-          
-
-
-          .delivery-order-wrapper {
-            width: 100% !important;
-
-            margin: 0 !important;
-            padding: 0 !important;
+          body {
+            min-height: 297mm !important;
           }
-
-
-          
-
 
           .no-print {
             display: none !important;
           }
 
-
-          
-
-
           .invoice-paper {
             width: 210mm !important;
-
             min-width: 210mm !important;
             max-width: 210mm !important;
-
             min-height: 297mm !important;
-
             margin: 0 !important;
-
-            padding: 15mm !important;
-
-            box-sizing: border-box !important;
-
-            background: #ffffff !important;
-
-            border: none !important;
-
             border-radius: 0 !important;
-
             box-shadow: none !important;
-
-            overflow: hidden !important;
           }
 
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
-
-          .main-table {
-            page-break-inside: auto;
-          }
-
-          .main-table tr {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-
+          .main-table tr,
+          .info-section,
           .signature-section {
-            page-break-inside: avoid !important;
             break-inside: avoid !important;
+            page-break-inside: avoid !important;
           }
 
           * {
@@ -200,41 +155,36 @@ function printDeliveryOrder() {
             print-color-adjust: exact !important;
           }
 
+          @page {
+            size: A4 portrait;
+            margin: ${CONTINUATION_PAGE_TOP_PADDING_MM}mm 0 ${PAGE_BOTTOM_PADDING_MM}mm;
+          }
+
+          @page :first {
+            margin-top: 0;
+          }
         </style>
-
       </head>
-
-
       <body>
-
-        ${content.innerHTML}
-
-
+        ${content.outerHTML}
         <script>
-
-          window.onload = function () {
-
-            setTimeout(function () {
-
-              window.print();
-
-            }, 300);
-
+          window.onload = async function () {
+            await Promise.all(
+              Array.from(document.images).map(function (image) {
+                if (image.complete) return Promise.resolve();
+                return new Promise(function (resolve) {
+                  image.onload = resolve;
+                  image.onerror = resolve;
+                });
+              })
+            );
+            setTimeout(function () { window.print(); }, 150);
           };
 
-
-          window.onafterprint = function () {
-
-            window.close();
-
-          };
-
+          window.onafterprint = function () { window.close(); };
         <\/script>
-
       </body>
-
-    </html>
-  `);
+    </html>`);
 
   printWindow.document.close();
 }
@@ -249,14 +199,14 @@ type PdfTextFragment = {
   fontWeight: number;
   isItalic: boolean;
   color: [number, number, number];
-  alignment: "left" | "center";
+  alignment: "left" | "center" | "right";
 };
 
 const parseCssColor = (value: string): [number, number, number] => {
   const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
   return channels?.length === 3
     ? [channels[0], channels[1], channels[2]]
-    : [0, 0, 0];
+    : [17, 24, 39];
 };
 
 const applyTextTransform = (text: string, transform: string) => {
@@ -268,8 +218,8 @@ const applyTextTransform = (text: string, transform: string) => {
   return text;
 };
 
-// Teks ditulis kembali sebagai teks native jsPDF agar tetap tajam ketika
-// diperbesar. Canvas hanya menyimpan logo, garis, border, dan background.
+// Keep the document frame as a lossless image, then restore every visible
+// text line as native PDF text so it stays sharp and selectable when zoomed.
 const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
   const rootRect = root.getBoundingClientRect();
   const fragments: PdfTextFragment[] = [];
@@ -279,9 +229,11 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
   while (textNode) {
     const parent = textNode.parentElement;
     const sourceText = textNode.data;
+
     if (parent && sourceText.trim() && !parent.closest(".no-print")) {
       const style = window.getComputedStyle(parent);
       const fontSizePx = Number.parseFloat(style.fontSize);
+
       if (
         style.display !== "none" &&
         style.visibility !== "hidden" &&
@@ -299,6 +251,7 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
             ({ character }) => !/\s/.test(character),
           );
           let lastVisible = currentLine.length - 1;
+
           while (
             lastVisible >= firstVisible &&
             /\s/.test(currentLine[lastVisible]?.character || "")
@@ -321,15 +274,26 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
               .map(({ character }) => character)
               .join("")
               .replace(/\s+/g, " ");
-            const isCentered = style.textAlign === "center";
+            const alignment =
+              style.textAlign === "right" || style.textAlign === "end"
+                ? "right"
+                : style.textAlign === "center"
+                  ? "center"
+                  : "left";
+            const firstCharacterRect = visibleCharacters[0].rect;
+            const lastCharacterRect =
+              visibleCharacters[visibleCharacters.length - 1].rect;
+            const textAnchor =
+              alignment === "right"
+                ? lastCharacterRect.right - rootRect.left
+                : alignment === "center"
+                  ? (firstCharacterRect.left + lastCharacterRect.right) / 2 -
+                    rootRect.left
+                  : firstCharacterRect.left - rootRect.left;
 
             fragments.push({
               text: applyTextTransform(normalizedText, style.textTransform),
-              left: isCentered
-                ? parent.getBoundingClientRect().left -
-                  rootRect.left +
-                  parent.getBoundingClientRect().width / 2
-                : visibleCharacters[0].rect.left - rootRect.left,
+              left: textAnchor,
               top: lineTop - rootRect.top,
               height: lineBottom - lineTop,
               baseline: lineTop - rootRect.top + (lineBottom - lineTop) * 0.8,
@@ -337,7 +301,7 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
               fontWeight: Number.parseInt(style.fontWeight, 10) || 400,
               isItalic: style.fontStyle === "italic",
               color: parseCssColor(style.color),
-              alignment: isCentered ? "center" : "left",
+              alignment,
             });
           }
 
@@ -347,6 +311,7 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
 
         for (let index = 0; index < sourceText.length; index++) {
           const character = sourceText[index];
+
           if (character === "\n" || character === "\r") {
             flushLine();
             continue;
@@ -363,6 +328,7 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
           if (currentTop === null) currentTop = rect.top;
           currentLine.push({ character, rect });
         }
+
         flushLine();
       }
     }
@@ -373,18 +339,12 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
   return fragments;
 };
 
-const createPaginatedDeliveryOrderPdf = async () => {
+const createExactDeliveryOrderPdf = async () => {
   const paperElement = printArea.value?.querySelector<HTMLElement>(
     ".invoice-paper",
   );
-  const letterheadElement = paperElement?.querySelector<HTMLElement>(
-    ".letterhead",
-  );
-  const contentElement = paperElement?.querySelector<HTMLElement>(
-    ".content-body",
-  );
 
-  if (!paperElement || !letterheadElement || !contentElement) return null;
+  if (!paperElement) return null;
 
   const previewContainer = paperElement.closest<HTMLElement>(
     ".penawaran-content",
@@ -400,65 +360,62 @@ const createPaginatedDeliveryOrderPdf = async () => {
     ]);
     await document.fonts?.ready;
 
-    const letterheadRect = letterheadElement.getBoundingClientRect();
-    const contentRect = contentElement.getBoundingClientRect();
-    const letterheadTextFragments = extractPdfTextFragments(letterheadElement);
-    const contentTextFragments = extractPdfTextFragments(contentElement);
-
-    const preparePrintClone = (clonedDocument: Document) => {
-      clonedDocument.querySelectorAll(".no-print").forEach((element) => {
-        (element as HTMLElement).style.display = "none";
-      });
-      clonedDocument
-        .querySelectorAll(".main-table tbody tr")
-        .forEach((element) => {
-          (element as HTMLElement).style.breakInside = "avoid";
-          (element as HTMLElement).style.pageBreakInside = "avoid";
-        });
-      clonedDocument
-        .querySelectorAll(".editable-display-value")
-        .forEach((element) => {
-          const htmlElement = element as HTMLElement;
-          htmlElement.style.setProperty("background", "transparent", "important");
-          htmlElement.style.setProperty("outline", "none", "important");
-        });
-
-      clonedDocument
-        .querySelectorAll(".invoice-paper *")
-        .forEach((element) => {
-          const htmlElement = element as HTMLElement;
-          htmlElement.style.setProperty("color", "transparent", "important");
-          htmlElement.style.setProperty(
-            "-webkit-text-fill-color",
-            "transparent",
-            "important",
-          );
-          htmlElement.style.setProperty("text-shadow", "none", "important");
-        });
-    };
-
+    const paperRect = paperElement.getBoundingClientRect();
+    const textFragments = extractPdfTextFragments(paperElement);
     const isSmallViewport = window.matchMedia("(max-width: 600px)").matches;
     const requestedCaptureScale = isSmallViewport ? 2 : 3;
-    const maxContentCanvasPixels = isSmallViewport ? 12_000_000 : 40_000_000;
-    const safeContentScale = Math.sqrt(
-      maxContentCanvasPixels / (contentRect.width * contentRect.height),
+    const maxCanvasPixels = isSmallViewport ? 12_000_000 : 40_000_000;
+    const safeCaptureScale = Math.sqrt(
+      maxCanvasPixels / (paperRect.width * paperRect.height),
     );
     const captureScale = Math.max(
       1,
-      Math.min(requestedCaptureScale, safeContentScale),
+      Math.min(requestedCaptureScale, safeCaptureScale),
     );
-    const captureOptions = {
+
+    const canvas = await html2canvas(paperElement, {
       scale: captureScale,
       useCORS: true,
       backgroundColor: "#ffffff",
       logging: false,
-      onclone: preparePrintClone,
-    };
+      onclone: (clonedDocument) => {
+        clonedDocument.querySelectorAll(".no-print").forEach((element) => {
+          (element as HTMLElement).style.display = "none";
+        });
 
-    const [letterheadCanvas, contentCanvas] = await Promise.all([
-      html2canvas(letterheadElement, captureOptions),
-      html2canvas(contentElement, captureOptions),
-    ]);
+        const clonedPaper =
+          clonedDocument.querySelector<HTMLElement>(".invoice-paper");
+        clonedPaper?.style.setProperty("box-shadow", "none", "important");
+        clonedPaper?.style.setProperty("border-radius", "0", "important");
+
+        clonedDocument
+          .querySelectorAll(".invoice-paper *")
+          .forEach((element) => {
+            const htmlElement = element as HTMLElement;
+            htmlElement.style.setProperty("color", "transparent", "important");
+            htmlElement.style.setProperty(
+              "-webkit-text-fill-color",
+              "transparent",
+              "important",
+            );
+            htmlElement.style.setProperty("text-shadow", "none", "important");
+          });
+
+        // Colons are CSS pseudo-elements rather than DOM text nodes, so keep
+        // them in the lossless canvas layer while other glyphs become native
+        // PDF text.
+        const pseudoTextStyle = clonedDocument.createElement("style");
+        pseudoTextStyle.textContent = `
+          .invoice-paper .document-meta dt::after,
+          .invoice-paper .party-details dt::after,
+          .invoice-paper .receipt-details dt::after {
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+          }
+        `;
+        clonedDocument.head.appendChild(pseudoTextStyle);
+      },
+    });
 
     const pdf = new jsPDF({
       orientation: "portrait",
@@ -470,28 +427,19 @@ const createPaginatedDeliveryOrderPdf = async () => {
     });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const sideMargin = 15;
-    const topMargin = 10;
-    const bottomMargin = 15;
-    const contentWidth = pageWidth - sideMargin * 2;
-    const letterheadHeight =
-      (letterheadCanvas.height * contentWidth) / letterheadCanvas.width;
-    const contentTop = topMargin + letterheadHeight + 4;
-    const printableContentHeight = pageHeight - bottomMargin - contentTop;
-    const pixelsPerMm = contentCanvas.width / contentWidth;
-    const pageSliceHeight = Math.floor(printableContentHeight * pixelsPerMm);
+    const canvasScale = canvas.width / paperRect.width;
+    const mmPerCssPixel = pageWidth / paperRect.width;
 
     const drawPdfTextFragments = (
-      fragments: PdfTextFragment[],
-      originX: number,
-      originY: number,
-      mmPerCssPixel: number,
-      sourceTop = 0,
-      sourceBottom = Number.POSITIVE_INFINITY,
+      sourceTop: number,
+      sourceBottom: number,
+      pageTopPadding: number,
     ) => {
-      fragments.forEach((fragment) => {
+      textFragments.forEach((fragment) => {
         const fragmentMiddle = fragment.top + fragment.height / 2;
-        if (fragmentMiddle < sourceTop || fragmentMiddle >= sourceBottom) return;
+        if (fragmentMiddle < sourceTop || fragmentMiddle >= sourceBottom) {
+          return;
+        }
 
         const fontStyle = fragment.isItalic
           ? fragment.fontWeight >= 600
@@ -500,147 +448,71 @@ const createPaginatedDeliveryOrderPdf = async () => {
           : fragment.fontWeight >= 600
             ? "bold"
             : "normal";
+
         pdf.setFont("helvetica", fontStyle);
         pdf.setFontSize(fragment.fontSizePx * mmPerCssPixel * (72 / 25.4));
         pdf.setTextColor(...fragment.color);
         pdf.text(
           fragment.text,
-          originX + fragment.left * mmPerCssPixel,
-          originY + (fragment.baseline - sourceTop) * mmPerCssPixel,
+          fragment.left * mmPerCssPixel,
+          pageTopPadding +
+            (fragment.baseline - sourceTop) * mmPerCssPixel,
           { align: fragment.alignment },
         );
       });
     };
 
-    const canvasScale = contentCanvas.width / contentRect.width;
-    const keepTogetherRanges: Array<{ top: number; bottom: number }> = [];
-    contentElement
-      .querySelectorAll(".main-table tbody tr, .info-section, .signature-section")
-      .forEach((element) => {
-        const rect = element.getBoundingClientRect();
-        const range = {
-          top: Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
-          bottom: Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
-        };
-        if (range.bottom - range.top <= pageSliceHeight) {
-          keepTogetherRanges.push(range);
-        }
-      });
-
-    const toLosslessPdfImage = (canvas: HTMLCanvasElement) =>
-      canvas.toDataURL("image/png");
-    const letterheadImage = toLosslessPdfImage(letterheadCanvas);
-
-    const addPageFrame = () => {
-      pdf.addImage(
-        letterheadImage,
-        "PNG",
-        sideMargin,
-        topMargin,
-        contentWidth,
-        letterheadHeight,
-        "delivery-order-letterhead",
-        "SLOW",
-      );
-      drawPdfTextFragments(
-        letterheadTextFragments,
-        sideMargin,
-        topMargin,
-        contentWidth / letterheadRect.width,
-        0,
-        letterheadRect.height,
-      );
-    };
-
-    const createContentSlice = (sliceStart: number, sliceHeight: number) => {
-      const sliceCanvas = document.createElement("canvas");
-      sliceCanvas.width = contentCanvas.width;
-      sliceCanvas.height = sliceHeight;
-      sliceCanvas
-        .getContext("2d")
-        ?.drawImage(
-          contentCanvas,
-          0,
-          sliceStart,
-          contentCanvas.width,
-          sliceHeight,
-          0,
-          0,
-          contentCanvas.width,
-          sliceHeight,
-        );
-      return sliceCanvas;
-    };
-
     let sourceY = 0;
     let pageIndex = 0;
-    while (sourceY < contentCanvas.height) {
-      const remainingHeight = contentCanvas.height - sourceY;
-      const finalPageScale = Math.min(1, pageSliceHeight / remainingHeight);
 
-      if (finalPageScale >= 0.92) {
-        if (pageIndex > 0) pdf.addPage();
-
-        const finalPageCanvas = createContentSlice(sourceY, remainingHeight);
-        const fittedContentWidth = contentWidth * finalPageScale;
-        const fittedContentHeight =
-          (remainingHeight / pixelsPerMm) * finalPageScale;
-
-        addPageFrame();
-        pdf.addImage(
-          toLosslessPdfImage(finalPageCanvas),
-          "PNG",
-          sideMargin + (contentWidth - fittedContentWidth) / 2,
-          contentTop,
-          fittedContentWidth,
-          fittedContentHeight,
-          `delivery-order-content-${pageIndex}`,
-          "SLOW",
-        );
-        drawPdfTextFragments(
-          contentTextFragments,
-          sideMargin + (contentWidth - fittedContentWidth) / 2,
-          contentTop,
-          (contentWidth / contentRect.width) * finalPageScale,
-          sourceY / canvasScale,
-          contentCanvas.height / canvasScale,
-        );
-        break;
-      }
-
-      let targetY = Math.min(sourceY + pageSliceHeight, contentCanvas.height);
-      const crossingRange = keepTogetherRanges.find(
-        (range) =>
-          range.top > sourceY &&
-          range.top < targetY &&
-          range.bottom > targetY,
+    while (sourceY < canvas.height) {
+      const pageTopPadding =
+        pageIndex === 0 ? 0 : CONTINUATION_PAGE_TOP_PADDING_MM;
+      const availablePageHeight =
+        pageHeight - pageTopPadding - PAGE_BOTTOM_PADDING_MM;
+      const pageSliceHeight = Math.floor(
+        canvas.width * (availablePageHeight / pageWidth),
       );
-      if (crossingRange) targetY = crossingRange.top;
+      const sliceHeight = Math.min(
+        pageSliceHeight,
+        canvas.height - sourceY,
+      );
+      const pageCanvas = document.createElement("canvas");
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = sliceHeight;
+      pageCanvas
+        .getContext("2d")
+        ?.drawImage(
+          canvas,
+          0,
+          sourceY,
+          canvas.width,
+          sliceHeight,
+          0,
+          0,
+          canvas.width,
+          sliceHeight,
+        );
+
       if (pageIndex > 0) pdf.addPage();
 
-      const sliceHeight = targetY - sourceY;
-      const sliceCanvas = createContentSlice(sourceY, sliceHeight);
-      addPageFrame();
       pdf.addImage(
-        toLosslessPdfImage(sliceCanvas),
+        pageCanvas.toDataURL("image/png"),
         "PNG",
-        sideMargin,
-        contentTop,
-        contentWidth,
-        sliceHeight / pixelsPerMm,
-        `delivery-order-content-${pageIndex}`,
+        0,
+        pageTopPadding,
+        pageWidth,
+        (sliceHeight / canvas.width) * pageWidth,
+        `delivery-order-page-${pageIndex}`,
         "SLOW",
       );
       drawPdfTextFragments(
-        contentTextFragments,
-        sideMargin,
-        contentTop,
-        contentWidth / contentRect.width,
         sourceY / canvasScale,
-        targetY / canvasScale,
+        (sourceY + sliceHeight) / canvasScale,
+        pageTopPadding,
       );
 
-      sourceY = targetY;
+      sourceY += sliceHeight;
       pageIndex++;
     }
 
@@ -656,10 +528,13 @@ const handleSavePdf = async () => {
   isSavingPdf.value = true;
 
   try {
-    const pdf = await createPaginatedDeliveryOrderPdf();
+    const pdf = await createExactDeliveryOrderPdf();
     if (!pdf) return;
 
-    pdf.save(`DO-DRM-${props.invoiceDetail.perihal}.pdf`);
+    const fileSubject = (props.invoiceDetail.perihal || "delivery-order")
+      .replace(/[^a-z0-9-_]+/gi, "-")
+      .replace(/^-+|-+$/g, "");
+    pdf.save(`DO-DRM-${fileSubject || "delivery-order"}.pdf`);
   } catch (error) {
     console.error("Gagal menyimpan PDF Delivery Order:", error);
     useNotificationStore().showError("Gagal membuat PDF Delivery Order");
@@ -672,228 +547,199 @@ const handleSavePdf = async () => {
 <template>
   <div class="delivery-order-wrapper">
     <div ref="printArea" class="invoice-paper-wrapper">
-      <v-card width="850" class="pa-10 invoice-paper elevation-2 mx-auto">
-        <!-- HEADER -->
-
-        <div class="letterhead">
+      <article class="invoice-paper">
+        <div class="document-frame">
+        <header class="letterhead">
           <div class="header-section">
-            <div class="logo-wrapper">
-              <img width="160" src="/logokopsurat.png" alt="Logo Header" />
-            </div>
+            <section class="company-panel">
+              <div class="logo-wrapper">
+                <img src="/logokopsurat.png" alt="Logo PT. Duta Raya Marine" />
+              </div>
 
-            <div class="letterhead-info">
-              <h1 class="company-name">PT. DUTA RAYA MARINE</h1>
-              <p class="address-line">
-                <!-- Cipta Grand City G-8, Sagulung, Kota Batam, <br />
-                Kepulauan Riau 29425. -->
-                Ruko Dreamland H3 No. 05, Tanjung Riau,<br />
-               Sekupang, Kota Batam, Kepulauan Riau.
-                <br />
-                <v-divider
-                  class="mx-auto"
-                  style="max-width: 60%"
-                  opacity="50"
-                />
-                Jl. Raya Pasar Minggu No. 15A, Jakarta Selatan.
-                <v-divider
-                  class="mx-auto"
-                  style="max-width: 60%"
-                  opacity="50"
-                />
-              </p>
-              <p class="phone-line">
-                E-mail: sales@dutarayamarine.com 
-                Phone/WhatsApp : +62823-8450-3953 <br />
-                Website: www.dutarayamarine.com
-              </p>
-            </div>
+              <div class="letterhead-info">
+                <h1 class="company-name">PT. DUTA RAYA MARINE</h1>
+                <p class="address-line">
+                  Ruko Dreamland H3 No. 05, Tanjung Riau, Sekupang,<br />
+                  Kota Batam, Kepulauan Riau
+                </p>
+                <p class="phone-line">
+                  E-mail : sales@dutarayamarine.com <br /> Phone/Whatsapp +62 823-8450-3953<br />
+                  Website : www.dutarayamarine.com
+                </p>
+              </div>
+            </section>
 
-            <div class="header-spacer" aria-hidden="true"></div>
+            <section class="document-identity">
+              <!-- <div class="document-kicker">Shipping Document</div> -->
+              <h2>DELIVERY ORDER</h2>
+
+              <dl class="document-meta">
+                <div>
+                  <dt>DO No.</dt>
+                  <dd>{{ deliveryOrderNumber }}</dd>
+                </div>
+              </dl>
+            </section>
           </div>
-
-          <div class="header-divider">
-            <div class="accent-bar"></div>
-            <div class="secondary-bar"></div>
-          </div>
-        </div>
+        </header>
 
         <div class="content-body">
-          <div class="document-title text-center mt-4 mb-6">DELIVERY ORDER</div>
+          <section class="info-section party-grid">
+            <div class="party-panel">
+              <div class="panel-title">Recipient Information</div>
+              <dl class="party-details">
+                <div>
+                  <dt>Delivered To</dt>
+                  <dd>{{ invoiceDetail.nama_customer || "-" }}</dd>
+                </div>
+                <div>
+                  <dt>Address</dt>
+                  <dd>{{ invoiceDetail.alamat_customer || "-" }}</dd>
+                </div>
+              </dl>
+            </div>
 
-        <!-- =========================================
-             CUSTOMER / INVOICE INFO
-        ========================================== -->
+            <div class="party-panel">
+              <div class="panel-title">Destination Information</div>
+              <dl class="party-details">
+                <div>
+                  <dt>Vessel</dt>
+                  <dd>{{ invoiceDetail.vessel || "-" }}</dd>
+                </div>
+                <div>
+                  <dt>Location</dt>
+                  <dd>{{ invoiceDetail.location || "-" }}</dd>
+                </div>
 
-        <div class="info-section mb-6">
-          <table class="info-table">
-            <tbody>
-              <tr>
-                <td width="140">Company Name</td>
+              </dl>
+            </div>
+          </section>
 
-                <td width="15">:</td>
+          <section class="reference-section">
+            <div class="panel-title">Document References</div>
+            <div class="reference-grid">
+              <div class="reference-item">
+                <span>Quotation No.</span>
+                <strong>{{ invoiceDetail.no_penawaran || "-" }}</strong>
+              </div>
+              <div class="reference-item">
+                <span>PO No.</span>
+                <strong>{{ invoiceDetail.no_preorder || "-" }}</strong>
+              </div>
+              <div class="reference-item">
+                <span>Invoice No.</span>
+                <strong>{{ invoiceNumber }}</strong>
+              </div>
+            </div>
+          </section>
 
-                <td>
-                  {{ invoiceDetail.nama_customer }}
-                </td>
-              </tr>
+          <!-- <div class="subject-strip">
+            <span>Subject</span>
+            <strong>{{ invoiceDetail.perihal || "-" }}</strong>
+          </div> -->
 
-              <tr>
-                <td style="vertical-align: top">Address</td>
-
-                <td style="vertical-align: top">:</td>
-
-                <td style="vertical-align: top">
-                  {{ invoiceDetail.alamat_customer }}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Quotation No.</td>
-
-                <td>:</td>
-
-                <td>{{ invoiceDetail.no_penawaran }}</td>
-              </tr>
-
-              <tr>
-                <td>PO No.</td>
-
-                <td>:</td>
-
-                <td>{{ invoiceDetail.no_preorder }}</td>
-              </tr>
-
-              <tr>
-                <td>Invoice No.</td>
-
-                <td>:</td>
-
-                <td>INV/DRM/{{ invoiceYear }}/{{ invoiceDetail.no_inv }}</td>
-              </tr>
-
-              <tr>
-                <td>Vessel</td>
-
-                <td>:</td>
-
-                <td>
-                  {{ (invoiceDetail as any).vessel || "-" }}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Location</td>
-
-                <td>:</td>
-
-                <td> {{ invoiceDetail.location }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- =========================================
-             ITEM TABLE
-        ========================================== -->
-
-        <table class="main-table mb-6">
+        <table class="main-table">
           <thead>
             <tr>
-              <th width="4%" class="text-center">No</th>
-
-              <th width="47%">Desc</th>
-
-              <th width="15%" class="text-center">Qty</th>
+              <th class="item-number-column">No.</th>
+              <th>Description</th>
+              <th class="item-quantity-column">Qty</th>
+              <th class="item-unit-column">Uom</th>
             </tr>
           </thead>
 
           <tbody>
             <tr
-              v-for="(item, index) in displayItems"
-              :key="'do-item-' + index"
+              v-for="({ item, sourceIndex }, index) in deliveryItems"
+              :key="'do-item-' + sourceIndex"
+              class="item-row"
             >
-              <td class="text-center v-align-top" v-if="item.kategori_item == 'Barang' || item.kategori_item == 'Barang & Jasa'">{{ index + 1 }}.</td>
-
-              <td class="v-align-top" v-if="item.kategori_item == 'Barang' || item.kategori_item == 'Barang & Jasa'">
+              <td class="item-number-cell">{{ index + 1 }}</td>
+              <td class="v-align-top">
                 <div
                   class="editable-display-value editable-description"
                   contenteditable="true"
                   role="textbox"
                   aria-label="Ubah deskripsi item untuk tampilan Delivery Order"
                   spellcheck="false"
-                  @blur="updateDisplayItem(index, 'nama', $event)"
+                  @blur="updateDisplayItem(sourceIndex, 'nama', $event)"
                 >{{ item.nama }}</div>
               </td>
 
-              <td class="text-center v-align-top" v-if="item.kategori_item == 'Barang' || item.kategori_item == 'Barang & Jasa'">
-                <div class="editable-quantity">
-                  <span
-                    class="editable-display-value editable-quantity-value"
-                    contenteditable="true"
-                    role="textbox"
-                    inputmode="decimal"
-                    aria-label="Ubah jumlah item untuk tampilan Delivery Order"
-                    spellcheck="false"
-                    @blur="updateDisplayItem(index, 'qty', $event)"
-                  >{{ item.qty }}</span>
-                  <span
-                    class="editable-display-value editable-uom-value"
-                    contenteditable="true"
-                    role="textbox"
-                    aria-label="Ubah satuan item untuk tampilan Delivery Order"
-                    spellcheck="false"
-                    @blur="updateDisplayItem(index, 'uom', $event)"
-                  >{{ item.uom }}</span>
-                </div>
+              <td class="item-value-cell v-align-top">
+                <span
+                  class="editable-display-value editable-quantity-value"
+                  contenteditable="true"
+                  role="textbox"
+                  inputmode="decimal"
+                  aria-label="Ubah jumlah item untuk tampilan Delivery Order"
+                  spellcheck="false"
+                  @blur="updateDisplayItem(sourceIndex, 'qty', $event)"
+                >{{ item.qty }}</span>
               </td>
+
+              <td class="item-value-cell v-align-top">
+                <span
+                  class="editable-display-value editable-uom-value"
+                  contenteditable="true"
+                  role="textbox"
+                  aria-label="Ubah satuan item untuk tampilan Delivery Order"
+                  spellcheck="false"
+                  @blur="updateDisplayItem(sourceIndex, 'uom', $event)"
+                >{{ item.uom }}</span>
+              </td>
+            </tr>
+
+            <tr
+              v-for="row in emptyItemRows"
+              :key="'do-empty-item-' + row"
+              class="item-row item-row--empty"
+              aria-hidden="true"
+            >
+              <td>&nbsp;</td>
+              <td></td>
+              <td></td>
+              <td></td>
             </tr>
           </tbody>
         </table>
 
-        <!-- =========================================
-             SIGNATURE
-        ========================================== -->
+        <section class="signature-section page-break-section">
+          <div class="signature-heading">Received by</div>
 
-        <div class="signature-section mt-6 page-break-section">
-          <div class="mb-4 text-caption">
-            Received by :
-            <span v-if="showInvoiceDate">
-              {{ formatTanggalPanjang(invoiceDetail.tanggal) }}
-            </span>
-            <v-chip
-              class="no-print ml-2 date-visibility-chip"
-              size="x-small"
-              variant="outlined"
-              :prepend-icon="showInvoiceDate ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-              @click="showInvoiceDate = !showInvoiceDate"
-            >
-              {{ showInvoiceDate ? "Hide tanggal" : "Show tanggal" }}
-            </v-chip>
-            <!-- ___ / __________ / 20___ -->
-          </div>
-
-          <div class="stamp-box mb-3"></div>
-
-          <div class="received-details">
-            <div class="d-flex align-center mb-1">
-              <span class="label-field"> Name </span>
-
-              <span>
-                : ...........................................................
-              </span>
+          <div class="receipt-fields">
+            <div class="receipt-signature">
+              <span class="receipt-label">Signature</span>
+              <span class="signature-writing-line"></span>
             </div>
 
-            <div class="d-flex align-center">
-              <span class="label-field"> Date </span>
-
-              <span>
-                : ...........................................................
-              </span>
-            </div>
+            <dl class="receipt-details">
+              <div>
+                <dt>Date</dt>
+              </div>
+              <div>
+                <dt>Name</dt>
+              </div>
+              <div>
+                <dt>Position</dt>
+              </div>
+            </dl>
           </div>
+        </section>
+
+        <section class="notes-section">
+          <strong>Notes:</strong>
+          <div class="notes-lines" aria-hidden="true">
+            <span></span>
+            <span></span>
+          </div>
+          <div class="document-footer">
+            <span>{{ deliveryOrderNumber }}</span>
+          </div>
+        </section>
         </div>
         </div>
-      </v-card>
+      </article>
     </div>
     <Teleport
       :to="actionsTarget || 'body'"
@@ -928,11 +774,11 @@ const handleSavePdf = async () => {
 </template>
 
 <style scoped>
+/* Delivery Order form layout */
 .delivery-order-wrapper {
   box-sizing: border-box;
   width: 100%;
-  padding-top: 20px;
-  padding-bottom: 12px;
+  padding: 20px 0 12px;
 }
 
 :global(.penawaran-content.delivery-order-pdf-unscaled) {
@@ -941,8 +787,7 @@ const handleSavePdf = async () => {
 
 .action-bar {
   width: 100%;
-  max-width: 850px;
-
+  max-width: 210mm;
   margin: 0 auto;
 }
 
@@ -967,160 +812,314 @@ const handleSavePdf = async () => {
 }
 
 .invoice-paper-wrapper {
-  width: 100%;
+  width: 210mm;
+  max-width: none;
+  margin: 0 auto;
 }
 
 .invoice-paper {
+  box-sizing: border-box;
+  width: 210mm;
+  min-width: 210mm;
+  max-width: 210mm;
+  min-height: 297mm;
+  margin: 0;
+  padding: 8mm;
+  overflow: visible;
+  color: #111827;
   font-family: Arial, Helvetica, sans-serif;
-
-  color: #000;
-
-  line-height: 1.4;
-
-  background-color: #fff !important;
+  line-height: 1.25;
+  background: #ffffff !important;
+  border: 0;
+  border-radius: 2px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
-.content-body {
-  position: relative;
-}
-
-.invoice-paper.delivery-order-pdf-capture .no-print {
-  display: none !important;
+.document-frame {
+  display: flex;
+  min-height: 281mm;
+  flex-direction: column;
+  border: 1.4px solid #172033;
 }
 
 .letterhead {
-  color: #1e293b;
-  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  border-bottom: 1.4px solid #172033;
 }
 
 .header-section {
   display: grid;
-  grid-template-columns: 130px minmax(0, 1fr) 130px;
-  position: relative;
-  z-index: 1;
+  min-height: fit-content;
+  grid-template-columns: 54% 46%;
+  align-items: stretch;
+  padding: 0;
+}
+
+.company-panel {
+  display: grid;
+  grid-template-columns: 31mm minmax(0, 1fr);
   align-items: center;
-  padding: 2px 0 8px;
+  gap: 3mm;
+  padding: 4mm;
 }
 
 .logo-wrapper img {
   display: block;
-  height: auto;
+  width: 30mm;
+  height: 16mm;
+  object-fit: contain;
 }
 
 .letterhead-info {
-  text-align: center;
+  min-width: 0;
+  text-align: left;
 }
 
 .company-name {
   margin: 0;
-  color: #0f2b48;
-  font-size: 26px;
+  color: #0c2748;
+  font-size: 17px;
   font-weight: 800;
-  letter-spacing: 0.3px;
-  line-height: 1.2;
+  letter-spacing: 0.25px;
+  line-height: 1.1;
 }
 
 .address-line,
 .phone-line {
-  margin: 1px 0 0;
-  font-size: 9.5px;
+  margin: 0;
+  color: #334155;
+  font-size: 8px;
+  font-weight: 500;
   line-height: 1.4;
 }
 
-.header-divider {
+.phone-line {
+  margin-top: 1.5mm;
+}
+
+.document-identity {
   display: flex;
-  margin-top: 6px;
-  margin-bottom: 6px;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
+  padding: 4mm 5mm;
+  text-align: center;
+  border-left: 1.4px solid #172033;
 }
 
-.accent-bar {
-  width: 100%;
-  height: 4px;
-  background-color: #061b3c;
-  border-radius: 2px;
+.document-kicker {
+  margin-bottom: 1.5mm;
+  color: #64748b;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
 }
 
-.secondary-bar {
-  width: 100%;
-  height: 1px;
-  background-color: #cbd5e1;
+.document-identity h2 {
+  margin: 0 0 4mm;
+  color: #101827;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.65px;
+  line-height: 1;
 }
 
-.document-title {
-  font-size: 18px;
-
-  font-weight: bold;
-
-  letter-spacing: 1px;
-
-  text-decoration: underline;
+.document-identity h2 span {
+  font-size: 14px;
 }
 
-.info-table {
-  width: 100%;
-
-  border-collapse: collapse;
-
-  font-size: 13px;
+.document-meta {
+  display: grid;
+  gap: 1.5mm;
+  margin: 0;
+  text-align: left;
 }
 
-.info-table td {
-  padding: 2px 0;
+.document-meta div {
+  display: grid;
+  grid-template-columns: 22mm 3mm minmax(0, 1fr);
+  align-items: baseline;
+  font-size: 10px;
+}
 
+.document-meta dt {
+  font-weight: 700;
+}
+
+.document-meta dt::after {
+  float: right;
+  content: ":";
+}
+
+.document-meta dd {
+  grid-column: 3;
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.content-body {
+  display: flex;
+  position: relative;
+  flex: 1;
+  flex-direction: column;
+}
+
+.party-grid {
+  display: grid;
+  min-height: fit-content;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-bottom: 1.2px solid #172033;
+}
+
+.party-panel + .party-panel {
+  border-left: 1.2px solid #172033;
+}
+
+.panel-title {
+  padding: 2mm 3mm;
+  color: #172033;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  background: #eef2f6;
+  border-bottom: 1px solid #172033;
+}
+
+.party-details {
+  display: grid;
+  gap: 1.2mm;
+  margin: 0;
+  padding: 2.2mm 4mm;
+}
+
+.party-details div {
+  display: grid;
+  grid-template-columns: 34mm minmax(0, 1fr);
+  align-items: start;
+  font-size: 10px;
+}
+
+.party-details dt {
+  position: relative;
+  padding-right: 4mm;
+  font-weight: 700;
+}
+
+.party-details dt::after {
+  position: absolute;
+  right: 1.5mm;
+  content: ":";
+}
+
+.party-details dd {
+  min-width: 0;
+  margin: 0;
   font-weight: 600;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.subject-strip {
+  display: grid;
+  min-height: 10mm;
+  grid-template-columns: 42mm minmax(0, 1fr);
+  align-items: center;
+  border-bottom: 1.2px solid #172033;
+}
+
+.subject-strip span,
+.subject-strip strong {
+  padding: 2.3mm 4mm;
+  font-size: 10px;
+}
+
+.subject-strip span {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  font-weight: 800;
+  background: #eef2f6;
+  border-right: 1px solid #172033;
 }
 
 .main-table {
   width: 100%;
-
+  margin: 0;
+  table-layout: fixed;
   border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.main-table th,
+.main-table td {
+  color: #111827;
+  border: 0;
+  border-right: 1px solid #172033;
+  border-bottom: 1px solid #172033;
+}
+
+.main-table th:last-child,
+.main-table td:last-child {
+  border-right: 0;
 }
 
 .main-table th {
-  border: 1px solid #000;
-
-  padding: 6px 8px;
-
-  font-weight: bold;
-
-  font-size: 13px;
-
-  text-align: left;
-
-  background-color: transparent !important;
+  padding: 1.5mm 2mm;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  background: #e8edf3 !important;
 }
 
 .main-table td {
-  border: 1px solid #000;
-
-  padding: 6px 8px;
-
-  font-size: 13px;
+  height: 9mm;
+  padding: 1.4mm 2mm;
+  font-size: 10px;
 }
 
-.v-align-top {
-  vertical-align: top !important;
+.item-number-column {
+  width: 8%;
+}
+
+.item-quantity-column {
+  width: 17%;
+}
+
+.item-unit-column {
+  width: 17%;
+}
+
+.item-number-cell,
+.item-value-cell {
+  text-align: center;
+}
+
+.item-row--empty td {
+  height: 9mm;
 }
 
 .editable-display-value {
   min-width: 1.5em;
-  border-radius: 3px;
+  border-radius: 2px;
   outline: 1px dashed transparent;
-  outline-offset: 2px;
-  cursor: text;
-  transition: background-color 0.15s ease, outline-color 0.15s ease;
+  outline-offset: 1px;
 }
 
 .editable-display-value:hover {
-  background-color: #f7f7f7;
-  outline-color: #bdbdbd;
+  background: #f1f5f9;
+  outline-color: #94a3b8;
 }
 
 .editable-display-value:focus {
-  background-color: #fffde7;
-  outline-color: #757575;
+  background: #fffbea;
+  outline-color: #475569;
 }
 
 .editable-description {
@@ -1128,75 +1127,219 @@ const handleSavePdf = async () => {
   white-space: pre-line;
 }
 
-.editable-quantity {
-  display: inline-flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-}
-
 .editable-quantity-value,
 .editable-uom-value {
   display: inline-block;
 }
 
-.date-visibility-chip {
-  vertical-align: middle;
-  cursor: pointer;
+.reference-section {
+  border-bottom: 1.2px solid #172033;
+}
+
+.reference-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reference-item {
+  display: flex;
+  min-width: 0;
+  min-height: 14mm;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1mm;
+  padding: 2.4mm 3mm;
+  border-right: 1px solid #172033;
+  border-bottom: 1px solid #172033;
+}
+
+.reference-item:nth-child(3n) {
+  border-right: 0;
+}
+
+.reference-item:nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+
+.reference-item span {
+  color: #64748b;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+.reference-item strong {
+  font-size: 9.5px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .signature-section {
-  font-size: 13px;
-
+  font-size: 10px;
   font-weight: 600;
+  border-bottom: 1.2px solid #172033;
 }
 
-.stamp-box {
-  width: 220px;
-
-  height: 100px;
-
-  border: 1px solid #000;
+.signature-heading {
+  padding: 2.2mm 2mm;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #eef2f6;
+  border-right: 0;
+  border-bottom: 1px solid #172033;
 }
 
-.label-field {
-  width: 50px;
+.receipt-fields {
+  display: grid;
+  grid-template-columns: 36% 64%;
+}
 
-  display: inline-block;
+.receipt-signature {
+  display: flex;
+  min-height: 26mm;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.5mm 3mm 3mm;
+  border-right: 1px solid #172033;
+}
+
+.receipt-label {
+  color: #64748b;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.35px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.signature-writing-line {
+  display: block;
+  width: 100%;
+  height: 1px;
+  border-bottom: 1px solid #172033;
+}
+
+.receipt-details {
+  display: grid;
+  margin: 0;
+}
+
+.receipt-details div {
+  display: grid;
+  min-height: 8.6mm;
+  grid-template-columns: 23mm 3mm minmax(0, 1fr);
+  align-items: center;
+  padding: 1.5mm 3mm;
+  border-bottom: 1px solid #172033;
+}
+
+.receipt-details div:last-child {
+  border-bottom: 0;
+}
+
+.receipt-details dt {
+  font-size: 8.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.receipt-details dt::after {
+  float: right;
+  content: ":";
+}
+
+.receipt-details dd {
+  height: 4mm;
+  grid-column: 3;
+  margin: 0;
+  border-bottom: 1px solid #172033;
+}
+
+.notes-section {
+  display: flex;
+  min-height: 25mm;
+  flex: 1;
+  flex-direction: column;
+  padding: 3mm 4mm 2.5mm;
+  font-size: 9px;
+}
+
+.notes-lines {
+  display: grid;
+  gap: 3mm;
+  margin-top: 3mm;
+}
+
+.notes-lines span {
+  display: block;
+  border-bottom: 1px dotted #94a3b8;
+}
+
+.document-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4mm;
+  margin-top: auto;
+  padding-top: 3mm;
+  color: #64748b;
+  font-size: 7px;
+  letter-spacing: 0.1px;
 }
 
 .page-break-section {
-  page-break-inside: avoid;
-
   break-inside: avoid;
+  page-break-inside: avoid;
 }
 
-@media screen {
-  .invoice-paper {
-    background: #fff !important;
+@media screen and (max-width: 600px) {
+  .invoice-paper-wrapper {
+    margin: 0;
   }
 }
 
 @media print {
-  @page {
-    size: A4 portrait;
-
-    margin: 0;
+  html,
+  body {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
   }
 
-  .no-print {
-    display: none !important;
+  .delivery-order-wrapper {
+    padding: 0;
+  }
+
+  .invoice-paper-wrapper,
+  .invoice-paper {
+    width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
+    margin: 0 !important;
   }
 
   .invoice-paper {
+    min-height: 297mm !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
-
-    border: none !important;
   }
 
   .editable-display-value {
     background: transparent !important;
     outline: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 8mm 0;
+  }
+
+  @page :first {
+    margin-top: 0;
   }
 }
 </style>

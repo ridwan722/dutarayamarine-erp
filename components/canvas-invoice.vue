@@ -14,6 +14,13 @@
         </v-btn>
 
         <v-card width="850" class="pa-10 invoice-paper elevation-2">
+          <img
+            v-if="isInvoicePaid"
+            class="paid-mark-overlay"
+            src="/paid-mark.png"
+            alt="Paid"
+          />
+
           <div class="letterhead">
             <div class="header-section">
               <div class="logo-wrapper">
@@ -467,6 +474,9 @@ const invoiceLanguage = ref<"id" | "en">("en");
 const isSavingPdf = ref(false);
 const printArea = ref<HTMLElement | null>(null);
 
+const isInvoicePaid = computed(
+  () => props.invoiceDetail.status?.trim().toLowerCase() === "selesai",
+);
 const invoiceYear = computed(() => props.invoiceDetail.tanggal?.slice(0, 4));
 const invoiceCurrency = computed<invoiceCurrencyM>(() => {
   const currency = props.invoiceDetail.currency_inv;
@@ -1051,9 +1061,24 @@ const handleSavePdf = async () => {
 }
 
 .invoice-paper {
+  position: relative;
   font-family: Arial, sans-serif;
   color: #000;
   line-height: 1.3;
+}
+
+.paid-mark-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 10;
+  display: block;
+  width: 72%;
+  height: auto;
+  opacity: 0.72;
+  pointer-events: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
 }
 
 .header-section {
