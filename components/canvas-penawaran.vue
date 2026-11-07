@@ -322,7 +322,7 @@
 
             <tfoot v-if="showTotal">
 
-              <tr class="summary-row grand-total-row" v-if="Number(props.detailpenawaran.discount_penawaran) > 0">
+              <tr class="summary-row subtotal-row" v-if="Number(props.detailpenawaran.discount_penawaran) > 0">
                 <td colspan="5" class="text-right font-weight-bold text-navy">
                   Subtotal
                 </td>
@@ -1075,15 +1075,28 @@ const createPaginatedQuotationPdf = async () => {
   const letterheadHeight =
     (letterheadCanvas.height * contentWidth) / letterheadCanvas.width;
   const footerHeight = (footerCanvas.height * contentWidth) / footerCanvas.width;
-  const contentTop = topMargin + letterheadHeight + 6;
+  const firstPageContentTop = topMargin + letterheadHeight + 6;
+  // Continuation pages intentionally omit the letterhead and can use the
+  // space from the normal top margin onward.
+  const continuationContentTop = topMargin;
   // The footer canvas already owns a 12 mm-high area and places its line in
   // the middle, so no additional buffer is needed above that reserved area.
   // This recovers the full 5 mm that previously pushed compact signatures to
   // a second page while still leaving roughly 6 mm before the visible line.
   const contentBottom = pageHeight - footerMargin - footerHeight;
-  const printableContentHeight = contentBottom - contentTop;
   const pixelsPerMm = contentCanvas.width / contentWidth;
-  const pageSliceHeight = Math.floor(printableContentHeight * pixelsPerMm);
+  const getPageLayout = (pageIndex: number) => {
+    const contentTop =
+      pageIndex === 0 ? firstPageContentTop : continuationContentTop;
+
+    return {
+      contentTop,
+      pageSliceHeight: Math.floor(
+        (contentBottom - contentTop) * pixelsPerMm,
+      ),
+    };
+  };
+  const maxPageSliceHeight = getPageLayout(1).pageSliceHeight;
 
   const drawPdfTextFragments = (
     fragments: PdfTextFragment[],
@@ -1118,22 +1131,11 @@ const createPaginatedQuotationPdf = async () => {
     });
   };
 
-  // Keep quotation items together. When a row does not fit in the remaining
-  // printable area, end the page before the row and place it on the next page.
+  // Long quotation items may continue on the next page. Keeping every table
+  // row intact moved an entire long description to the following page and
+  // left a large unused area above the footer.
   const canvasScale = contentCanvas.width / contentRect.width;
   const keepTogetherRanges: Array<{ top: number; bottom: number }> = [];
-  contentElement
-    .querySelectorAll(".modern-table tbody tr")
-    .forEach((row) => {
-      const rect = row.getBoundingClientRect();
-      const range = {
-        top: Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
-        bottom: Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
-      };
-      if (range.bottom - range.top <= pageSliceHeight) {
-        keepTogetherRanges.push(range);
-      }
-    });
   // Keep the grand total and its amount-in-words note on the same page.
   // Otherwise the total can be stranded at the foot of one page while its
   // explanation starts the next page (as in the reported PDF).
@@ -1161,7 +1163,7 @@ const createPaginatedQuotationPdf = async () => {
         top: Math.floor((rect.top - contentRect.top) * canvasScale) - 2,
         bottom: Math.ceil((rect.bottom - contentRect.top) * canvasScale) + 2,
       };
-      if (range.bottom - range.top <= pageSliceHeight) {
+      if (range.bottom - range.top <= maxPageSliceHeight) {
         keepTogetherRanges.push(range);
       }
     });
@@ -1203,7 +1205,7 @@ const createPaginatedQuotationPdf = async () => {
   const watermarkHeight =
     (watermarkCanvas.height / watermarkCanvas.width) * watermarkWidth;
 
-  const addPageFrame = () => {
+  const addPageFrame = (includeLetterhead: boolean) => {
     pdf.addImage(
       watermarkImageData,
       "JPEG",
@@ -1214,16 +1216,18 @@ const createPaginatedQuotationPdf = async () => {
       "quotation-watermark",
       "FAST",
     );
-    pdf.addImage(
-      letterheadImage,
-      "PNG",
-      sideMargin,
-      topMargin,
-      contentWidth,
-      letterheadHeight,
-      "quotation-letterhead",
-      "SLOW",
-    );
+    if (includeLetterhead) {
+      pdf.addImage(
+        letterheadImage,
+        "PNG",
+        sideMargin,
+        topMargin,
+        contentWidth,
+        letterheadHeight,
+        "quotation-letterhead",
+        "SLOW",
+      );
+    }
     pdf.addImage(
       footerImage,
       "PNG",
@@ -1234,14 +1238,16 @@ const createPaginatedQuotationPdf = async () => {
       "quotation-footer",
       "SLOW",
     );
-    drawPdfTextFragments(
-      letterheadTextFragments,
-      sideMargin,
-      topMargin,
-      contentWidth / letterheadRect.width,
-      0,
-      letterheadRect.height,
-    );
+    if (includeLetterhead) {
+      drawPdfTextFragments(
+        letterheadTextFragments,
+        sideMargin,
+        topMargin,
+        contentWidth / letterheadRect.width,
+        0,
+        letterheadRect.height,
+      );
+    }
   };
 
   const createContentSlice = (sliceStart: number, sliceHeight: number) => {
@@ -1267,6 +1273,7 @@ const createPaginatedQuotationPdf = async () => {
   let sourceY = 0;
   let pageIndex = 0;
   while (sourceY < contentCanvas.height) {
+    const { contentTop, pageSliceHeight } = getPageLayout(pageIndex);
     const remainingHeight = contentCanvas.height - sourceY;
     const finalPageScale = Math.min(1, pageSliceHeight / remainingHeight);
 
@@ -1281,7 +1288,7 @@ const createPaginatedQuotationPdf = async () => {
       const fittedContentHeight =
         (remainingHeight / pixelsPerMm) * finalPageScale;
 
-      addPageFrame();
+      addPageFrame(pageIndex === 0);
       pdf.addImage(
         toLosslessPdfImage(finalPageCanvas),
         "PNG",
@@ -1314,12 +1321,30 @@ const createPaginatedQuotationPdf = async () => {
         range.bottom > targetY,
     );
     if (crossingRange) targetY = crossingRange.top;
+
+    // Avoid slicing through the glyphs of a wrapped description line. Table
+    // rows themselves may span pages, but each rendered text line stays whole.
+    const crossingTextFragments = contentTextFragments.filter((fragment) => {
+      const fragmentTop = fragment.top * canvasScale;
+      const fragmentBottom = (fragment.top + fragment.height) * canvasScale;
+      return fragmentTop < targetY && fragmentBottom > targetY;
+    });
+    if (crossingTextFragments.length) {
+      const textSafeTarget = Math.floor(
+        Math.min(
+          ...crossingTextFragments.map(
+            (fragment) => fragment.top * canvasScale,
+          ),
+        ) - 2,
+      );
+      if (textSafeTarget > sourceY) targetY = textSafeTarget;
+    }
     if (pageIndex > 0) pdf.addPage();
 
     const sliceHeight = targetY - sourceY;
     const sliceCanvas = createContentSlice(sourceY, sliceHeight);
 
-    addPageFrame();
+    addPageFrame(pageIndex === 0);
     pdf.addImage(
       toLosslessPdfImage(sliceCanvas),
       "PNG",
@@ -1723,6 +1748,7 @@ const handleSavePdf = async () => {
   font-size: 10.5px;
   color: #475569;
   line-height: 1.4;
+  margin-top: 6px;
   margin-bottom: 12px;
 }
 
