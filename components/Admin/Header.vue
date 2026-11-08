@@ -1,4 +1,5 @@
 <script setup>
+import Sortable from "sortablejs";
 import { useDisplay } from "vuetify";
 import { useUserStore } from "@/stores/userStore";
 import { getAuth, signOut } from "firebase/auth";
@@ -22,9 +23,15 @@ const isLoggingOut = ref(false);
 const workspaceTabs = ref([]);
 const workspaceTabsReady = ref(false);
 const workspaceTabsScroll = ref(null);
+const workspaceTabsList = ref(null);
 const activeWorkspaceTabId = ref("");
+const workspaceTabDropTargetId = ref("");
+const workspaceTabDropPosition = ref("");
 let clockInterval;
 let workspaceTabSequence = 0;
+let workspaceTabsSortable = null;
+let workspaceTabDragFromIndex = -1;
+let workspaceTabDropIndex = -1;
 
 const WORKSPACE_TABS_STORAGE_PREFIX = "drm-erp:workspace-tabs:v2";
 
@@ -77,10 +84,12 @@ onMounted(() => {
     currentTime.value = new Date();
   }, 1_000);
   restoreWorkspaceTabs();
+  void nextTick(initializeWorkspaceTabsSortable);
 });
 
 onBeforeUnmount(() => {
   if (clockInterval) window.clearInterval(clockInterval);
+  destroyWorkspaceTabsSortable();
 });
 
 const allMenuItems = [
@@ -328,6 +337,128 @@ const persistWorkspaceTabs = () => {
     console.warn("Tab workspace tidak dapat disimpan:", error);
   }
 };
+
+const moveWorkspaceTab = (fromIndex, toIndex) => {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= workspaceTabs.value.length ||
+    toIndex >= workspaceTabs.value.length
+  ) {
+    return;
+  }
+
+  const [movedTab] = workspaceTabs.value.splice(fromIndex, 1);
+  if (!movedTab) return;
+
+  workspaceTabs.value.splice(toIndex, 0, movedTab);
+  persistWorkspaceTabs();
+};
+
+const moveWorkspaceTabByOffset = (tab, offset, event) => {
+  const fromIndex = workspaceTabs.value.findIndex((item) => item.id === tab.id);
+  const toIndex = fromIndex + offset;
+  const tabButton = event?.currentTarget;
+
+  moveWorkspaceTab(fromIndex, toIndex);
+  void nextTick(() => {
+    tabButton?.focus();
+    tabButton?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  });
+};
+
+function destroyWorkspaceTabsSortable() {
+  workspaceTabsSortable?.destroy();
+  workspaceTabsSortable = null;
+}
+
+function clearWorkspaceTabDragState() {
+  workspaceTabDragFromIndex = -1;
+  workspaceTabDropIndex = -1;
+  workspaceTabDropTargetId.value = "";
+  workspaceTabDropPosition.value = "";
+}
+
+function initializeWorkspaceTabsSortable() {
+  destroyWorkspaceTabsSortable();
+  if (!workspaceTabsList.value) return;
+
+  workspaceTabsSortable = new Sortable(workspaceTabsList.value, {
+    animation: 160,
+    direction: "horizontal",
+    draggable: ".workspace-tab",
+    handle: ".workspace-tab-main",
+    ghostClass: "workspace-tab-sortable-ghost",
+    chosenClass: "workspace-tab-sortable-chosen",
+    dragClass: "workspace-tab-sortable-drag",
+    delay: 120,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 4,
+    forceFallback: true,
+    fallbackOnBody: true,
+    fallbackTolerance: 3,
+    scroll: true,
+    onStart(event) {
+      workspaceTabDragFromIndex =
+        event.oldDraggableIndex ?? event.oldIndex ?? -1;
+      workspaceTabDropIndex = workspaceTabDragFromIndex;
+    },
+    onMove(event) {
+      const tabElements = Array.from(
+        workspaceTabsList.value?.querySelectorAll(".workspace-tab") || [],
+      );
+      const relatedIndex = tabElements.indexOf(event.related);
+
+      if (relatedIndex < 0) {
+        if (event.related?.classList.contains("workspace-add-tab")) {
+          workspaceTabDropIndex = workspaceTabs.value.length - 1;
+          workspaceTabDropTargetId.value = workspaceTabs.value.at(-1)?.id || "";
+          workspaceTabDropPosition.value = "after";
+        }
+        return false;
+      }
+
+      const insertionIndex = relatedIndex + (event.willInsertAfter ? 1 : 0);
+      const adjustedIndex =
+        insertionIndex -
+        (workspaceTabDragFromIndex < insertionIndex ? 1 : 0);
+      workspaceTabDropIndex = Math.max(
+        0,
+        Math.min(adjustedIndex, workspaceTabs.value.length - 1),
+      );
+
+      if (workspaceTabDropIndex === workspaceTabDragFromIndex) {
+        workspaceTabDropTargetId.value = "";
+        workspaceTabDropPosition.value = "";
+      } else {
+        workspaceTabDropTargetId.value =
+          workspaceTabs.value[relatedIndex]?.id || "";
+        workspaceTabDropPosition.value = event.willInsertAfter
+          ? "after"
+          : "before";
+      }
+
+      // Pertahankan posisi tab asli sampai drag benar-benar dilepas.
+      return false;
+    },
+    onEnd(event) {
+      const fromIndex =
+        workspaceTabDragFromIndex >= 0
+          ? workspaceTabDragFromIndex
+          : event.oldDraggableIndex ?? event.oldIndex;
+      const toIndex =
+        workspaceTabDropIndex >= 0 ? workspaceTabDropIndex : fromIndex;
+      clearWorkspaceTabDragState();
+      if (fromIndex === undefined || toIndex === undefined) return;
+      moveWorkspaceTab(fromIndex, toIndex);
+    },
+  });
+}
 
 const scrollActiveWorkspaceTabIntoView = async () => {
   await nextTick();
@@ -776,13 +907,26 @@ const logout = async () => {
     <template #extension>
       <div class="workspace-tabs-bar">
         <div ref="workspaceTabsScroll" class="workspace-tabs-scroll">
-          <div class="workspace-tabs-list" role="tablist" aria-label="Halaman terbuka">
+          <div
+            ref="workspaceTabsList"
+            class="workspace-tabs-list"
+            role="tablist"
+            aria-label="Halaman terbuka"
+          >
             <div
               v-for="tab in workspaceTabs"
               :key="tab.id"
               :class="[
                 'workspace-tab',
-                { 'workspace-tab--active': tab.id === activeWorkspaceTabId },
+                {
+                  'workspace-tab--active': tab.id === activeWorkspaceTabId,
+                  'workspace-tab--drop-before':
+                    tab.id === workspaceTabDropTargetId &&
+                    workspaceTabDropPosition === 'before',
+                  'workspace-tab--drop-after':
+                    tab.id === workspaceTabDropTargetId &&
+                    workspaceTabDropPosition === 'after',
+                },
               ]"
             >
               <button
@@ -792,6 +936,8 @@ const logout = async () => {
                 :aria-selected="tab.id === activeWorkspaceTabId"
                 :title="tab.title"
                 @click="navigateToWorkspaceTab(tab)"
+                @keydown.alt.left.prevent="moveWorkspaceTabByOffset(tab, -1, $event)"
+                @keydown.alt.right.prevent="moveWorkspaceTabByOffset(tab, 1, $event)"
               >
                 <v-icon :icon="tab.icon" size="15" aria-hidden="true" />
                 <span>{{ tab.title }}</span>
@@ -1039,6 +1185,7 @@ const logout = async () => {
 }
 
 .workspace-tab {
+  position: relative;
   display: flex;
   min-width: 112px;
   max-width: 210px;
@@ -1096,6 +1243,51 @@ const logout = async () => {
   background: transparent;
   color: inherit;
   cursor: default;
+  user-select: none;
+}
+
+.workspace-tab-main:active {
+  cursor: default;
+}
+
+.workspace-tab-sortable-ghost {
+  border-color: #94a3b8;
+  background: #dbe3ec;
+  opacity: 0.45;
+}
+
+.workspace-tab-sortable-chosen {
+  box-shadow: 0 -3px 14px rgba(15, 23, 42, 0.14);
+}
+
+.workspace-tab-sortable-drag {
+  border-bottom: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: default;
+  opacity: 0.95;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.workspace-tab--drop-before::after,
+.workspace-tab--drop-after::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: #dc2626;
+  pointer-events: none;
+}
+
+.workspace-tab--drop-before::after {
+  left: -3px;
+}
+
+.workspace-tab--drop-after::after {
+  right: -3px;
 }
 
 .workspace-tab-main .v-icon {
