@@ -9,7 +9,136 @@ const email = ref("");
 const errorMessage = ref("");
 const successMessage = ref("");
 const isSubmitting = ref(false);
+const resetCard = ref<HTMLElement | null>(null);
+const resetSubmitArea = ref<HTMLElement | null>(null);
+const isKeyboardOpen = ref(false);
+const keyboardShift = ref(0);
 const emailDestination = computed(() => email.value.trim().toLowerCase());
+
+let viewportBaseline = 0;
+let viewportAnimationFrame: number | null = null;
+let viewportSettleTimer: number | null = null;
+let removeViewportListeners: (() => void) | undefined;
+
+const getViewportHeight = () =>
+  window.visualViewport?.height ?? window.innerHeight;
+
+const resetKeyboardLayout = () => {
+  isKeyboardOpen.value = false;
+  keyboardShift.value = 0;
+};
+
+const updateKeyboardLayout = () => {
+  const viewport = window.visualViewport;
+  const viewportHeight = getViewportHeight();
+  const activeElement = document.activeElement;
+  const isResetInputFocused =
+    activeElement instanceof HTMLInputElement &&
+    Boolean(resetCard.value?.contains(activeElement));
+
+  if (viewportHeight > viewportBaseline) {
+    viewportBaseline = viewportHeight;
+  }
+
+  const coveredHeight = Math.max(0, viewportBaseline - viewportHeight);
+
+  if (!isResetInputFocused) {
+    if (!isKeyboardOpen.value || coveredHeight < 80) {
+      viewportBaseline = viewportHeight;
+      resetKeyboardLayout();
+    }
+    return;
+  }
+
+  if (coveredHeight < 120) {
+    resetKeyboardLayout();
+    return;
+  }
+
+  isKeyboardOpen.value = true;
+
+  const submitArea = resetSubmitArea.value;
+  if (!submitArea) return;
+
+  const submitRect = submitArea.getBoundingClientRect();
+  const submitBottomWithoutShift = submitRect.bottom + keyboardShift.value;
+  const visibleBottom = (viewport?.offsetTop ?? 0) + viewportHeight;
+
+  keyboardShift.value = Math.max(
+    0,
+    Math.ceil(submitBottomWithoutShift - visibleBottom + 10),
+  );
+};
+
+const scheduleKeyboardLayout = () => {
+  if (viewportAnimationFrame !== null) {
+    window.cancelAnimationFrame(viewportAnimationFrame);
+  }
+
+  viewportAnimationFrame = window.requestAnimationFrame(() => {
+    viewportAnimationFrame = null;
+    updateKeyboardLayout();
+  });
+};
+
+const scheduleSettledKeyboardLayout = () => {
+  scheduleKeyboardLayout();
+
+  if (viewportSettleTimer !== null) {
+    window.clearTimeout(viewportSettleTimer);
+  }
+
+  viewportSettleTimer = window.setTimeout(() => {
+    viewportSettleTimer = null;
+
+    const activeElement = document.activeElement;
+    const isResetInputFocused =
+      activeElement instanceof HTMLInputElement &&
+      Boolean(resetCard.value?.contains(activeElement));
+
+    if (!isResetInputFocused && isKeyboardOpen.value) {
+      viewportBaseline = getViewportHeight();
+      resetKeyboardLayout();
+      return;
+    }
+
+    scheduleKeyboardLayout();
+  }, 100);
+};
+
+onMounted(() => {
+  viewportBaseline = getViewportHeight();
+
+  const viewport = window.visualViewport;
+  viewport?.addEventListener("resize", scheduleSettledKeyboardLayout);
+  viewport?.addEventListener("scroll", scheduleKeyboardLayout);
+  window.addEventListener("resize", scheduleSettledKeyboardLayout);
+  document.addEventListener("focusin", scheduleKeyboardLayout);
+  document.addEventListener("focusout", scheduleSettledKeyboardLayout);
+
+  removeViewportListeners = () => {
+    viewport?.removeEventListener("resize", scheduleSettledKeyboardLayout);
+    viewport?.removeEventListener("scroll", scheduleKeyboardLayout);
+    window.removeEventListener("resize", scheduleSettledKeyboardLayout);
+    document.removeEventListener("focusin", scheduleKeyboardLayout);
+    document.removeEventListener("focusout", scheduleSettledKeyboardLayout);
+  };
+});
+
+onBeforeUnmount(() => {
+  removeViewportListeners?.();
+  if (viewportAnimationFrame !== null) {
+    window.cancelAnimationFrame(viewportAnimationFrame);
+  }
+  if (viewportSettleTimer !== null) {
+    window.clearTimeout(viewportSettleTimer);
+  }
+});
+
+watch([errorMessage, successMessage], async () => {
+  await nextTick();
+  scheduleKeyboardLayout();
+});
 
 function clearFeedback() {
   errorMessage.value = "";
@@ -57,13 +186,17 @@ async function requestPasswordReset() {
 </script>
 
 <template>
-  <div class="reset-page">
+  <div
+    class="reset-page"
+    :class="{ 'reset-page--keyboard-open': isKeyboardOpen }"
+    :style="{ '--keyboard-shift': `${keyboardShift}px` }"
+  >
     <div class="bg-glow glow-top" />
     <div class="bg-glow glow-bottom" />
     <div class="grid-pattern" />
 
     <main class="main-container">
-      <section class="reset-card">
+      <section ref="resetCard" class="reset-card">
         <div class="logo-badge">
           <img
             src="/logokopsurat.png"
@@ -149,18 +282,20 @@ async function requestPasswordReset() {
             </div>
           </div>
 
-          <v-btn
-            type="submit"
-            color="error"
-            class="reset-button"
-            size="small"
-            block
-            :loading="isSubmitting"
-            :disabled="isSubmitting"
-          >
-            Kirim Link Reset
-            <v-icon end icon="mdi-email-fast-outline" />
-          </v-btn>
+          <div ref="resetSubmitArea" class="reset-submit-area">
+            <v-btn
+              type="submit"
+              color="error"
+              class="reset-button"
+              size="small"
+              block
+              :loading="isSubmitting"
+              :disabled="isSubmitting"
+            >
+              Kirim Link Reset
+              <v-icon end icon="mdi-email-fast-outline" />
+            </v-btn>
+          </div>
 
           <NuxtLink to="/" class="back-login-link">
             <v-icon icon="mdi-arrow-left" size="17" />
@@ -223,6 +358,7 @@ async function requestPasswordReset() {
   max-width: 460px;
   margin: auto;
   padding: 24px 16px;
+  will-change: transform;
 }
 .reset-card {
   padding: 32px 28px 28px;
@@ -432,6 +568,9 @@ async function requestPasswordReset() {
   border-radius: 13px !important;
   box-shadow: 0 10px 24px rgba(220, 38, 38, 0.24) !important;
 }
+.reset-submit-area {
+  width: 100%;
+}
 .back-login-link {
   display: inline-flex;
   min-height: 32px;
@@ -464,6 +603,16 @@ footer {
   color: #64748b;
   text-align: center;
   font-size: 11px;
+}
+
+@media (max-width: 1024px) {
+  .reset-page--keyboard-open .main-container {
+    transform: translate3d(
+      0,
+      calc(0px - var(--keyboard-shift, 0px)),
+      0
+    );
+  }
 }
 
 @media (max-width: 480px) {

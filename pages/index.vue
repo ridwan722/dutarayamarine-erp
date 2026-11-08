@@ -10,14 +10,145 @@ const password = ref("");
 const showPassword = ref(false);
 const errorMessage = ref("");
 const isSubmitting = ref(false);
+const glassCard = ref<HTMLElement | null>(null);
+const loginForm = ref<HTMLFormElement | null>(null);
+const isKeyboardOpen = ref(false);
+const keyboardShift = ref(0);
+
+let viewportBaseline = 0;
+let viewportAnimationFrame: number | null = null;
+let viewportSettleTimer: number | null = null;
+let removeViewportListeners: (() => void) | undefined;
+
+const getViewportHeight = () =>
+  window.visualViewport?.height ?? window.innerHeight;
+
+const resetKeyboardLayout = () => {
+  isKeyboardOpen.value = false;
+  keyboardShift.value = 0;
+};
+
+const updateKeyboardLayout = () => {
+  const viewport = window.visualViewport;
+  const viewportHeight = getViewportHeight();
+  const activeElement = document.activeElement;
+  const isLoginInputFocused =
+    activeElement instanceof HTMLInputElement &&
+    Boolean(glassCard.value?.contains(activeElement));
+
+  if (viewportHeight > viewportBaseline) {
+    viewportBaseline = viewportHeight;
+  }
+
+  const coveredHeight = Math.max(0, viewportBaseline - viewportHeight);
+
+  if (!isLoginInputFocused) {
+    // Keep the card in place while focus moves to the submit button. Moving it
+    // before the click completes can cancel the tap on some mobile browsers.
+    if (!isKeyboardOpen.value || coveredHeight < 80) {
+      viewportBaseline = viewportHeight;
+      resetKeyboardLayout();
+    }
+    return;
+  }
+
+  if (coveredHeight < 120) {
+    resetKeyboardLayout();
+    return;
+  }
+
+  isKeyboardOpen.value = true;
+
+  const form = loginForm.value;
+  if (!form) return;
+
+  const formRect = form.getBoundingClientRect();
+  const formBottomWithoutShift = formRect.bottom + keyboardShift.value;
+  const visibleBottom = (viewport?.offsetTop ?? 0) + viewportHeight;
+
+  keyboardShift.value = Math.max(
+    0,
+    Math.ceil(formBottomWithoutShift - visibleBottom + 10),
+  );
+};
+
+const scheduleKeyboardLayout = () => {
+  if (viewportAnimationFrame !== null) {
+    window.cancelAnimationFrame(viewportAnimationFrame);
+  }
+
+  viewportAnimationFrame = window.requestAnimationFrame(() => {
+    viewportAnimationFrame = null;
+    updateKeyboardLayout();
+  });
+};
+
+const scheduleSettledKeyboardLayout = () => {
+  scheduleKeyboardLayout();
+
+  if (viewportSettleTimer !== null) {
+    window.clearTimeout(viewportSettleTimer);
+  }
+
+  // Recheck shortly after the viewport event as a fallback for mobile
+  // browsers that report the final keyboard position on the next frame.
+  viewportSettleTimer = window.setTimeout(() => {
+    viewportSettleTimer = null;
+
+    const activeElement = document.activeElement;
+    const isLoginInputFocused =
+      activeElement instanceof HTMLInputElement &&
+      Boolean(glassCard.value?.contains(activeElement));
+
+    if (!isLoginInputFocused && isKeyboardOpen.value) {
+      viewportBaseline = getViewportHeight();
+      resetKeyboardLayout();
+      return;
+    }
+
+    scheduleKeyboardLayout();
+  }, 100);
+};
 
 onMounted(async () => {
+  viewportBaseline = getViewportHeight();
+
+  const viewport = window.visualViewport;
+  viewport?.addEventListener("resize", scheduleSettledKeyboardLayout);
+  viewport?.addEventListener("scroll", scheduleKeyboardLayout);
+  window.addEventListener("resize", scheduleSettledKeyboardLayout);
+  document.addEventListener("focusin", scheduleKeyboardLayout);
+  document.addEventListener("focusout", scheduleSettledKeyboardLayout);
+
+  removeViewportListeners = () => {
+    viewport?.removeEventListener("resize", scheduleSettledKeyboardLayout);
+    viewport?.removeEventListener("scroll", scheduleKeyboardLayout);
+    window.removeEventListener("resize", scheduleSettledKeyboardLayout);
+    document.removeEventListener("focusin", scheduleKeyboardLayout);
+    document.removeEventListener("focusout", scheduleSettledKeyboardLayout);
+  };
+
   if (userStore.isLoggedIn && userStore.active) {
     const { firstAllowedPath } = await import("~/utils/access-control");
     await navigateTo(
       firstAllowedPath(userStore.getPermissions, userStore.getRole),
     );
   }
+});
+
+onBeforeUnmount(() => {
+  removeViewportListeners?.();
+  if (viewportAnimationFrame !== null) {
+    window.cancelAnimationFrame(viewportAnimationFrame);
+  }
+  if (viewportSettleTimer !== null) {
+    window.clearTimeout(viewportSettleTimer);
+  }
+});
+
+watch(errorMessage, async () => {
+  await nextTick();
+  scheduleKeyboardLayout();
 });
 
 const login = async () => {
@@ -68,13 +199,17 @@ const login = async () => {
 </script>
 
 <template>
-  <div class="login-page">
+  <div
+    class="login-page"
+    :class="{ 'login-page--keyboard-open': isKeyboardOpen }"
+    :style="{ '--keyboard-shift': `${keyboardShift}px` }"
+  >
     <div class="bg-glow glow-top" />
     <div class="bg-glow glow-bottom" />
     <div class="grid-pattern" />
 
     <main class="main-container">
-      <div class="glass-card">
+      <div ref="glassCard" class="glass-card">
         <div class="logo-badge">
           <img src="/logokopsurat.png" alt="Duta Raya Marine" class="logo-img" />
         </div>
@@ -94,7 +229,7 @@ const login = async () => {
           {{ errorMessage }}
         </v-alert>
 
-        <form class="login-form" @submit.prevent="login">
+        <form ref="loginForm" class="login-form" @submit.prevent="login">
           <div class="field-group">
             <label for="login-email">Email</label>
             <div
@@ -169,7 +304,7 @@ const login = async () => {
             type="submit"
             color="error"
             class="login-button"
-            size="large"
+            size="small"
             block
             :loading="isSubmitting"
           >
@@ -230,6 +365,7 @@ const login = async () => {
   max-width: 460px;
   margin: auto;
   padding: 24px 16px;
+  will-change: transform;
 }
 .glass-card {
   padding: 34px 28px 30px;
@@ -409,7 +545,7 @@ const login = async () => {
   opacity: 0.45;
 }
 .login-button {
-  height: 52px !important;
+  height: 42px !important;
   margin-top: 3px;
   text-transform: none !important;
   font-weight: 700;
@@ -423,6 +559,16 @@ footer {
   color: #64748b;
   text-align: center;
   font-size: 11px;
+}
+
+@media (max-width: 1024px) {
+  .login-page--keyboard-open .main-container {
+    transform: translate3d(
+      0,
+      calc(0px - var(--keyboard-shift, 0px)),
+      0
+    );
+  }
 }
 
 @media (max-width: 480px) {
