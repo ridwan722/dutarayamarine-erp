@@ -13,12 +13,12 @@
           <v-icon icon="mdi-chart-box-outline" size="18" />
         </span>
         <span>
-          <strong>Ringkasan quotation</strong>
-          <small>Nilai aktif dan distribusi status quotation</small>
+          <strong>Quotation Summary</strong>
+          <!-- <small>Nilai aktif dan distribusi status quotation</small> -->
         </span>
       </span>
       <span class="summary-toggle-action">
-        {{ isSummaryVisible ? "Sembunyikan" : "Tampilkan" }}
+        {{ isSummaryVisible ? "Hide" : "Show" }}
         <v-icon
           :icon="isSummaryVisible ? 'mdi-chevron-up' : 'mdi-chevron-down'"
           size="17"

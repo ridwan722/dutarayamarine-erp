@@ -932,7 +932,6 @@ async function deleteProject(project: projectWebM) {
 
     <header class="project-hero">
       <div class="project-hero-copy">
-        <span class="eyebrow">Master Data</span>
         <h1>Project Website</h1>
         <p>
           <a
@@ -979,7 +978,6 @@ async function deleteProject(project: projectWebM) {
     <section class="project-directory">
       <header class="directory-header">
         <div>
-          <span class="section-kicker">Website Project Directory</span>
           <div class="directory-title-row">
             <h2>Daftar Project</h2>
             <span>{{ filteredProjects.length }} data</span>

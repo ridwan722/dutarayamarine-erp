@@ -17,6 +17,18 @@
         <!-- <p>Manage invoice, client, payment status, and transaction value.</p> -->
       </div>
     </div>
+
+    <v-btn
+      variant="outlined"
+      size="small"
+      class="invoice-page-refresh-btn text-none"
+      prepend-icon="mdi-refresh"
+      :loading="isRefreshing"
+      :disabled="isRefreshing"
+      @click="refreshData"
+    >
+      Refresh
+    </v-btn>
   </div>
 
   <!-- /// DIALOG BUAT INVOICE \\\ -->
@@ -480,23 +492,13 @@
             activeInvoiceFilterCount ? ` (${activeInvoiceFilterCount})` : ""
           }}
         </v-btn>
-        <v-btn
-          icon="mdi-refresh"
-          size="small"
-          variant="text"
-          class="invoice-refresh-btn"
-          aria-label="Refresh invoice"
-          @click="refreshData"
-        >
-          <v-tooltip activator="parent" location="top">Refresh Data</v-tooltip>
-        </v-btn>
       </div>
     </div>
 
     <v-divider />
 
     <section v-show="data.showInvoiceFilters" class="invoice-filter-panel">
-      <div class="invoice-filter-heading">
+      <!-- <div class="invoice-filter-heading">
         <div>
           <span class="invoice-filter-eyebrow">Filter pencarian</span>
           <p>
@@ -504,7 +506,7 @@
             detail invoice.
           </p>
         </div>
-      </div>
+      </div> -->
 
       <div class="invoice-filter-grid">
         <div class="invoice-filter-field">
@@ -590,10 +592,9 @@
         </label>
 
         <v-chip
-          v-if="hasActiveInvoiceFilters"
           label
-          variant="tonal"
-          color="error"
+          variant="flat"
+          color="red"
           prepend-icon="mdi-filter-off-outline"
           class="invoice-filter-reset text-none"
           role="button"
@@ -973,7 +974,8 @@ function formatInvoiceCurrency(value: number, currency?: string) {
 
 const readingPo = ref(false);
 const savingInvoice = ref(false);
-const isLoading = ref(true);
+const isLoading = ref(!invoiceStore.hasCachedData());
+const isRefreshing = ref(false);
 const MAX_INVOICE_BYTES = 900_000;
 
 async function tambahDokumenPo(event: Event) {
@@ -1091,15 +1093,26 @@ watch(
 
 onMounted(async () => {
   restoreInvoiceFilters();
+  data.showAllInvoice = true;
+  const needsInvoiceData = !invoiceStore.hasCachedData();
+  isLoading.value = needsInvoiceData;
+
   try {
-    isLoading.value = true;
-    await customerStore.tarikDataCustomerAct();
-    await invoiceStore.tarikDataInvoiceAct();
-    data.showAllInvoice = true;
+    const initialRequests: Promise<unknown>[] = [];
+    if (!customerStore.getDataCustomer.length) {
+      initialRequests.push(customerStore.tarikDataCustomerAct());
+    }
+    if (needsInvoiceData) {
+      initialRequests.push(invoiceStore.tarikDataInvoiceAct());
+    }
+    await Promise.all(initialRequests);
   } finally {
     isLoading.value = false;
   }
-  termconditionStore.tarikDataTermconditionAct();
+
+  if (!termconditionStore.getDataTermcondition.length) {
+    void termconditionStore.tarikDataTermconditionAct();
+  }
 });
 
 const filteredInvoice = computed(() => {
@@ -1430,11 +1443,19 @@ async function hapusInvoice(id_penawaran: string, id: string) {
 }
 
 async function refreshData() {
-  useloadingStore().setLoading(true);
-  sessionStorage.removeItem("invoice");
-  await invoiceStore.tarikDataInvoiceAct();
-  useloadingStore().setLoading(false);
-  notificationStore.showSuccess("Data berhasil diperbarui");
+  if (isRefreshing.value) return;
+
+  isRefreshing.value = true;
+  try {
+    sessionStorage.removeItem("invoice");
+    await invoiceStore.tarikDataInvoiceAct();
+    notificationStore.showSuccess("Data berhasil diperbarui");
+  } catch (error) {
+    console.error("Gagal memperbarui data invoice:", error);
+    notificationStore.showError("Data invoice gagal diperbarui");
+  } finally {
+    isRefreshing.value = false;
+  }
 }
 </script>
 
@@ -1443,6 +1464,7 @@ async function refreshData() {
 
 .invoice-page-topbar {
   display: flex;
+  width: 100%;
   margin-bottom: 1px;
   align-items: center;
   gap: 14px;
@@ -1546,11 +1568,16 @@ async function refreshData() {
   border-color: #d6dbe1 !important;
   border-radius: 4px !important;
 }
-.invoice-refresh-btn {
-  width: 30px !important;
-  height: 30px !important;
-  color: #65717f !important;
-  border-radius: 4px !important;
+.invoice-page-refresh-btn {
+  height: 34px !important;
+  padding-inline: 12px !important;
+  flex: 0 0 auto;
+  color: #526171 !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-color: #d6dbe1 !important;
+  border-radius: 5px !important;
 }
 
 .invoice-filter-panel {
@@ -1584,7 +1611,8 @@ async function refreshData() {
 }
 
 .invoice-filter-reset {
-  width: 100%;
+  width: fit-content;
+  min-width: 100px;
   height: 31px !important;
   align-self: end;
   justify-content: center;

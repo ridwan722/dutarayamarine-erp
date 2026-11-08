@@ -913,16 +913,29 @@
         <p>Manage quotation, client, status, and transaction value.</p>
       </div>
     </div>
-    <v-btn
-      color="primary"
-      variant="flat"
-      size="small"
-      class="quotation-create-btn text-none"
-      prepend-icon="mdi-plus"
-      @click="openDialogTambahPenawaran"
-    >
-      New Quotation
-    </v-btn>
+    <div class="quotation-page-actions">
+      <v-btn
+        color="primary"
+        variant="flat"
+        size="small"
+        class="quotation-create-btn text-none"
+        prepend-icon="mdi-plus"
+        @click="openDialogTambahPenawaran"
+      >
+        New Quotation
+      </v-btn>
+      <v-btn
+        variant="outlined"
+        size="small"
+        class="quotation-page-refresh-btn text-none"
+        prepend-icon="mdi-refresh"
+        :loading="isRefreshing"
+        :disabled="isRefreshing"
+        @click="refreshData"
+      >
+        Refresh
+      </v-btn>
+    </div>
   </div>
 
   <summary-quotation :loading="isLoading" />
@@ -970,18 +983,6 @@
               : ""
           }}
         </v-btn>
-        <v-btn
-          icon="mdi-refresh"
-          size="small"
-          variant="text"
-          class="quotation-refresh-btn"
-          aria-label="Refresh quotation"
-          @click="refreshData"
-        >
-          <v-tooltip activator="parent" location="top">
-            Refresh Data
-          </v-tooltip>
-        </v-btn>
       </div>
     </div>
 
@@ -991,14 +992,6 @@
       v-show="data.showQuotationFilters"
       class="quotation-filter-panel"
     >
-      <div class="quotation-filter-heading">
-        <div>
-          <span class="quotation-filter-eyebrow">Filter pencarian</span>
-          <p>
-            Filter dapat digabungkan dan akan tetap tersimpan.
-          </p>
-        </div>
-      </div>
 
       <div class="quotation-filter-grid">
         <div class="quotation-filter-field">
@@ -1110,7 +1103,7 @@
       class="quotation-list-table"
     >
       <template v-slot:item.no="{ index }">
-        <span class="quotation-row-index">{{ index + 1 }}</span>
+        <span class="quotation-row-index">{{ index + 1 }}.</span>
       </template>
 
       <template v-slot:item.no_penawaran="{ item }">
@@ -1317,17 +1310,32 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 );
 const activeSuggestionIndex = ref<number | null>(null);
 const savingCustomer = ref(false);
-const isLoading = ref(true);
+const isLoading = ref(!penawaranStore.hasCachedData());
+const isRefreshing = ref(false);
 
 onMounted(async () => {
   restoreQuotationFilters();
+  const needsQuotationData = !penawaranStore.hasCachedData();
+  isLoading.value = needsQuotationData;
+
   try {
-    isLoading.value = true;
-    await penawaranStore.tarikDataPenawaranAct();
-    await customerStore.tarikDataCustomerAct();
-    await masterPicStore.tarikDataMasterPicAct();
-    await termconditionStore.tarikDataTermconditionAct();
-    await barangStore.tarikDataBarangAct();
+    const initialRequests: Promise<unknown>[] = [];
+    if (needsQuotationData) {
+      initialRequests.push(penawaranStore.tarikDataPenawaranAct());
+    }
+    if (!customerStore.getDataCustomer.length) {
+      initialRequests.push(customerStore.tarikDataCustomerAct());
+    }
+    if (!masterPicStore.getDataMasterPic.length) {
+      initialRequests.push(masterPicStore.tarikDataMasterPicAct());
+    }
+    if (!termconditionStore.getDataTermcondition.length) {
+      initialRequests.push(termconditionStore.tarikDataTermconditionAct());
+    }
+    if (!barangStore.getDataBarang.length) {
+      initialRequests.push(barangStore.tarikDataBarangAct());
+    }
+    await Promise.all(initialRequests);
   } finally {
     isLoading.value = false;
   }
@@ -2636,11 +2644,19 @@ function backtodraft(item: penawaranM) {
 }
 
 async function refreshData() {
-  useloadingStore().setLoading(true);
-  sessionStorage.removeItem("penawaran");
-  await penawaranStore.tarikDataPenawaranAct();
-  useloadingStore().setLoading(false);
-  notificationStore.showSuccess("Data Penawaran berhasil diperbarui");
+  if (isRefreshing.value) return;
+
+  isRefreshing.value = true;
+  try {
+    sessionStorage.removeItem("penawaran");
+    await penawaranStore.tarikDataPenawaranAct();
+    notificationStore.showSuccess("Data Penawaran berhasil diperbarui");
+  } catch (error) {
+    console.error("Gagal memperbarui data penawaran:", error);
+    notificationStore.showError("Data Penawaran gagal diperbarui");
+  } finally {
+    isRefreshing.value = false;
+  }
 }
 </script>
 
@@ -2700,6 +2716,24 @@ async function refreshData() {
   letter-spacing: 0 !important;
   border-radius: 5px !important;
   box-shadow: none !important;
+}
+
+.quotation-page-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.quotation-page-refresh-btn {
+  height: 34px !important;
+  padding-inline: 12px !important;
+  color: #526171 !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-color: #d6dbe1 !important;
+  border-radius: 5px !important;
 }
 
 .quotation-list-card {
@@ -2787,13 +2821,6 @@ async function refreshData() {
   font-weight: 600 !important;
   letter-spacing: 0 !important;
   border-color: #d6dbe1 !important;
-  border-radius: 4px !important;
-}
-
-.quotation-refresh-btn {
-  width: 30px !important;
-  height: 30px !important;
-  color: #65717f !important;
   border-radius: 4px !important;
 }
 
@@ -2936,7 +2963,7 @@ async function refreshData() {
 }
 
 .quotation-row-index {
-  color: #9aa3ae;
+
   font-size: 10px;
   font-variant-numeric: tabular-nums;
 }

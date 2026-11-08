@@ -7,6 +7,9 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
     return {
       dataPenawaran: [] as penawaranM[],
       dataPenawaranTampil: [] as penawaranM[], // DATA FILTER (Untuk Tabel di Halaman)
+      dataPenawaranLoaded: false,
+      dataPenawaranScope: "",
+      dataPenawaranLoadedAt: 0,
       detailPenawaran: {} as penawaranM,
       tgl_awal: "",
       tgl_akhir: "",
@@ -49,6 +52,18 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
   },
 
   actions: {
+    getCurrentDataScope() {
+      const user = useUserStore();
+      return `${user.getEmail.trim().toLowerCase()}::${user.getIdPerusahaan.trim()}`;
+    },
+
+    hasCachedData() {
+      return (
+        this.dataPenawaranLoaded &&
+        this.dataPenawaranScope === this.getCurrentDataScope()
+      );
+    },
+
     upsertPenawaranLocal(penawaran: penawaranM) {
       const savedPenawaran = JSON.parse(
         JSON.stringify(penawaran),
@@ -156,11 +171,16 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
 
     async tarikDataPenawaranAct() {
       const companyId = useUserStore().getIdPerusahaan.trim();
+      const currentScope = this.getCurrentDataScope();
 
       // Hindari data akun sebelumnya sempat tampil ketika berganti user.
-      if (companyId) {
+      if (
+        this.dataPenawaranScope !== currentScope &&
+        (this.dataPenawaranLoaded || this.dataPenawaran.length)
+      ) {
         this.dataPenawaran = [];
         this.dataPenawaranTampil = [];
+        this.dataPenawaranLoaded = false;
       }
 
       const datatarik = companyId
@@ -169,6 +189,9 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
       const hasil = datatarik as unknown as penawaranM[];
       this.dataPenawaran = hasil; // Simpan ke Master
       this.dataPenawaranTampil = [...hasil]; // Default tampilkan semua
+      this.dataPenawaranScope = currentScope;
+      this.dataPenawaranLoaded = true;
+      this.dataPenawaranLoadedAt = Date.now();
     },
 
 

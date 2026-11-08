@@ -195,8 +195,8 @@ async function hapusBarang(id?: string) {
 
     <header class="barang-hero">
       <div class="barang-hero-copy">
-        <span class="barang-eyebrow">Master Data</span>
-        <h1>Barang &amp; Service</h1>
+
+        <h1>Master Barang &amp; Service</h1>
         <p>
           Kelola daftar barang, layanan, dan harga pokok yang digunakan saat
           menyusun penawaran untuk client.
@@ -231,7 +231,7 @@ async function hapusBarang(id?: string) {
     <section class="barang-directory">
       <header class="directory-header">
         <div>
-          <span class="section-kicker">Item Directory</span>
+
           <div class="directory-title-row"><h2>Daftar Barang &amp; Service</h2><span>{{ filteredBarang.length }} data</span></div>
         </div>
         <label class="barang-search">

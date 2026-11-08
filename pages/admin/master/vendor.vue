@@ -182,8 +182,7 @@ async function hapusVendor(id: string) {
 
     <header class="vendor-hero">
       <div class="vendor-hero-copy">
-        <span class="vendor-eyebrow">Master Data</span>
-        <h1>Vendor</h1>
+        <h1>Master Vendor</h1>
         <p>
           Kelola data perusahaan, PIC, dan informasi kontak seluruh mitra
           pengadaan dalam satu direktori.
@@ -236,7 +235,6 @@ async function hapusVendor(id: string) {
     <section class="vendor-directory">
       <header class="directory-header">
         <div>
-          <span class="section-kicker">Vendor Directory</span>
           <div class="directory-title-row">
             <h2>Daftar Vendor</h2>
             <span>{{ filteredVendors.length }} data</span>
@@ -277,10 +275,10 @@ async function hapusVendor(id: string) {
 
           <template #item.nama_vendor="{ item }">
             <div class="vendor-identity">
-              <span class="vendor-avatar">{{ vendorInitial(item.nama_vendor) }}</span>
+              <!-- <span class="vendor-avatar">{{ vendorInitial(item.nama_vendor) }}</span> -->
               <div>
                 <strong>{{ item.nama_vendor }}</strong>
-                <small>Ditambahkan {{ formatCreatedAt(item.createdAt) }}</small>
+                <!-- <small>Ditambahkan {{ formatCreatedAt(item.createdAt) }}</small> -->
               </div>
             </div>
           </template>

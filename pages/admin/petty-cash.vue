@@ -536,8 +536,7 @@ function downloadExcel() {
 
     <header class="finance-hero">
       <div class="finance-hero-copy">
-        <span class="finance-eyebrow">Office Finance</span>
-        <h1>Keuangan Kantor</h1>
+        <h1>Office Finance</h1>
         <p>
           Catat seluruh pemasukan dan pengeluaran perusahaan, termasuk
           pembelian aset, inventaris, dan kebutuhan operasional kantor.
@@ -1171,7 +1170,7 @@ function downloadExcel() {
   gap: 28px;
   padding: 22px 24px;
   background: #ffffff;
-  border: 1px solid #dfe4ea;
+
   border-radius: 10px;
 }
 

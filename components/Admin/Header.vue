@@ -3,7 +3,14 @@ import { useDisplay } from "vuetify";
 import { useUserStore } from "@/stores/userStore";
 import { getAuth, signOut } from "firebase/auth";
 import { navigateTo, useRoute } from "#app";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { permissionForPath } from "~/utils/access-control";
 
 const { mdAndUp } = useDisplay();
@@ -12,7 +19,14 @@ const useuser = useUserStore();
 const mobileMenuOpen = ref(false);
 const currentTime = ref(new Date());
 const isLoggingOut = ref(false);
+const workspaceTabs = ref([]);
+const workspaceTabsReady = ref(false);
+const workspaceTabsScroll = ref(null);
+const activeWorkspaceTabId = ref("");
 let clockInterval;
+let workspaceTabSequence = 0;
+
+const WORKSPACE_TABS_STORAGE_PREFIX = "drm-erp:workspace-tabs:v2";
 
 const accountName = computed(() => {
   const name = useuser.getDisplayName?.trim();
@@ -62,6 +76,7 @@ onMounted(() => {
   clockInterval = window.setInterval(() => {
     currentTime.value = new Date();
   }, 1_000);
+  restoreWorkspaceTabs();
 });
 
 onBeforeUnmount(() => {
@@ -213,6 +228,259 @@ const normalizePath = (path) => {
   return normalized || "/";
 };
 
+const workspaceStorageKey = computed(() => {
+  const accountKey = (useuser.getEmail || useuser.profileId || "default")
+    .trim()
+    .toLowerCase();
+  return `${WORKSPACE_TABS_STORAGE_PREFIX}:${accountKey}`;
+});
+
+const workspaceTabMeta = (path) => {
+  const currentPath = normalizePath(path);
+  const currentMenu = [...menuItems.value]
+    .filter((item) => {
+      const itemPath = normalizePath(item.to);
+      return (
+        currentPath === itemPath ||
+        (itemPath !== "/admin" && currentPath.startsWith(`${itemPath}/`))
+      );
+    })
+    .sort(
+      (left, right) =>
+        normalizePath(right.to).length - normalizePath(left.to).length,
+    )[0];
+
+  if (!currentMenu) {
+    const fallback = currentPath.split("/").filter(Boolean).at(-1) || "Halaman";
+    return {
+      title: fallback
+        .split("-")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" "),
+      icon: "mdi-file-outline",
+    };
+  }
+
+  const menuPath = normalizePath(currentMenu.to);
+  if (currentPath === menuPath) {
+    return { title: currentMenu.title, icon: currentMenu.icon };
+  }
+
+  const nestedSegments = currentPath
+    .slice(menuPath.length)
+    .split("/")
+    .filter(Boolean);
+  const nestedPageLabels = {
+    pengeluaran: "Pengeluaran",
+    activate: "Aktivasi",
+    selesai: "Selesai",
+  };
+  const nestedPage = nestedPageLabels[nestedSegments.at(-1)];
+
+  return {
+    title: nestedPage
+      ? `${currentMenu.title} · ${nestedPage}`
+      : `${currentMenu.title} · Detail`,
+    icon: currentMenu.icon,
+  };
+};
+
+const createWorkspaceTabId = () => {
+  workspaceTabSequence += 1;
+  return (
+    globalThis.crypto?.randomUUID?.() ||
+    `workspace-tab-${Date.now()}-${workspaceTabSequence}`
+  );
+};
+
+const createWorkspaceTab = (path, to = path, id = createWorkspaceTabId()) => {
+  const normalizedPath = normalizePath(path);
+  const meta = workspaceTabMeta(normalizedPath);
+  return {
+    id,
+    path: normalizedPath,
+    to,
+    title: meta.title,
+    icon: meta.icon,
+  };
+};
+
+const canOpenWorkspacePath = (path) => {
+  const normalizedPath = normalizePath(path);
+  if (!/^\/admin(?:\/|$)/.test(normalizedPath)) return false;
+
+  const permission = permissionForPath(normalizedPath);
+  return Boolean(permission && useuser.canAccess(permission));
+};
+
+const persistWorkspaceTabs = () => {
+  if (!workspaceTabsReady.value || !process.client) return;
+
+  try {
+    localStorage.setItem(
+      workspaceStorageKey.value,
+      JSON.stringify({
+        activeTabId: activeWorkspaceTabId.value,
+        tabs: workspaceTabs.value,
+      }),
+    );
+  } catch (error) {
+    console.warn("Tab workspace tidak dapat disimpan:", error);
+  }
+};
+
+const scrollActiveWorkspaceTabIntoView = async () => {
+  await nextTick();
+  workspaceTabsScroll.value
+    ?.querySelector(".workspace-tab--active")
+    ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+};
+
+const scrollWorkspaceEndIntoView = async () => {
+  await nextTick();
+  workspaceTabsScroll.value
+    ?.querySelector(".workspace-add-tab")
+    ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+};
+
+const updateActiveWorkspaceTabFromRoute = () => {
+  if (!workspaceTabsReady.value || !canOpenWorkspacePath(route.path)) return;
+
+  let activeIndex = workspaceTabs.value.findIndex(
+    (tab) => tab.id === activeWorkspaceTabId.value,
+  );
+  if (activeIndex < 0) {
+    activeIndex = 0;
+    activeWorkspaceTabId.value = workspaceTabs.value[0]?.id || "";
+  }
+  if (activeIndex < 0) return;
+
+  const currentPath = normalizePath(route.path);
+  const currentTo = route.fullPath || route.path;
+  workspaceTabs.value[activeIndex] = createWorkspaceTab(
+    currentPath,
+    currentTo,
+    activeWorkspaceTabId.value,
+  );
+
+  persistWorkspaceTabs();
+  void scrollActiveWorkspaceTabIntoView();
+};
+
+const defaultWorkspaceDestination = () => {
+  if (canOpenWorkspacePath("/admin")) {
+    return { path: "/admin", to: "/admin/" };
+  }
+
+  const fallbackMenu = menuItems.value[0];
+  return fallbackMenu
+    ? { path: normalizePath(fallbackMenu.to), to: fallbackMenu.to }
+    : { path: normalizePath(route.path), to: route.fullPath || route.path };
+};
+
+const restoreWorkspaceTabs = () => {
+  let savedTabs = [];
+  let savedActiveTabId = "";
+
+  try {
+    const storedState = JSON.parse(
+      localStorage.getItem(workspaceStorageKey.value) || "{}",
+    );
+    if (Array.isArray(storedState.tabs)) savedTabs = storedState.tabs;
+    if (typeof storedState.activeTabId === "string") {
+      savedActiveTabId = storedState.activeTabId;
+    }
+  } catch (error) {
+    console.warn("Tab workspace tersimpan tidak dapat dibaca:", error);
+  }
+
+  const uniqueIds = new Set();
+  workspaceTabs.value = savedTabs
+    .filter((tab) => {
+      if (
+        !tab ||
+        typeof tab.id !== "string" ||
+        typeof tab.path !== "string"
+      ) {
+        return false;
+      }
+      const path = normalizePath(tab.path.split(/[?#]/)[0]);
+      if (!canOpenWorkspacePath(path) || uniqueIds.has(tab.id)) return false;
+      uniqueIds.add(tab.id);
+      return true;
+    })
+    .map((tab) => {
+      const path = normalizePath(tab.path.split(/[?#]/)[0]);
+      const savedToPath =
+        typeof tab.to === "string"
+          ? normalizePath(tab.to.split(/[?#]/)[0])
+          : "";
+      const savedTo =
+        typeof tab.to === "string" && savedToPath === path ? tab.to : path;
+      return createWorkspaceTab(path, savedTo, tab.id);
+    });
+
+  if (!workspaceTabs.value.length) {
+    const defaultDestination = defaultWorkspaceDestination();
+    workspaceTabs.value.push(
+      createWorkspaceTab(defaultDestination.path, defaultDestination.to),
+    );
+  }
+
+  activeWorkspaceTabId.value = workspaceTabs.value.some(
+    (tab) => tab.id === savedActiveTabId,
+  )
+    ? savedActiveTabId
+    : workspaceTabs.value[0].id;
+  workspaceTabsReady.value = true;
+  updateActiveWorkspaceTabFromRoute();
+};
+
+const navigateToWorkspaceTab = async (tab) => {
+  activeWorkspaceTabId.value = tab.id;
+  persistWorkspaceTabs();
+  void scrollActiveWorkspaceTabIntoView();
+  if (tab.to === route.fullPath) return;
+  await navigateTo(tab.to);
+};
+
+const addWorkspaceTab = async () => {
+  const defaultDestination = defaultWorkspaceDestination();
+  const newTab = createWorkspaceTab(
+    defaultDestination.path,
+    defaultDestination.to,
+  );
+  workspaceTabs.value.push(newTab);
+  activeWorkspaceTabId.value = newTab.id;
+  persistWorkspaceTabs();
+  void scrollWorkspaceEndIntoView();
+
+  if (newTab.to !== route.fullPath) await navigateTo(newTab.to);
+};
+
+const closeWorkspaceTab = async (tab) => {
+  if (workspaceTabs.value.length <= 1) return;
+
+  const tabIndex = workspaceTabs.value.findIndex(
+    (item) => item.id === tab.id,
+  );
+  if (tabIndex < 0) return;
+
+  const isActive = tab.id === activeWorkspaceTabId.value;
+  workspaceTabs.value.splice(tabIndex, 1);
+  if (!isActive) {
+    persistWorkspaceTabs();
+    return;
+  }
+
+  const nextTab =
+    workspaceTabs.value[tabIndex] || workspaceTabs.value[tabIndex - 1];
+  activeWorkspaceTabId.value = nextTab.id;
+  persistWorkspaceTabs();
+  void scrollActiveWorkspaceTabIntoView();
+  if (nextTab.to !== route.fullPath) await navigateTo(nextTab.to);
+};
+
 const breadcrumbs = computed(() => {
   const currentPath = normalizePath(route.path);
   const dashboard = { title: "Dashboard", to: "/admin/" };
@@ -272,6 +540,11 @@ const breadcrumbs = computed(() => {
 watch(mdAndUp, (isDesktop) => {
   if (isDesktop) mobileMenuOpen.value = false;
 });
+
+watch(
+  () => route.fullPath,
+  () => updateActiveWorkspaceTabFromRoute(),
+);
 
 const logout = async () => {
   if (isLoggingOut.value) return;
@@ -341,7 +614,7 @@ const logout = async () => {
   </v-navigation-drawer>
 
   <!-- APP BAR / TOP HEADER -->
-  <v-app-bar flat height="72" class="app-bar-border">
+  <v-app-bar flat height="72" extension-height="44" class="app-bar-border">
     <template #prepend>
       <div class="header-left">
         <div v-if="!mdAndUp" class="logo-box">
@@ -496,6 +769,56 @@ const logout = async () => {
             <v-progress-circular v-if="isLoggingOut" indeterminate size="17" width="2" />
             <v-icon v-else icon="mdi-logout-variant" size="19" />
           </button>
+        </div>
+      </div>
+    </template>
+
+    <template #extension>
+      <div class="workspace-tabs-bar">
+        <div ref="workspaceTabsScroll" class="workspace-tabs-scroll">
+          <div class="workspace-tabs-list" role="tablist" aria-label="Halaman terbuka">
+            <div
+              v-for="tab in workspaceTabs"
+              :key="tab.id"
+              :class="[
+                'workspace-tab',
+                { 'workspace-tab--active': tab.id === activeWorkspaceTabId },
+              ]"
+            >
+              <button
+                type="button"
+                class="workspace-tab-main"
+                role="tab"
+                :aria-selected="tab.id === activeWorkspaceTabId"
+                :title="tab.title"
+                @click="navigateToWorkspaceTab(tab)"
+              >
+                <v-icon :icon="tab.icon" size="15" aria-hidden="true" />
+                <span>{{ tab.title }}</span>
+              </button>
+
+              <button
+                v-if="workspaceTabs.length > 1"
+                type="button"
+                class="workspace-tab-close"
+                :aria-label="`Tutup tab ${tab.title}`"
+                :title="`Tutup ${tab.title}`"
+                @click.stop="closeWorkspaceTab(tab)"
+              >
+                <v-icon icon="mdi-close" size="12" aria-hidden="true" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              class="workspace-add-tab"
+              aria-label="Tambah tab baru"
+              title="Tambah tab baru"
+              @click="addWorkspaceTab"
+            >
+              <v-icon icon="mdi-plus" size="14" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
     </template>
@@ -666,7 +989,197 @@ const logout = async () => {
   background: rgba(255, 255, 255, 0.98) !important;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
   backdrop-filter: blur(12px);
+  padding: 0 !important;
+}
+
+.app-bar-border :deep(.v-toolbar__content) {
   padding: 0 18px !important;
+}
+
+.app-bar-border :deep(.v-toolbar__extension) {
+  width: 100% !important;
+  padding: 0 !important;
+  border-top: 1px solid #e6ebf1;
+  background: #f3f6f9;
+}
+
+.workspace-tabs-bar {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 44px;
+  flex: 1 1 auto;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.workspace-tabs-scroll {
+  min-width: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.workspace-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.workspace-tabs-list {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  height: 100%;
+  padding-top: 7px;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.workspace-tab {
+  display: flex;
+  min-width: 112px;
+  max-width: 210px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: #e7ecf2;
+  color: #5f6d7e;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.workspace-tab:hover {
+  background: #dde4eb;
+  color: #334155;
+}
+
+.workspace-tab--active {
+  position: relative;
+  border-color: transparent;
+  background: #ffffff;
+  color: #111827;
+  box-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.9),
+    0 -4px 12px rgba(15, 23, 42, 0.07);
+}
+
+.workspace-tab--active::before {
+  content: "";
+  position: absolute;
+  right: 11px;
+  bottom: 0;
+  left: 11px;
+  height: 1px;
+  border-radius: 3px 3px 0 0;
+  background: #dc2626;
+}
+
+.workspace-tab-main {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  padding: 2px 7px 0 10px;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: default;
+}
+
+.workspace-tab-main .v-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  color: #758396;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.workspace-tab-main span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-tab--active .workspace-tab-main span {
+  font-weight: 750;
+}
+
+.workspace-tab-main:focus-visible,
+.workspace-tab-close:focus-visible,
+.workspace-add-tab:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.workspace-tab-close {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+  padding: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #8390a0;
+  cursor: default;
+}
+
+.workspace-tab-close:hover {
+  background: #cfd7e0;
+  color: #991b1b;
+}
+
+.workspace-add-tab {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 5px;
+  padding: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #526174;
+  cursor: default;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.workspace-add-tab:hover {
+  background: #dfe5ec;
+  color: #526174;
+  transform: scale(1.05);
+}
+
+.workspace-add-tab:active {
+  background: #d4dce5;
+  transform: scale(0.96);
 }
 
 .top-brand-line {
@@ -1093,8 +1606,22 @@ const logout = async () => {
 }
 
 @media (max-width: 600px) {
-  .app-bar-border {
+  .app-bar-border :deep(.v-toolbar__content) {
     padding: 0 10px !important;
+  }
+
+  .workspace-tab {
+    min-width: 104px;
+    max-width: 168px;
+  }
+
+  .workspace-tab-main {
+    padding-left: 8px;
+    gap: 6px;
+  }
+
+  .workspace-tab-main span {
+    font-size: 10px;
   }
 
   .header-left {

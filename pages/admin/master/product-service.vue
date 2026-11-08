@@ -912,7 +912,6 @@ async function deleteProductService(item: productServiceM) {
     <section class="catalog-directory">
       <header class="directory-header">
         <div>
-          <span class="section-kicker">Catalog Directory</span>
           <div class="directory-title-row">
             <h2>Daftar Product &amp; Service</h2>
             <span>{{ filteredProducts.length }} data</span>

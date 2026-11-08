@@ -8,6 +8,9 @@ const COLLECTION = "invoice";
 export const useinvoiceStore = defineStore("invoiceStore", {
   state: () => ({
     dataInvoice: [] as invoiceM[],
+    dataInvoiceLoaded: false,
+    dataInvoiceScope: "",
+    dataInvoiceLoadedAt: 0,
     detailInvoice: {} as invoiceM,
   }),
 
@@ -21,16 +24,38 @@ export const useinvoiceStore = defineStore("invoiceStore", {
   },
 
   actions: {
+    getCurrentDataScope() {
+      const user = useUserStore();
+      return `${user.getEmail.trim().toLowerCase()}::${user.getIdPerusahaan.trim()}`;
+    },
+
+    hasCachedData() {
+      return (
+        this.dataInvoiceLoaded &&
+        this.dataInvoiceScope === this.getCurrentDataScope()
+      );
+    },
+
     async tarikDataInvoiceAct() {
       const companyId = useUserStore().getIdPerusahaan.trim();
+      const currentScope = this.getCurrentDataScope();
 
       // Hindari data akun sebelumnya sempat tampil ketika berganti user.
-      if (companyId) this.dataInvoice = [];
+      if (
+        this.dataInvoiceScope !== currentScope &&
+        (this.dataInvoiceLoaded || this.dataInvoice.length)
+      ) {
+        this.dataInvoice = [];
+        this.dataInvoiceLoaded = false;
+      }
 
       const datatarik = companyId
         ? await queryambilidwhere(COLLECTION, "id_customer", companyId)
         : await queryambilid(COLLECTION);
       this.dataInvoice = datatarik as unknown as invoiceM[];
+      this.dataInvoiceScope = currentScope;
+      this.dataInvoiceLoaded = true;
+      this.dataInvoiceLoadedAt = Date.now();
     },
 
     async tarikDetailInvoiceAct(id: string) {

@@ -226,8 +226,7 @@ async function hapusTnc(id?: string) {
 
     <header class="terms-hero">
       <div class="terms-hero-copy">
-        <span class="terms-eyebrow">Master Data</span>
-        <h1>Term &amp; Condition</h1>
+        <h1>Master Term &amp; Condition</h1>
         <p>
           Kelola ketentuan standar yang dapat digunakan kembali pada dokumen
           penawaran, invoice, dan purchase order.
@@ -254,7 +253,6 @@ async function hapusTnc(id?: string) {
     <section class="terms-directory">
       <header class="directory-header">
         <div>
-          <span class="section-kicker">Terms Directory</span>
           <div class="directory-title-row">
             <h2>Daftar Term &amp; Condition</h2>
             <span>{{ filteredTerms.length }} data</span>
