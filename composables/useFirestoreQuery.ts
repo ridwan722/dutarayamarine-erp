@@ -32,6 +32,26 @@ export const queryambilid = async (col: string) => {
   return datas;
 };
 
+/**
+ * Mengambil dokumen berdasarkan satu field tanpa memuat seluruh koleksi.
+ * Digunakan untuk membatasi data transaksi berdasarkan perusahaan user.
+ */
+export const queryambilidwhere = async (
+  col: string,
+  field: string,
+  value: string,
+) => {
+  const db = useFirestore();
+  const colRef = collection(db, col);
+  const filteredQuery = query(colRef, where(field, "==", value));
+  const snapshot = await getDocs(filteredQuery);
+
+  return snapshot.docs.map((document) => ({
+    id: document.id,
+    ...document.data(),
+  }));
+};
+
 export const queryambilidsesion = async (col: string) => {
   const datasesion = await getsesion(col);
   if (datasesion.length > 0) {

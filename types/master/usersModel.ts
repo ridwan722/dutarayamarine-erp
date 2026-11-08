@@ -5,6 +5,8 @@ export interface usersM {
   displayName: string;
   role: string;
   id_perusahaan: string;
+  permissions: string[];
+  active: boolean;
   created_at?: number;
   created_by?: string;
   updated_at?: number;

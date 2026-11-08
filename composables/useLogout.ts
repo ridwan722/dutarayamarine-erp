@@ -7,7 +7,7 @@ export const useLogout = () => {
   const logout = async () => {
     await auth.signOut();
     user.logout();
-    navigateTo("/login");
+    navigateTo("/");
   };
 
   return { logout };

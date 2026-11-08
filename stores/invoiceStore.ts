@@ -22,7 +22,14 @@ export const useinvoiceStore = defineStore("invoiceStore", {
 
   actions: {
     async tarikDataInvoiceAct() {
-      const datatarik = await queryambilid(COLLECTION);
+      const companyId = useUserStore().getIdPerusahaan.trim();
+
+      // Hindari data akun sebelumnya sempat tampil ketika berganti user.
+      if (companyId) this.dataInvoice = [];
+
+      const datatarik = companyId
+        ? await queryambilidwhere(COLLECTION, "id_customer", companyId)
+        : await queryambilid(COLLECTION);
       this.dataInvoice = datatarik as unknown as invoiceM[];
     },
 

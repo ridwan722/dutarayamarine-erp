@@ -65,8 +65,8 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // Private: only available to Nitro server handlers, never exposed to browser code.
-    adminAccessPin: process.env.NUXT_ADMIN_ACCESS_PIN || "090988",
+    // Private: digunakan server untuk memvalidasi Firebase ID token.
+    firebaseApiKey: process.env.apiKey,
     public: {
       apiBaseUrl: process.env.urlapi,
     },

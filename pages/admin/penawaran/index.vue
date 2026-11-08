@@ -12,7 +12,7 @@
         class="px-4 py-2-5 pa-3 d-flex align-center justify-space-between border-b"
       >
         <span class="text-caption font-weight-bold text-grey-darken-3"
-          >Tambah Master Client</span
+          >Tambah Master Perusahaan</span
         >
         <v-btn
           icon="mdi-close"
@@ -24,126 +24,25 @@
         />
       </div>
 
-      <!-- Form Body High-Density -->
       <v-card-text class="pa-3">
-        <!-- Nama Perusahaan -->
-
         <a-text-field-new
           v-model="newCustomer.nama"
+          label="Nama Perusahaan"
           placeholder="Nama perusahaan"
           variant="outlined"
           density="compact"
           hide-details
         />
-        <div v-if="saranFieldCustomer('nama', newCustomer.nama).length">
-          <v-chip
-            v-for="nama in saranFieldCustomer('nama', newCustomer.nama)"
-            :key="nama"
-            size="x-small"
-            class="mr-1 mb-1 text-grey"
-            @mousedown.prevent
-            @click="newCustomer.nama = nama"
-          >
-            {{ nama }}
-          </v-chip>
-        </div>
-
-        <a-text-field-new
-          v-model="newCustomer.vessel"
-          placeholder="vessel"
-          variant="outlined"
-          density="compact"
-          hide-details
-        />
-        <div v-if="saranFieldCustomer('vessel', newCustomer.vessel).length">
-          <v-chip
-            v-for="value in saranFieldCustomer('vessel', newCustomer.vessel)"
-            :key="value"
-            size="x-small"
-            class="mr-1 mb-1 text-grey"
-            @mousedown.prevent
-            @click="newCustomer.vessel = value"
-            >{{ value }}</v-chip
-          >
-        </div>
-
-        <a-text-field-new
-          v-model="newCustomer.pic"
-          placeholder="PIC name"
-          variant="outlined"
-          density="compact"
-          hide-details
-        />
-        <div v-if="saranFieldCustomer('pic', newCustomer.pic).length">
-          <v-chip
-            v-for="value in saranFieldCustomer('pic', newCustomer.pic)"
-            :key="value"
-            size="x-small"
-            class="mr-1 mb-1 text-grey"
-            @mousedown.prevent
-            @click="newCustomer.pic = value"
-            >{{ value }}</v-chip
-          >
-        </div>
-
-        <a-text-field-new
-          v-model="newCustomer.no_telp"
-          placeholder="Phone Number"
-          variant="outlined"
-          density="compact"
-          hide-details
-        />
-        <div v-if="saranFieldCustomer('no_telp', newCustomer.no_telp).length">
-          <v-chip
-            v-for="value in saranFieldCustomer('no_telp', newCustomer.no_telp)"
-            :key="value"
-            size="x-small"
-            class="mr-1 mb-1 text-grey"
-            @mousedown.prevent
-            @click="newCustomer.no_telp = value"
-            >{{ value }}</v-chip
-          >
-        </div>
-
-        <a-text-field-new
-          v-model="newCustomer.email"
-          placeholder="Email"
-          variant="outlined"
-          density="compact"
-          hide-details
-        />
-        <div v-if="saranFieldCustomer('email', newCustomer.email).length">
-          <v-chip
-            v-for="value in saranFieldCustomer('email', newCustomer.email)"
-            :key="value"
-            size="x-small"
-            class="mr-1 mb-1 text-grey"
-            @mousedown.prevent
-            @click="newCustomer.email = value"
-            >{{ value }}</v-chip
-          >
-        </div>
-
         <a-textarea-new
           v-model="newCustomer.alamat"
-          placeholder="Address"
+          label="Alamat Perusahaan"
+          placeholder="Alamat lengkap perusahaan"
           rows="2"
           variant="outlined"
           density="compact"
           hide-details
           auto-grow
         />
-        <div v-if="saranFieldCustomer('alamat', newCustomer.alamat).length">
-          <v-chip
-            v-for="value in saranFieldCustomer('alamat', newCustomer.alamat)"
-            :key="value"
-            size="x-small"
-            class="mr-1 mb-1 text-grey"
-            @mousedown.prevent
-            @click="newCustomer.alamat = value"
-            >{{ value }}</v-chip
-          >
-        </div>
       </v-card-text>
 
       <!-- Footer Padat -->
@@ -221,7 +120,7 @@
               <span class="quotation-section-index">01</span>
               <h3>Client Information</h3>
             </div>
-            <p>Pilih client untuk mengisi detail kontak secara otomatis.</p>
+            <p>Pilih perusahaan dan PIC, lalu isi vessel untuk penawaran ini.</p>
           </div>
 
           <div class="quotation-client-picker">
@@ -233,37 +132,43 @@
             <a-autocomplete-new
               class="quotation-client-select"
               v-model="newPenawaran.id_perusahaan"
-              label="Client"
-              placeholder="Select client | perusahaan - vessel - pic"
+              label="Perusahaan"
+              placeholder="Pilih perusahaan"
               item-title="label"
-              item-value="id_customer"
-              :items="
-                customerStore.getDataCustomer
-                  .map((customer) => ({
-                    ...customer,
-                    label: [customer.nama, customer.vessel, customer.pic]
-                      .filter(Boolean)
-                      .join(' - '),
-                  }))
-                  .sort((a, b) =>
-                    a.label.localeCompare(b.label, 'id-ID', {
-                      sensitivity: 'base',
-                    }),
-                  )
-              "
+              item-value="value"
+              :items="companyOptions"
+              :disabled="hasCompanyScope"
             />
+            <a-select-new
+              class="quotation-client-select"
+              v-model="newPenawaran.id_pic"
+              label="PIC"
+              placeholder="Pilih PIC"
+              item-title="label"
+              item-value="value"
+              :items="picOptionsForCompany"
+              :disabled="!newPenawaran.id_perusahaan"
+            />
+          </div>
+
+          <div v-if="!hasCompanyScope" class="quotation-client-master-actions">
             <v-btn
               class="quotation-add-client-btn text-none"
               variant="outlined"
               color="primary"
-              prepend-icon="mdi-account-plus-outline"
-              aria-label="Tambah client"
+              prepend-icon="mdi-domain-plus"
               @click="opendialogTambahMasterPerusahaan"
             >
-              Add Client
-              <v-tooltip activator="parent" location="top">
-                Add New Client
-              </v-tooltip>
+              Tambah Perusahaan
+            </v-btn>
+            <v-btn
+              class="quotation-add-client-btn text-none"
+              variant="text"
+              color="grey-darken-1"
+              prepend-icon="mdi-account-cog-outline"
+              @click="router.push('/admin/master/client')"
+            >
+              Kelola Master PIC
             </v-btn>
           </div>
 
@@ -273,10 +178,6 @@
               <dd>{{ newPenawaran.alamat_perusahaan || "—" }}</dd>
             </div>
             <div class="quotation-client-detail">
-              <dt>PIC</dt>
-              <dd>{{ newPenawaran.pic || "—" }}</dd>
-            </div>
-            <div class="quotation-client-detail">
               <dt>Phone Number</dt>
               <dd>{{ newPenawaran.no_telp || "—" }}</dd>
             </div>
@@ -284,20 +185,23 @@
               <dt>Email</dt>
               <dd>{{ newPenawaran.email || "—" }}</dd>
             </div>
-            <div class="quotation-client-detail">
-              <dt>Vessel</dt>
-              <dd>{{ newPenawaran.vessel || "—" }}</dd>
-            </div>
           </dl>
 
-          <a-autocomplete-new
-            class="quotation-client-select mt-2"
-            v-model="newPenawaran.location"
-            label="Location"
-            placeholder="Select location"
-            item-title="label"
-            item-value="id_customer"
-            :items="[
+          <div class="quotation-operation-fields">
+            <a-text-field-new
+              class="quotation-client-select"
+              v-model="newPenawaran.vessel"
+              label="Vessel"
+              placeholder="vessel name"
+            />
+            <a-autocomplete-new
+              class="quotation-client-select"
+              v-model="newPenawaran.location"
+              label="Location"
+              placeholder="Select location"
+              item-title="label"
+              item-value="id_customer"
+              :items="[
   'Batam',
   'Jakarta',
   'Lamongan',
@@ -414,7 +318,8 @@
   'Tuban',
   'Waingapu'
 ]"
-          />
+            />
+          </div>
         </section>
 
         <section class="quotation-currency-section">
@@ -1384,7 +1289,14 @@ import type { ConfirmationDialog } from "#components";
 import type { penawaranM } from "~/types/penawaranModel";
 import type { barangM } from "~/types/barangModel";
 import type { customerM } from "~/types/customerModel";
+import type { masterPicM } from "~/types/masterPicModel";
 import type { termconditionM } from "~/types/termconditionModel";
+import {
+  buildCompanyMaster,
+  buildLegacyMasterPics,
+  mergeMasterPics,
+  normalizeCompanyName,
+} from "~/utils/customer-master";
 
 definePageMeta({
   layout: "admin",
@@ -1393,6 +1305,7 @@ definePageMeta({
 const router = useRouter();
 const display = useDisplay();
 const customerStore = usecustomerStore();
+const masterPicStore = useMasterPicStore();
 const termconditionStore = usetermconditionStore();
 const barangStore = usebarangStore();
 const penawaranStore = usePenawaranStore();
@@ -1412,6 +1325,7 @@ onMounted(async () => {
     isLoading.value = true;
     await penawaranStore.tarikDataPenawaranAct();
     await customerStore.tarikDataCustomerAct();
+    await masterPicStore.tarikDataMasterPicAct();
     await termconditionStore.tarikDataTermconditionAct();
     await barangStore.tarikDataBarangAct();
   } finally {
@@ -1548,42 +1462,43 @@ watch(
 
 const newCustomer = ref<customerM>(emptyCustomer());
 
-function saranFieldCustomer(
-  field: "nama" | "vessel" | "pic" | "no_telp" | "email" | "alamat",
-  value: string | null | undefined,
-) {
-  const query = value?.trim().toLocaleLowerCase("id-ID") ?? "";
-  if (!query) return [];
+const companies = computed(() => buildCompanyMaster(customerStore.getDataCustomer));
+const assignedCompanyId = computed(() => userStore.getIdPerusahaan.trim());
+const hasCompanyScope = computed(() => Boolean(assignedCompanyId.value));
+const accessibleCompanies = computed(() => {
+  if (!assignedCompanyId.value) return companies.value;
 
-  return [
-    ...new Set(
-      customerStore.getDataCustomer
-        .map((customer) => customer[field]?.trim())
-        .filter(
-          (suggestion): suggestion is string =>
-            Boolean(suggestion) &&
-            suggestion.toLocaleLowerCase("id-ID").includes(query) &&
-            suggestion.toLocaleLowerCase("id-ID") !== query,
-        ),
-    ),
-  ];
-}
-
-watch(
-  () => newCustomer.value.pic,
-  (pic) => {
-    const query = pic?.trim().toLocaleLowerCase("id-ID");
-    if (!query) return;
-
-    const customer = customerStore.getDataCustomer.find(
-      (item) => item.pic?.trim().toLocaleLowerCase("id-ID") === query,
-    );
-    if (!customer) return;
-
-    newCustomer.value.no_telp = customer.no_telp || "";
-    newCustomer.value.email = customer.email || "";
-    newCustomer.value.alamat = customer.alamat || "";
-  },
+  return companies.value.filter(
+    (company) =>
+      company.id_customer === assignedCompanyId.value ||
+      company.sourceIds.includes(assignedCompanyId.value),
+  );
+});
+const legacyMasterPics = computed(() =>
+  buildLegacyMasterPics(customerStore.getDataCustomer, companies.value),
+);
+const allMasterPics = computed(() =>
+  mergeMasterPics(
+    masterPicStore.getDataMasterPic,
+    legacyMasterPics.value,
+    companies.value,
+  ),
+);
+const companyOptions = computed(() =>
+  accessibleCompanies.value.map((company) => ({
+    ...company,
+    label: company.nama,
+    value: company.id_customer,
+  })),
+);
+const picOptionsForCompany = computed(() =>
+  allMasterPics.value
+    .filter((pic) => pic.id_perusahaan === newPenawaran.value.id_perusahaan)
+    .map((pic) => ({
+      ...pic,
+      label: pic.pic,
+      value: pic.id_master_pic || pic.id,
+    })),
 );
 
 function emptyCustomer(): customerM {
@@ -1607,28 +1522,31 @@ function opendialogTambahMasterPerusahaan() {
 async function simpanMasterPerusahaan() {
   const customer = newCustomer.value;
   if (!customer.nama.trim())
-    return notificationStore.showError("Nama Client tidak boleh kosong");
-  if (!customer.vessel.trim())
-    return notificationStore.showError("Vessel tidak boleh kosong");
+    return notificationStore.showError("Nama perusahaan tidak boleh kosong");
   if (!customer.alamat.trim())
-    return notificationStore.showError("Address tidak boleh kosong");
-  if (!customer.pic.trim())
-    return notificationStore.showError("PIC tidak boleh kosong");
-  if (!customer.no_telp.trim())
-    return notificationStore.showError("Phone Number tidak boleh kosong");
-  if (!customer.email.trim())
-    return notificationStore.showError("Email tidak boleh kosong");
+    return notificationStore.showError("Alamat perusahaan tidak boleh kosong");
 
+  if (
+    companies.value.some(
+      (item) =>
+        normalizeCompanyName(item.nama) === normalizeCompanyName(customer.nama),
+    )
+  ) {
+    return notificationStore.showError("Nama perusahaan sudah terdaftar");
+  }
+
+  customer.nama = customer.nama.trim();
+  customer.alamat = customer.alamat.trim();
   customer.createdAt = moment().unix();
   customer.createdBy = userStore.getEmail || "";
   savingCustomer.value = true;
   try {
     const saved = await customerStore.addCustomerAct({ ...customer });
     if (!saved) return;
-    const savedCustomer = customerStore.getDataCustomer.find(
-      (item) => item.nama === customer.nama && item.vessel === customer.vessel,
+    const savedCustomer = buildCompanyMaster(customerStore.getDataCustomer).find(
+      (item) => normalizeCompanyName(item.nama) === normalizeCompanyName(customer.nama),
     );
-    if (savedCustomer) applyCustomer(savedCustomer);
+    if (savedCustomer) applyCompany(savedCustomer, true);
     data.dialogTambahMasterPerusahaan = false;
   } finally {
     savingCustomer.value = false;
@@ -1779,6 +1697,7 @@ function emptyPenawaran(): penawaranM {
   return {
     no_penawaran: generatedNo,
     id_perusahaan: "",
+    id_pic: "",
     pic: "",
     vessel: "",
     nama_perusahaan: "",
@@ -2312,24 +2231,60 @@ const grandTotalPenawaran = computed(() =>
   Math.max(0, subtotalPenawaran.value - discountAmountPenawaran.value),
 );
 
-function applyCustomer(customer: customerM) {
-  newPenawaran.value.id_perusahaan = customer.id_customer || "";
+const syncingClientSelection = ref(false);
+
+function clearPicSelection() {
+  newPenawaran.value.id_pic = "";
+  newPenawaran.value.pic = "";
+  newPenawaran.value.no_telp = "";
+  newPenawaran.value.email = "";
+}
+
+function applyCompany(customer: customerM, resetPic = false) {
+  newPenawaran.value.id_perusahaan = customer.id_customer || customer.id || "";
   newPenawaran.value.nama_perusahaan = customer.nama;
   newPenawaran.value.alamat_perusahaan = customer.alamat;
-  newPenawaran.value.pic = customer.pic;
-  newPenawaran.value.no_telp = customer.no_telp;
-  newPenawaran.value.vessel = customer.vessel;
-  newPenawaran.value.email = customer.email;
+  if (resetPic) clearPicSelection();
+}
+
+function applyMasterPic(pic: masterPicM) {
+  newPenawaran.value.id_pic = pic.id_master_pic || pic.id || "";
+  newPenawaran.value.pic = pic.pic;
+  newPenawaran.value.no_telp = pic.no_telp;
+  newPenawaran.value.email = pic.email;
 }
 
 watch(
   () => newPenawaran.value.id_perusahaan,
   (idCustomer) => {
-    const customer = customerStore.getDataCustomer.find(
-      (item) => (item.id_customer || item.id) === idCustomer,
+    if (syncingClientSelection.value) return;
+    if (!idCustomer) {
+      newPenawaran.value.nama_perusahaan = "";
+      newPenawaran.value.alamat_perusahaan = "";
+      clearPicSelection();
+      return;
+    }
+    const company = companies.value.find(
+      (item) =>
+        item.id_customer === idCustomer || item.sourceIds.includes(idCustomer),
     );
-    if (!customer) return;
-    applyCustomer(customer);
+    if (!company) return;
+    applyCompany(company, true);
+  },
+);
+
+watch(
+  () => newPenawaran.value.id_pic,
+  (idPic) => {
+    if (syncingClientSelection.value) return;
+    if (!idPic) {
+      clearPicSelection();
+      return;
+    }
+    const pic = allMasterPics.value.find(
+      (item) => (item.id_master_pic || item.id) === idPic,
+    );
+    if (pic) applyMasterPic(pic);
   },
 );
 
@@ -2346,29 +2301,49 @@ function openDialogTambahPenawaran() {
   termConditionSearch.value = "";
   customMarkupPercentages.value = {};
   newPenawaran.value = emptyPenawaran();
+  if (assignedCompanyId.value) {
+    const assignedCompany = accessibleCompanies.value[0];
+    if (assignedCompany) applyCompany(assignedCompany, true);
+  }
   initializeTermConditionOrder();
   data.dialogTambahPenawaran = true;
 }
 
 function openDialogEditPenawaran(item: penawaranM) {
-  const customers = customerStore.getDataCustomer;
-  const customer =
-    customers.find(
-      (dataCustomer) =>
-        (dataCustomer.id_customer || dataCustomer.id_customer) ===
-        item.id_perusahaan,
+  const company =
+    companies.value.find(
+      (candidate) =>
+        candidate.id_customer === item.id_perusahaan ||
+        candidate.sourceIds.includes(item.id_perusahaan),
     ) ??
-    customers.find(
-      (dataCustomer) => dataCustomer.nama === item.id_perusahaan,
-    ) ??
-    customers.find(
-      (dataCustomer) => dataCustomer.nama === item.nama_perusahaan,
+    companies.value.find(
+      (candidate) =>
+        normalizeCompanyName(candidate.nama) ===
+        normalizeCompanyName(item.nama_perusahaan),
     );
 
+  syncingClientSelection.value = true;
   const penawaran = JSON.parse(JSON.stringify(item)) as penawaranM;
   penawaran.termCondition ??= [];
+  penawaran.id_pic ??= "";
   newPenawaran.value = penawaran;
-  if (customer) applyCustomer(customer);
+  if (company) {
+    applyCompany(company);
+    const selectedPic =
+      allMasterPics.value.find(
+        (pic) => (pic.id_master_pic || pic.id) === item.id_pic,
+      ) ??
+      allMasterPics.value.find(
+        (pic) =>
+          pic.id_perusahaan === company.id_customer &&
+          pic.pic.trim().toLocaleLowerCase("id-ID") ===
+            (item.pic || "").trim().toLocaleLowerCase("id-ID"),
+      );
+    if (selectedPic) applyMasterPic(selectedPic);
+  }
+  nextTick(() => {
+    syncingClientSelection.value = false;
+  });
 
   data.penawaranAddEdit = "edit";
   termConditionSearch.value = "";
@@ -2537,7 +2512,13 @@ function sinkronkanBarangDiLatarBelakang(
 
 async function simpanPenawaranDialog() {
   if (!newPenawaran.value.id_perusahaan) {
-    return notificationStore.showError("Client belum dipilih");
+    return notificationStore.showError("Perusahaan belum dipilih");
+  }
+  if (!(newPenawaran.value.pic || "").trim()) {
+    return notificationStore.showError("PIC belum dipilih");
+  }
+  if (!(newPenawaran.value.vessel || "").trim()) {
+    return notificationStore.showError("Vessel wajib diisi");
   }
   if (
     !newPenawaran.value.tanggal_penawaran ||
@@ -3313,10 +3294,10 @@ async function refreshData() {
 
 .quotation-client-picker {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) auto;
+  grid-template-columns: 180px repeat(2, minmax(0, 1fr));
   align-items: flex-end;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 9px;
 }
 
 .quotation-date-field {
@@ -3337,9 +3318,23 @@ async function refreshData() {
   border-radius: 4px !important;
 }
 
+.quotation-client-master-actions {
+  display: flex;
+  margin-bottom: 12px;
+  align-items: center;
+  gap: 4px;
+}
+
+.quotation-operation-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .quotation-client-details {
   display: grid;
-  grid-template-columns: minmax(190px, 1.7fr) repeat(4, minmax(100px, 1fr));
+  grid-template-columns: minmax(220px, 1.7fr) repeat(2, minmax(140px, 1fr));
   gap: 1px;
   margin: 0;
   padding: 0;
@@ -4174,6 +4169,19 @@ async function refreshData() {
   .quotation-client-picker {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .quotation-operation-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .quotation-client-master-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quotation-client-master-actions .v-btn {
+    width: 100%;
   }
 
   .quotation-currency-section {

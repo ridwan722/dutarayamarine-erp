@@ -138,7 +138,7 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
           "penawaran",
           lemparinvoice.id || lemparinvoice.id_penawaran || lemparinvoice.no_penawaran!
         );
-        await this.tarikdatapenawaranbystatusarray(["Draft", "INVOICE"]);
+        await this.tarikDataPenawaranAct();
 
         notificationStore.showSuccess("Penawaran berhasil dihapus");
         useloadingStore().setLoading(false);
@@ -155,7 +155,17 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
     // },
 
     async tarikDataPenawaranAct() {
-      const datatarik = await queryambilid("penawaran");
+      const companyId = useUserStore().getIdPerusahaan.trim();
+
+      // Hindari data akun sebelumnya sempat tampil ketika berganti user.
+      if (companyId) {
+        this.dataPenawaran = [];
+        this.dataPenawaranTampil = [];
+      }
+
+      const datatarik = companyId
+        ? await queryambilidwhere("penawaran", "id_perusahaan", companyId)
+        : await queryambilid("penawaran");
       const hasil = datatarik as unknown as penawaranM[];
       this.dataPenawaran = hasil; // Simpan ke Master
       this.dataPenawaranTampil = [...hasil]; // Default tampilkan semua

@@ -96,7 +96,7 @@ onMounted(async () => {
           class="mt-5"
           variant="flat"
           rounded="xl"
-          to="/login"
+          to="/"
         >
           Masuk ke Sistem
         </v-btn>

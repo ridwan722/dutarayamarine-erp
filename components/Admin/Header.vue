@@ -4,13 +4,37 @@ import { useUserStore } from "@/stores/userStore";
 import { getAuth, signOut } from "firebase/auth";
 import { navigateTo, useRoute } from "#app";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { permissionForPath } from "~/utils/access-control";
 
 const { mdAndUp } = useDisplay();
 const route = useRoute();
 const useuser = useUserStore();
 const mobileMenuOpen = ref(false);
 const currentTime = ref(new Date());
+const isLoggingOut = ref(false);
 let clockInterval;
+
+const accountName = computed(() => {
+  const name = useuser.getDisplayName?.trim();
+  if (name) return name;
+
+  const emailName = useuser.getEmail?.split("@")[0]?.trim();
+  return emailName || "Pengguna ERP";
+});
+
+const accountRole = computed(() => useuser.getRole?.trim() || "Pengguna");
+const accountEmail = computed(() => useuser.getEmail?.trim() || "-");
+const accountPhoto = computed(() => useuser.getUser?.photoURL || "");
+const accountInitials = computed(() => {
+  const parts = accountName.value
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!parts.length) return "U";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts.at(-1)[0]}`.toUpperCase();
+});
 
 const timeFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Jakarta",
@@ -44,7 +68,7 @@ onBeforeUnmount(() => {
   if (clockInterval) window.clearInterval(clockInterval);
 });
 
-const menuItems = [
+const allMenuItems = [
   {
     title: "Dashboard",
     subtitle: "Ringkasan aktivitas ERP",
@@ -77,6 +101,14 @@ const menuItems = [
   //   to: "/admin/invoice/selesai",
   //   icon: "mdi-check-decagram-outline",
   // },
+
+  {
+    title: "Master Users",
+    subtitle: "Akun dan hak akses",
+    to: "/admin/master/users",
+    icon: "mdi-account-cog-outline",
+  },
+  
   {
     title: "Master Client",
     subtitle: "Data pelanggan",
@@ -149,6 +181,13 @@ const menuItems = [
   },
 ];
 
+const menuItems = computed(() =>
+  allMenuItems.filter((item) => {
+    const permission = permissionForPath(item.to);
+    return permission ? useuser.canAccess(permission) : false;
+  }),
+);
+
 const mobileMenuGroups = computed(() => {
   const sectionForItem = (item) => {
     if (item.bottom) return "Pengaturan";
@@ -162,7 +201,7 @@ const mobileMenuGroups = computed(() => {
   return ["Utama", "Master Data", "Operasional", "Pengaturan"]
     .map((title) => ({
       title,
-      items: menuItems.filter((item) => {
+      items: menuItems.value.filter((item) => {
         return sectionForItem(item) === title;
       }),
     }))
@@ -184,7 +223,7 @@ const breadcrumbs = computed(() => {
     items.push({ title: "Master Data" });
   }
 
-  const currentMenu = [...menuItems]
+  const currentMenu = [...menuItems.value]
     .filter((item) => {
       const itemPath = normalizePath(item.to);
       return (
@@ -235,15 +274,22 @@ watch(mdAndUp, (isDesktop) => {
 });
 
 const logout = async () => {
-  const auth = getAuth();
+  if (isLoggingOut.value) return;
+
+  isLoggingOut.value = true;
+  mobileMenuOpen.value = false;
+
+  // Mulai menghapus sesi Firebase, tetapi jangan tahan navigasi halaman login.
+  void signOut(getAuth()).catch((error) => {
+    console.error("Logout Firebase gagal:", error);
+  });
+  useuser.logout();
 
   try {
-    mobileMenuOpen.value = false;
-    await signOut(auth);
-    useuser.setUser(null);
-    await navigateTo("/");
+    await navigateTo("/", { replace: true });
   } catch (error) {
-    console.error("Logout gagal:", error);
+    console.error("Navigasi ke halaman login gagal:", error);
+    isLoggingOut.value = false;
   }
 };
 </script>
@@ -399,25 +445,58 @@ const logout = async () => {
             </div>
 
             <div class="mobile-menu-footer">
-              <button type="button" class="mobile-logout-button" @click="logout">
-                <v-icon icon="mdi-logout-variant" size="17" />
-                Keluar
+              <div class="mobile-account">
+                <v-avatar size="34" class="account-avatar">
+                  <v-img v-if="accountPhoto" :src="accountPhoto" :alt="accountName" />
+                  <span v-else>{{ accountInitials }}</span>
+                </v-avatar>
+                <div class="mobile-account-copy">
+                  <strong>{{ accountName }}</strong>
+                  <span class="account-email">{{ accountEmail }}</span>
+                  <span class="account-meta-divider" aria-hidden="true" />
+                  <span class="account-role">{{ accountRole }}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="mobile-logout-button"
+                :disabled="isLoggingOut"
+                @click="logout"
+              >
+                <v-progress-circular v-if="isLoggingOut" indeterminate size="16" width="2" />
+                <v-icon v-else icon="mdi-logout-variant" size="17" />
+                {{ isLoggingOut ? "Keluar..." : "Logout" }}
               </button>
             </div>
           </v-card>
         </v-menu>
 
-        <v-btn
-          v-if="mdAndUp"
-          variant="outlined"
-          prepend-icon="mdi-logout-variant"
-          class="logout-btn"
-          aria-label="Keluar dari aplikasi"
-          title="Keluar"
-          @click="logout"
-        >
-          <span class="logout-label">Keluar</span>
-        </v-btn>
+        <div v-if="mdAndUp" class="desktop-account-area">
+          <div class="account-summary" :title="accountEmail">
+            <v-avatar size="36" class="account-avatar">
+              <v-img v-if="accountPhoto" :src="accountPhoto" :alt="accountName" />
+              <span v-else>{{ accountInitials }}</span>
+            </v-avatar>
+            <div class="account-copy">
+              <strong>{{ accountName }}</strong>
+              <span class="account-email">{{ accountEmail }}</span>
+              <span class="account-meta-divider" aria-hidden="true" />
+              <span class="account-role">{{ accountRole }}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="logout-icon-button"
+            :disabled="isLoggingOut"
+            aria-label="Logout dari aplikasi"
+            title="Logout"
+            @click="logout"
+          >
+            <v-progress-circular v-if="isLoggingOut" indeterminate size="17" width="2" />
+            <v-icon v-else icon="mdi-logout-variant" size="19" />
+          </button>
+        </div>
       </div>
     </template>
   </v-app-bar>
@@ -857,52 +936,160 @@ const logout = async () => {
 }
 
 .mobile-menu-footer {
-  padding: 8px 12px 10px;
+  display: flex;
+  padding: 10px 12px;
+  align-items: center;
+  gap: 10px;
   border-top: 1px solid #e8ecf0;
+  background: #ffffff;
+}
+
+.mobile-account {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+}
+
+.mobile-account-copy,
+.account-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.mobile-account-copy strong,
+.account-copy strong {
+  overflow: hidden;
+  color: #1e293b;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-email,
+.account-role {
+  display: block;
+  overflow: hidden;
+  color: #7b8794;
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-email {
+  margin-top: 1px;
+  font-weight: 450;
+}
+
+.account-meta-divider {
+  display: block;
+  width: 100%;
+  height: 1px;
+  margin: 3px 0 2px;
+  background: #e5e9ed;
+}
+
+.account-role {
+  color: #526171;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
 }
 
 .mobile-logout-button {
   display: flex;
-  width: 100%;
-  height: 34px;
-  padding: 0 9px;
+  height: 32px;
+  flex: 0 0 auto;
+  padding: 0 4px;
   align-items: center;
-  gap: 8px;
-  color: #9b3d3d;
+  gap: 6px;
+  color: #64748b;
   background: transparent;
   border: 0;
-  border-radius: 4px;
+  border-radius: 5px;
   font-size: 10px;
   font-weight: 650;
   text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease;
 }
 
+.mobile-logout-button:hover,
 .mobile-logout-button:active {
-  background: #faf0f0;
+  color: #b4232d;
 }
 
-.logout-btn {
-  min-width: 92px !important;
-  height: 38px !important;
-  padding: 0 14px !important;
-  border-color: #dbe3ee !important;
-  border-radius: 10px !important;
-  color: #334155 !important;
-  text-transform: none !important;
-  letter-spacing: 0.01em !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  background: #ffffff !important;
+.mobile-logout-button:disabled,
+.logout-icon-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.desktop-account-area {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.account-summary {
+  display: flex;
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.account-avatar {
+  flex: 0 0 auto;
+  border: 1px solid #dbe2e8;
+  background: #edf1f4 !important;
+  color: #34495e !important;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.account-copy {
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+}
+
+.account-copy strong {
+  overflow: visible;
+  font-size: 12px;
+  text-overflow: clip;
+}
+
+.logout-icon-button {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #7b8794;
+  cursor: pointer;
   transition:
     color 0.2s ease,
-    border-color 0.2s ease,
     background-color 0.2s ease;
 }
 
-.logout-btn:hover {
-  border-color: #fecaca !important;
-  color: #b91c1c !important;
-  background: #fef2f2 !important;
+.logout-icon-button:hover {
+  color: #b4232d;
+  background: #f8eeee;
 }
 
 @media (max-width: 600px) {

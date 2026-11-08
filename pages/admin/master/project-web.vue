@@ -10,6 +10,7 @@ import {
 } from "vue";
 import moment from "moment";
 import Sortable from "sortablejs";
+import { getAuth } from "firebase/auth";
 import type { ConfirmationDialog } from "#components";
 import type { projectWebM, projectWebPhotoM } from "~/types/projectWebModel";
 
@@ -264,8 +265,10 @@ async function translateText(
   sourceLanguage: ProjectLanguage,
   targetLanguage: ProjectLanguage,
 ) {
+  const token = await getAuth().currentUser?.getIdToken();
   const response = await $fetch<TranslationResponse>("/api/translate", {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: {
       text,
       source: sourceLanguage,

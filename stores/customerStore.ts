@@ -98,5 +98,56 @@ export const usecustomerStore = defineStore("customerStore", {
         useloadingStore().setLoading(false);
       }
     },
+
+    async updateCustomerGroupAct(ids: string[], data: Partial<customerM>) {
+      const notificationStore = useNotificationStore();
+      try {
+        useloadingStore().setLoading(true);
+        await Promise.all(ids.map((id) => updatedatabase(COLLECTION, id, data)));
+        await this.tarikDataCustomerAct();
+        notificationStore.showSuccess("Perusahaan berhasil diperbarui");
+        return true;
+      } catch (error) {
+        console.error("Gagal memperbarui grup perusahaan:", error);
+        notificationStore.showError("Gagal memperbarui perusahaan");
+        return false;
+      } finally {
+        useloadingStore().setLoading(false);
+      }
+    },
+
+    async deleteCustomerGroupAct(ids: string[]) {
+      const notificationStore = useNotificationStore();
+      try {
+        useloadingStore().setLoading(true);
+        await Promise.all(ids.map((id) => hapusdatabase(COLLECTION, id)));
+        await this.tarikDataCustomerAct();
+        notificationStore.showSuccess("Perusahaan berhasil dihapus");
+        return true;
+      } catch (error) {
+        console.error("Gagal menghapus grup perusahaan:", error);
+        notificationStore.showError("Gagal menghapus perusahaan");
+        return false;
+      } finally {
+        useloadingStore().setLoading(false);
+      }
+    },
+
+    async clearLegacyPicAct(id: string) {
+      try {
+        await updatedatabase(COLLECTION, id, {
+          pic: "",
+          no_telp: "",
+          email: "",
+          vessel: "",
+        });
+        await this.tarikDataCustomerAct();
+        return true;
+      } catch (error) {
+        console.error("Gagal membersihkan data PIC lama:", error);
+        useNotificationStore().showError("Gagal memproses data PIC lama");
+        return false;
+      }
+    },
   },
 });

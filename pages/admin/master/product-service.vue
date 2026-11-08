@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { getAuth } from "firebase/auth";
 import moment from "moment";
 import type { ConfirmationDialog } from "#components";
 import type {
@@ -503,8 +504,10 @@ async function translateText(
   source: TranslationLanguage,
   target: TranslationLanguage,
 ) {
+  const token = await getAuth().currentUser?.getIdToken();
   const response = await $fetch<TranslationResponse>("/api/translate", {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: { text, source, target },
   });
   const translatedText = response.translatedText?.trim();

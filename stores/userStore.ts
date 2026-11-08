@@ -7,6 +7,10 @@ export const useUserStore = defineStore("userstore", {
   displayName: "",
   role: "",
   idPerusahaan: "",
+  permissions: [] as string[],
+  active: true,
+  profileId: "",
+  profileReady: false,
   __authReady: false, // ⭐ penting
 }),
 
@@ -21,6 +25,9 @@ export const useUserStore = defineStore("userstore", {
     getDisplayName: (s) => s.displayName,
     getRole: (s) => s.role,
     getIdPerusahaan: (s) => s.idPerusahaan,
+    getPermissions: (s) => s.permissions,
+    canAccess: (s) => (permission: string) =>
+      s.role.toLowerCase() === "administrator" || s.permissions.includes(permission),
   },
 
   actions: {
@@ -44,8 +51,22 @@ export const useUserStore = defineStore("userstore", {
       this.idPerusahaan = id;
     },
 
+    setProfile(profile: any) {
+      this.profileId = profile.id ?? "";
+      this.email = profile.email ?? this.email;
+      this.displayName = profile.displayName ?? "";
+      this.role = profile.role ?? "";
+      this.idPerusahaan = profile.id_perusahaan ?? "";
+      this.permissions = Array.isArray(profile.permissions) ? profile.permissions : [];
+      this.active = profile.active !== false;
+    },
+
     logout() {
       this.$reset();
+      // Logout adalah kondisi auth yang sudah diketahui, bukan proses rehydrate.
+      // Biarkan middleware langsung melanjutkan ke halaman login.
+      this.__authReady = true;
+      this.profileReady = true;
     },
   },
 });

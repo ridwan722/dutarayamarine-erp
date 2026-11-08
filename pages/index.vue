@@ -1,333 +1,443 @@
-<script setup>
-definePageMeta({
-  layout: "blank",
-});
+<script setup lang="ts">
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
-const pinDialog = ref(false);
-const pin = ref("");
-const pinError = ref("");
+definePageMeta({ layout: "blank" });
+
+const auth = getAuth();
+const userStore = useUserStore();
+const email = ref("");
+const password = ref("");
+const showPassword = ref(false);
+const errorMessage = ref("");
 const isSubmitting = ref(false);
 
-function openPinDialog() {
-  pin.value = "";
-  pinError.value = "";
-  pinDialog.value = true;
-}
+onMounted(async () => {
+  if (userStore.isLoggedIn && userStore.active) {
+    const { firstAllowedPath } = await import("~/utils/access-control");
+    await navigateTo(
+      firstAllowedPath(userStore.getPermissions, userStore.getRole),
+    );
+  }
+});
 
-async function verifyPin() {
-  if (!/^\d{6}$/.test(pin.value)) {
-    pinError.value = "PIN harus terdiri dari 6 angka.";
+const login = async () => {
+  errorMessage.value = "";
+  if (!email.value.trim() || !password.value) {
+    errorMessage.value = "Email dan password wajib diisi.";
     return;
   }
 
   isSubmitting.value = true;
-  pinError.value = "";
-
   try {
-    await $fetch("/api/admin-access", {
-      method: "POST",
-      body: { pin: pin.value },
+    const normalizedEmail = email.value.trim().toLowerCase();
+    await signInWithEmailAndPassword(auth, normalizedEmail, password.value);
+    await new Promise<void>((resolve) => {
+      const startedAt = Date.now();
+      const timer = window.setInterval(() => {
+        if (
+          (userStore.profileReady &&
+            userStore.getEmail.toLowerCase() === normalizedEmail) ||
+          Date.now() - startedAt > 5000
+        ) {
+          window.clearInterval(timer);
+          resolve();
+        }
+      }, 50);
     });
-    pinDialog.value = false;
-    await navigateTo("/admin");
-  } catch {
-    pin.value = "";
-    pinError.value = "PIN tidak sesuai. Silakan coba lagi.";
+
+    if (!userStore.isLoggedIn || !userStore.active) {
+      throw new Error("Akun ini dinonaktifkan.");
+    }
+
+    const { firstAllowedPath } = await import("~/utils/access-control");
+    await navigateTo(
+      firstAllowedPath(userStore.getPermissions, userStore.getRole),
+    );
+  } catch (error: any) {
+    await signOut(auth).catch(() => undefined);
+    const code = error?.code ?? "";
+    errorMessage.value = code.includes("invalid-credential")
+      ? "Email atau password tidak sesuai."
+      : code.includes("too-many-requests")
+        ? "Terlalu banyak percobaan. Silakan coba lagi nanti."
+        : error?.message || "Login gagal. Silakan coba lagi.";
   } finally {
     isSubmitting.value = false;
   }
-}
+};
 </script>
 
 <template>
-  <div class="welcome-page">
-    <div class="bg-glow glow-top"></div>
-    <div class="bg-glow glow-bottom"></div>
-    <div class="grid-pattern"></div>
+  <div class="login-page">
+    <div class="bg-glow glow-top" />
+    <div class="bg-glow glow-bottom" />
+    <div class="grid-pattern" />
 
     <main class="main-container">
       <div class="glass-card">
-        <div class="logo-wrapper">
-          <div class="logo-badge">
-            <img
-              src="/public/Logo-DRM.png"
-              alt="SNS Logo"
-              class="logo-img"
-            />
-          </div>
+        <div class="logo-badge">
+          <img src="/logokopsurat.png" alt="Duta Raya Marine" class="logo-img" />
         </div>
 
         <div class="text-group">
-          <h1 class="hero-title">
-            Selamat Datang di <br />
-            <span class="brand-gradient">DUTA RAYA MARINE</span>
-          </h1>
-          <p class="hero-subtitle">
-            Platform administrasi terpadu untuk mengelola operasional, performa, dan data bisnis Anda.
-          </p>
+          <h1>Masuk ke <span>DUTA RAYA MARINE</span></h1>
+          <p>Gunakan akun ERP yang terdaftar untuk melanjutkan.</p>
         </div>
 
-        <div class="action-wrapper">
+        <v-alert
+          v-if="errorMessage"
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="mb-4 text-left"
+        >
+          {{ errorMessage }}
+        </v-alert>
+
+        <form class="login-form" @submit.prevent="login">
+          <div class="field-group">
+            <label for="login-email">Email</label>
+            <div
+              class="field-shell"
+              :class="{ 'field-shell--error': errorMessage }"
+            >
+              <span class="field-icon" aria-hidden="true">
+                <v-icon icon="mdi-email-outline" size="19" />
+              </span>
+              <input
+                id="login-email"
+                v-model="email"
+                type="email"
+                autocomplete="username"
+                inputmode="email"
+                placeholder="nama@dutarayamarine.com"
+                :disabled="isSubmitting"
+                :aria-invalid="Boolean(errorMessage)"
+                aria-describedby="login-email-hint"
+                @input="errorMessage = ''"
+              />
+            </div>
+            <!-- <small id="login-email-hint"
+              >Gunakan email yang terdaftar di ERP.</small
+            > -->
+          </div>
+
+          <div class="field-group">
+            <div class="field-label-row">
+              <label for="login-password">Password</label>
+              <NuxtLink to="/reset-password" class="forgot-password-link">
+                Lupa password?
+              </NuxtLink>
+            </div>
+            <div
+              class="field-shell"
+              :class="{ 'field-shell--error': errorMessage }"
+            >
+              <span class="field-icon" aria-hidden="true">
+                <v-icon icon="mdi-lock-outline" size="19" />
+              </span>
+              <input
+                id="login-password"
+                v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="current-password"
+                placeholder="Masukkan password"
+                :disabled="isSubmitting"
+                :aria-invalid="Boolean(errorMessage)"
+                @input="errorMessage = ''"
+              />
+              <button
+                type="button"
+                class="password-toggle"
+                :aria-label="
+                  showPassword ? 'Sembunyikan password' : 'Tampilkan password'
+                "
+                :disabled="isSubmitting"
+                @click="showPassword = !showPassword"
+              >
+                <v-icon
+                  :icon="
+                    showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
+                  "
+                  size="19"
+                />
+              </button>
+            </div>
+          </div>
+
           <v-btn
-            color="primary"
-            class="btn-login"
-            rounded="xl"
-            size="x-large"
+            type="submit"
+            color="error"
+            class="login-button"
+            size="large"
             block
-            elevation="0"
-            @click="openPinDialog"
+            :loading="isSubmitting"
           >
-            Masuk
-            <v-icon end icon="mdi-arrow-right" class="btn-icon" />
+            Masuk <v-icon end icon="mdi-arrow-right" />
           </v-btn>
-        </div>
+        </form>
       </div>
     </main>
 
-    <v-dialog v-model="pinDialog" max-width="390" persistent>
-      <v-card class="pin-dialog pa-2">
-        <v-card-text class="pa-6 text-center">
-          <div class="pin-icon mb-4">
-            <v-icon size="26">mdi-shield-key-outline</v-icon>
-          </div>
-          <div class="text-h6 font-weight-bold text-slate mb-2">Masukkan PIN</div>
-          <p class="pin-description mb-5">Masukkan 6 digit PIN untuk mengakses DRM Admin.</p>
-          <v-text-field
-            v-model="pin"
-            :error-messages="pinError"
-            :disabled="isSubmitting"
-            autofocus
-            hide-details="auto"
-            inputmode="numeric"
-            maxlength="6"
-            placeholder="••••••"
-            type="password"
-            variant="outlined"
-            class="pin-input"
-            @update:model-value="pin = pin.replace(/\D/g, '').slice(0, 6)"
-            @keyup.enter="verifyPin"
-          />
-        </v-card-text>
-        <v-card-actions class="px-6 pb-6 pt-0">
-          <v-btn variant="text" :disabled="isSubmitting" @click="pinDialog = false">Batal</v-btn>
-          <v-spacer />
-          <v-btn color="primary" :loading="isSubmitting" variant="flat" @click="verifyPin">Masuk</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <footer class="footer-bar">
-      <span>DRM &copy; 2026 Enterprise System</span>
-      <span class="version-tag">v1.0.0</span>
-    </footer>
+    <footer>DRM &copy; 2026 Enterprise System</footer>
   </div>
 </template>
 
 <style scoped>
-
-.welcome-page {
+.login-page {
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #0b0f19; 
-  color: #f8fafc;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
   overflow: hidden;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #f8fafc;
+  background: #0b0f19;
+  font-family: system-ui, sans-serif;
 }
-
-
 .bg-glow {
   position: absolute;
   border-radius: 50%;
   filter: blur(90px);
   pointer-events: none;
-  z-index: 0;
 }
-
 .glow-top {
-  width: 280px;
-  height: 280px;
-  background: rgba(37, 99, 235, 0.35); 
-  top: -60px;
-  right: -40px;
-}
-
-.glow-bottom {
   width: 300px;
   height: 300px;
-  background: rgba(14, 165, 233, 0.2); 
-  bottom: 40px;
-  left: -80px;
+  top: -70px;
+  right: -50px;
+  background: rgba(220, 38, 38, 0.28);
 }
-
+.glow-bottom {
+  width: 330px;
+  height: 330px;
+  bottom: 20px;
+  left: -90px;
+  background: rgba(37, 99, 235, 0.2);
+}
 .grid-pattern {
   position: absolute;
   inset: 0;
-  background-image: 
+  background-image:
     linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 32px 32px;
-  z-index: 1;
 }
-
-
 .main-container {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   width: 100%;
-  max-width: 440px;
+  max-width: 460px;
+  margin: auto;
   padding: 24px 16px;
-  margin: auto 0;
-  display: flex;
-  justify-content: center;
 }
-
-
 .glass-card {
-  width: 100%;
-  background: rgba(18, 24, 38, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 34px 28px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 28px;
-  padding: 36px 24px 32px;
+  background: rgba(18, 24, 38, 0.78);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  backdrop-filter: blur(16px);
 }
-
-
-.logo-wrapper {
-  margin-bottom: 24px;
-}
-
 .logo-badge {
-  background: rgba(250, 250, 250, 0.988);
-  border: 1px solid rgb(252, 252, 252);
-  padding: 1px 4px;
-  border-radius: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
-}
-
-.logo-img {
+  width: 108px;
   height: 88px;
-  width: auto;
+  margin: 0 auto 24px;
+  padding: 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: #fff;
+}
+.logo-img {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
-
-
-.badge-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  border-radius: 99px;
-  background: rgba(37, 99, 235, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  margin-bottom: 16px;
+.text-group {
+  text-align: center;
+  margin-bottom: 26px;
 }
-
-.pulse-dot {
-  width: 6px;
-  height: 6px;
-  background-color: #3b82f6;
-  border-radius: 50%;
-  box-shadow: 0 0 8px #3b82f6;
-}
-
-
-.hero-title {
+.text-group h1 {
+  margin: 0 0 9px;
   font-size: 24px;
-  font-weight: 800;
-  line-height: 1.25;
-  color: #ffffff;
-  letter-spacing: -0.02em;
-  margin-bottom: 12px;
+  line-height: 1.3;
 }
-
-.brand-gradient {
-  background: linear-gradient(135deg, #fa6060 0%, #f63b3b 50%, #d40606 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  display: inline-block;
+.text-group h1 span {
+  display: block;
+  color: #ef4444;
 }
-
-.hero-subtitle {
-  font-size: 13.5px;
-  line-height: 1.6;
+.text-group p {
+  margin: 0;
   color: #94a3b8;
-  margin-bottom: 32px;
-  font-weight: 400;
-  padding: 0 4px;
+  font-size: 13.5px;
 }
-
-
-.action-wrapper {
-  width: 100%;
-}
-
-.btn-login {
-  background: linear-gradient(135deg, #eb2525 0%, #d81d1d 100%) !important;
-  color: #ffffff !important;
-  font-weight: 600 !important;
-  font-size: 15px !important;
-  letter-spacing: 0.2px;
-  height: 52px !important;
-  text-transform: none !important;
-  box-shadow: 0 8px 20px rgba(235, 37, 37, 0.35) !important;
-  transition: all 0.3s ease !important;
-}
-
-.btn-login:active {
-  transform: scale(0.98);
-}
-
-.btn-icon {
-  transition: transform 0.2s ease;
-}
-
-.btn-login:hover .btn-icon {
-  transform: translateX(4px);
-}
-
-
-.footer-bar {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  padding: 16px;
+.login-form {
   display: flex;
-  justify-content: center;
+  width: 100%;
+  flex-direction: column;
+  gap: 17px;
+}
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.field-group > label,
+.field-label-row label {
+  color: #dce5ef;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.field-label-row {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
+  justify-content: space-between;
+  gap: 12px;
+}
+.forgot-password-link {
+  color: #aebdd0;
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.forgot-password-link:hover {
+  color: #f87171;
+}
+.forgot-password-link:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid rgba(248, 113, 113, 0.65);
+  outline-offset: 3px;
+}
+.field-shell {
+  display: flex;
+  height: 54px;
+  padding: 0 7px 0 9px;
+  align-items: center;
+  gap: 10px;
+  color: #aebdd0;
+  background: rgba(7, 12, 22, 0.54);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+.field-shell:hover {
+  border-color: rgba(148, 163, 184, 0.38);
+  background: rgba(7, 12, 22, 0.7);
+}
+.field-shell:focus-within {
+  background: rgba(7, 12, 22, 0.82);
+  border-color: rgba(239, 68, 68, 0.82);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.11);
+}
+.field-shell--error {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+.field-icon {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #9eabbc;
+  background: rgba(255, 255, 255, 0.055);
+  border-radius: 9px;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
+}
+.field-shell:focus-within .field-icon {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.11);
+}
+.field-shell input {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  color: #f4f7fb;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+.field-shell input::placeholder {
+  color: #637187;
+  opacity: 1;
+}
+.field-shell input:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.field-group > small {
+  padding-left: 2px;
+  color: #6f8097;
+  font-size: 10px;
+  line-height: 1.35;
+}
+.password-toggle {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  color: #8695a8;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+.password-toggle:hover {
+  color: #e4ebf3;
+  background: rgba(255, 255, 255, 0.07);
+}
+.password-toggle:focus-visible {
+  outline: 2px solid #f87171;
+  outline-offset: 1px;
+}
+.password-toggle:disabled {
+  cursor: wait;
+  opacity: 0.45;
+}
+.login-button {
+  height: 52px !important;
+  margin-top: 3px;
+  text-transform: none !important;
+  font-weight: 700;
+  border-radius: 13px !important;
+  box-shadow: 0 10px 24px rgba(220, 38, 38, 0.24) !important;
+}
+footer {
+  position: relative;
+  z-index: 1;
+  padding: 18px;
   color: #64748b;
+  text-align: center;
+  font-size: 11px;
 }
 
-.version-tag {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #475569;
+@media (max-width: 480px) {
+  .main-container {
+    padding-inline: 12px;
+  }
+  .glass-card {
+    padding: 28px 20px 25px;
+    border-radius: 23px;
+  }
+  .logo-badge {
+    margin-bottom: 20px;
+  }
+  .text-group {
+    margin-bottom: 23px;
+  }
 }
-
-.pin-dialog { border-radius: 20px !important; }
-.pin-icon { width: 54px; height: 54px; margin: auto; display: grid; place-items: center; border-radius: 16px; color: #2563eb; background: #eff6ff; }
-.text-slate { color: #1e293b; }
-.pin-description { color: #64748b; font-size: 13px; line-height: 1.5; }
-.pin-input :deep(input) { letter-spacing: 10px; font-size: 21px; font-weight: 700; text-align: center; }
 </style>

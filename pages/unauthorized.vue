@@ -16,17 +16,17 @@
           class="mt-6"
           variant="flat"
           rounded="xl"
-          to="/login"
+          to="/"
         >
           Kembali ke Login
           <v-icon icon="mdi-login" end />
         </v-btn>
 
-        <p class="note">© 2026 Aresa Accounting System | Terms of Use</p>
+        <p class="note">© 2026 Duta Raya Marine ERP</p>
       </div>
     </div>
 
-    <footer class="footer-bar">Aresa © 2026</footer>
+    <footer class="footer-bar">Duta Raya Marine © 2026</footer>
   </div>
 </template>
 

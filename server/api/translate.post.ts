@@ -25,8 +25,23 @@ function parseGoogleTranslation(response: unknown) {
 }
 
 export default defineEventHandler(async (event) => {
-  if (getCookie(event, "sns_admin_access") !== "granted") {
-    throw createError({ statusCode: 401, statusMessage: "Sesi admin tidak valid" });
+  const authorization = getHeader(event, "authorization") ?? "";
+  const idToken = authorization.startsWith("Bearer ")
+    ? authorization.slice(7).trim()
+    : "";
+  const config = useRuntimeConfig(event);
+
+  if (!idToken || !config.firebaseApiKey) {
+    throw createError({ statusCode: 401, statusMessage: "Sesi login tidak valid" });
+  }
+
+  try {
+    await $fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${config.firebaseApiKey}`,
+      { method: "POST", body: { idToken } },
+    );
+  } catch {
+    throw createError({ statusCode: 401, statusMessage: "Sesi login sudah berakhir" });
   }
 
   const body = await readBody<TranslationRequest>(event);

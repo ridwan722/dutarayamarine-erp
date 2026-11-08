@@ -5,6 +5,7 @@ export interface penawaranM {
   no_penawaran?: string;
 
   id_perusahaan: string;
+  id_pic?: string;
   pic: string;
   nama_perusahaan: string;
   alamat_perusahaan?: string;

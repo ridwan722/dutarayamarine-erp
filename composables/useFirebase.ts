@@ -51,7 +51,7 @@ export const signOut = async () => {
   const auth = getAuth();
   const userCredential = await auth.signOut();
   useUserStore().setUser(null);
-  navigateTo("/login");
+  navigateTo("/");
   sessionStorage.clear();
   return userCredential;
 };
