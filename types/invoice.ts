@@ -29,6 +29,9 @@ export interface invoiceDoWrM {
   dataUrl: string;
   size: number;
   contentType: string;
+  storagePath?: string;
+  firestoreFileId?: string;
+  chunkCount?: number;
 }
 
 export type invoiceCurrencyM = "IDR" | "USD" | "SGD";

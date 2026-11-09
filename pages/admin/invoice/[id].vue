@@ -232,6 +232,7 @@
               id="upload-do-wr"
               type="file"
               multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
               class="po-file-input"
               :disabled="readingDoWr"
               @change="addDoWrFiles"
@@ -242,7 +243,7 @@
             <div class="do-wr-upload-copy">
               <div class="do-wr-upload-title">Pilih dokumen</div>
               <div class="do-wr-upload-description">
-                PDF, gambar, atau dokumen Office · maks. sekitar 650 KB total
+                PDF, gambar, atau dokumen Office · maks. 10 MB per file
               </div>
             </div>
           </label>
@@ -678,6 +679,15 @@
 
 <script setup lang="ts">
 import moment from "moment";
+import {
+  Bytes,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  setDoc,
+} from "firebase/firestore";
+import { deleteObject, ref as storageRef } from "firebase/storage";
 import type { ConfirmationDialog } from "#components";
 import type {
   invoiceCurrencyM,
@@ -698,6 +708,8 @@ const uploadStoreInstance = uploadStore();
 const notificationStore = useNotificationStore();
 const userStore = useUserStore();
 const route = useRoute();
+const db = useFirestore();
+const storage = useFirebaseStorage();
 
 const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
   null,
@@ -710,6 +722,9 @@ const savingInvoice = ref(false);
 const doWrUploadProgress = ref(0);
 const activeDoWrFileName = ref("");
 const MAX_INVOICE_BYTES = 900 * 1024;
+const MAX_DO_WR_FILE_BYTES = 10 * 1024 * 1024;
+const DO_WR_CHUNK_BYTES = 700 * 1024;
+const DO_WR_FILES_COLLECTION = "invoice_do_wr";
 const quotationGrandTotal = ref(0);
 const relatedInvoices = ref<invoiceM[]>([]);
 const invoiceWrapper = ref<HTMLElement | null>(null);
@@ -961,11 +976,60 @@ async function tambahDokumenBb(event: Event) {
   }
 }
 
-function bukaDokumenLampiran(document: invoiceBuktiBayarM | invoiceDoWrM) {
+async function bukaDokumenLampiran(
+  document: invoiceBuktiBayarM | invoiceDoWrM,
+) {
+  const firestoreFileId =
+    "firestoreFileId" in document ? document.firestoreFileId : undefined;
+  let previewWindow: Window | null = null;
+
   try {
     let url = document.dataUrl;
 
-    if (url.startsWith("data:")) {
+    if (firestoreFileId) {
+      const cacheKey = `firestore:${firestoreFileId}`;
+      const cachedUrl = poObjectUrls.get(cacheKey);
+
+      if (cachedUrl) {
+        url = cachedUrl;
+      } else {
+        previewWindow = window.open("about:blank", "_blank");
+        if (previewWindow) previewWindow.opener = null;
+
+        const chunkCount = Number(document.chunkCount);
+        if (!Number.isInteger(chunkCount) || chunkCount < 1) {
+          throw new Error("Metadata dokumen tidak valid");
+        }
+
+        const chunks = await Promise.all(
+          Array.from({ length: chunkCount }, async (_, chunkIndex) => {
+            const snapshot = await getDoc(
+              doc(
+                db,
+                DO_WR_FILES_COLLECTION,
+                createDoWrChunkId(firestoreFileId, chunkIndex),
+              ),
+            );
+            if (!snapshot.exists()) {
+              throw new Error("Sebagian data dokumen tidak ditemukan");
+            }
+
+            const bytes = snapshot.data().bytes;
+            if (!(bytes instanceof Bytes)) {
+              throw new Error("Format data dokumen tidak valid");
+            }
+            return bytes.toUint8Array();
+          }),
+        );
+
+        url = URL.createObjectURL(
+          new Blob(chunks, {
+            type: document.contentType || "application/octet-stream",
+          }),
+        );
+        poObjectUrls.set(cacheKey, url);
+      }
+    } else if (url.startsWith("data:")) {
       const cachedUrl = poObjectUrls.get(url);
 
       if (cachedUrl) {
@@ -996,8 +1060,13 @@ function bukaDokumenLampiran(document: invoiceBuktiBayarM | invoiceDoWrM) {
       }
     }
 
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (previewWindow) {
+      previewWindow.location.replace(url);
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   } catch {
+    previewWindow?.close();
     notificationStore.showError(
       "Dokumen tidak dapat dibuka. Silakan coba unggah ulang file.",
     );
@@ -1106,9 +1175,18 @@ function addDoWrFiles(event: Event) {
 
   if (!files.length) return;
 
-  const validFiles = files.filter((file) => file.size > 0);
-  if (validFiles.length !== files.length) {
+  const nonEmptyFiles = files.filter((file) => file.size > 0);
+  if (nonEmptyFiles.length !== files.length) {
     notificationStore.showError("File kosong tidak dapat diunggah.");
+  }
+
+  const validFiles = nonEmptyFiles.filter(
+    (file) => file.size <= MAX_DO_WR_FILE_BYTES,
+  );
+  if (validFiles.length !== nonEmptyFiles.length) {
+    notificationStore.showError(
+      "Ukuran maksimal dokumen DO/WCR adalah 10 MB per file.",
+    );
   }
 
   const knownFiles = new Set(
@@ -1142,20 +1220,56 @@ function resetDoWrFiles() {
   activeDoWrFileName.value = "";
 }
 
-function readDoWrFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+function createDoWrChunkId(fileId: string, chunkIndex: number) {
+  return `${fileId}-${String(chunkIndex).padStart(4, "0")}`;
+}
 
-    reader.onload = () =>
-      typeof reader.result === "string"
-        ? resolve(reader.result)
-        : reject(new Error("Dokumen DO/WR tidak dapat dibaca"));
-    reader.onerror = () =>
-      reject(reader.error || new Error("Dokumen DO/WR tidak dapat dibaca"));
-    reader.onabort = () =>
-      reject(new Error("Pembacaan dokumen DO/WR dibatalkan"));
-    reader.readAsDataURL(file);
-  });
+async function saveDoWrFileToFirestore(
+  invoiceId: string,
+  fileId: string,
+  file: File,
+  onProgress: (completedBytes: number) => void,
+) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const chunkCount = Math.ceil(bytes.byteLength / DO_WR_CHUNK_BYTES);
+
+  for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
+    const start = chunkIndex * DO_WR_CHUNK_BYTES;
+    const end = Math.min(start + DO_WR_CHUNK_BYTES, bytes.byteLength);
+    const chunk = bytes.slice(start, end);
+
+    await setDoc(
+      doc(
+        db,
+        DO_WR_FILES_COLLECTION,
+        createDoWrChunkId(fileId, chunkIndex),
+      ),
+      {
+        invoiceId,
+        fileId,
+        chunkIndex,
+        chunkCount,
+        bytes: Bytes.fromUint8Array(chunk),
+      },
+    );
+    onProgress(end);
+  }
+
+  return { fileId, chunkCount };
+}
+
+async function deleteFirestoreDoWrFile(fileId: string, chunkCount: number) {
+  await Promise.all(
+    Array.from({ length: chunkCount }, (_, chunkIndex) =>
+      deleteDoc(
+        doc(
+          db,
+          DO_WR_FILES_COLLECTION,
+          createDoWrChunkId(fileId, chunkIndex),
+        ),
+      ),
+    ),
+  );
 }
 
 async function simpanDoWr() {
@@ -1165,26 +1279,16 @@ async function simpanDoWr() {
   savingInvoice.value = true;
   readingDoWr.value = true;
   doWrUploadProgress.value = doWrFiles.value.length ? 0 : 100;
+  const createdFirestoreFiles: Array<{
+    fileId: string;
+    chunkCount: number;
+  }> = [];
+  let invoiceUpdated = false;
 
   try {
     const id = route.params.id as string;
     const invoice = JSON.parse(JSON.stringify(invoiceDetail.value)) as invoiceM;
     invoice.doc_do_wr = [...savedDoWrDocuments.value];
-
-    const estimatedFileBytes = doWrFiles.value.reduce(
-      (total, file) => total + 4 * Math.ceil(file.size / 3),
-      0,
-    );
-    const currentInvoiceBytes = new TextEncoder().encode(
-      JSON.stringify(invoice),
-    ).byteLength;
-
-    if (currentInvoiceBytes + estimatedFileBytes > MAX_INVOICE_BYTES) {
-      notificationStore.showError(
-        "Total dokumen DO/WR terlalu besar. Kurangi ukuran atau jumlah file baru (maksimal sekitar 650 KB total).",
-      );
-      return;
-    }
 
     const newDocuments: invoiceDoWrM[] = [];
     const totalBytes = doWrTotalBytes.value;
@@ -1192,11 +1296,33 @@ async function simpanDoWr() {
 
     for (const file of doWrFiles.value) {
       activeDoWrFileName.value = file.name;
+      const fileId = doc(collection(db, DO_WR_FILES_COLLECTION)).id;
+      const expectedChunkCount = Math.ceil(file.size / DO_WR_CHUNK_BYTES);
+      createdFirestoreFiles.push({
+        fileId,
+        chunkCount: expectedChunkCount,
+      });
+
+      const { chunkCount } = await saveDoWrFileToFirestore(
+        id,
+        fileId,
+        file,
+        (fileCompletedBytes) => {
+          doWrUploadProgress.value = totalBytes
+            ? Math.round(
+                ((completedBytes + fileCompletedBytes) / totalBytes) * 100,
+              )
+            : 100;
+        },
+      );
+
       const document: invoiceDoWrM = {
         name: file.name,
-        dataUrl: await readDoWrFile(file),
+        dataUrl: "",
         size: file.size,
         contentType: file.type || "application/octet-stream",
+        firestoreFileId: fileId,
+        chunkCount,
       };
 
       completedBytes += file.size;
@@ -1211,28 +1337,73 @@ async function simpanDoWr() {
       ...newDocuments,
     ];
 
-    if (
-      new TextEncoder().encode(JSON.stringify(invoice)).byteLength >
-      MAX_INVOICE_BYTES
-    ) {
-      notificationStore.showError(
-        "Ukuran invoice beserta dokumen DO/WR terlalu besar. Kurangi ukuran atau jumlah file.",
-      );
-      return;
-    }
-
     const updated = await invoiceStore.updateInvoiceAct(id, invoice, {
       showLoading: false,
     });
     if (!updated) return;
+    invoiceUpdated = true;
+
+    const retainedPaths = new Set(
+      savedDoWrDocuments.value
+        .map((document) => document.storagePath)
+        .filter((path): path is string => Boolean(path)),
+    );
+    const retainedFirestoreFileIds = new Set(
+      savedDoWrDocuments.value
+        .map((document) => document.firestoreFileId)
+        .filter((fileId): fileId is string => Boolean(fileId)),
+    );
+    const removedPaths = originalDoWrDocuments.value
+      .map((document) => document.storagePath)
+      .filter(
+        (path): path is string => Boolean(path) && !retainedPaths.has(path),
+      );
+    const removedFirestoreFiles = originalDoWrDocuments.value.filter(
+      (document) =>
+        Boolean(document.firestoreFileId) &&
+        !retainedFirestoreFileIds.has(document.firestoreFileId!),
+    );
+
+    if (removedPaths.length) {
+      void Promise.allSettled(
+        removedPaths.map((path) => deleteObject(storageRef(storage, path))),
+      ).then((results) => {
+        if (results.some((result) => result.status === "rejected")) {
+          console.warn("Sebagian file DO/WCR lama gagal dihapus dari Storage.");
+        }
+      });
+    }
+    if (removedFirestoreFiles.length) {
+      void Promise.allSettled(
+        removedFirestoreFiles.map((document) =>
+          deleteFirestoreDoWrFile(
+            document.firestoreFileId!,
+            Number(document.chunkCount) || 0,
+          ),
+        ),
+      ).then((results) => {
+        if (results.some((result) => result.status === "rejected")) {
+          console.warn("Sebagian data DO/WCR lama gagal dihapus dari Firestore.");
+        }
+      });
+    }
 
     data.dialogTambahDoWr = false;
   } catch (error) {
     console.error("Gagal menyimpan dokumen DO/WR:", error);
     notificationStore.showError(
-      "Dokumen DO/WR gagal dibaca atau disimpan. Silakan coba lagi.",
+      error instanceof Error
+        ? error.message
+        : "Dokumen DO/WCR gagal diunggah atau disimpan. Silakan coba lagi.",
     );
   } finally {
+    if (!invoiceUpdated && createdFirestoreFiles.length) {
+      void Promise.allSettled(
+        createdFirestoreFiles.map(({ fileId, chunkCount }) =>
+          deleteFirestoreDoWrFile(fileId, chunkCount),
+        ),
+      );
+    }
     readingDoWr.value = false;
     savingInvoice.value = false;
     activeDoWrFileName.value = "";
