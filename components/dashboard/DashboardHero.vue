@@ -5,6 +5,7 @@ import {
 } from "./useDashboardAnalytics";
 
 defineProps<{
+  loading: boolean;
   year: number;
   invoiceValue: number | null;
   paidValue: number | null;
@@ -15,9 +16,17 @@ defineProps<{
 </script>
 
 <template>
-  <section class="hero">
-    <div class="hero-copy">
-      <!-- <div class="eyebrow"><span class="pulse" /> DUTA RAYA MARINE · ERP INTELLIGENCE</div> -->
+  <section class="hero" :aria-busy="loading">
+    <div v-if="loading" class="hero-copy hero-copy-skeleton" aria-hidden="true">
+      <span class="hero-skeleton skeleton-title" />
+      <span class="hero-skeleton skeleton-copy skeleton-copy-wide" />
+      <span class="hero-skeleton skeleton-copy skeleton-copy-short" />
+      <div class="skeleton-meta">
+        <span class="hero-skeleton skeleton-meta-item" />
+        <span class="hero-skeleton skeleton-meta-item skeleton-meta-item-short" />
+      </div>
+    </div>
+    <div v-else class="hero-copy">
       <h1>Executive Control Center</h1>
       <p>
         Ringkasan bisnis, arus dokumen, dan biaya operasional dalam satu
@@ -36,24 +45,45 @@ defineProps<{
     </div>
     <div class="hero-stats">
       <div class="hero-stat featured">
-        <span>Nilai invoice diterbitkan</span>
-        <strong>{{ formatDashboardCompactMoney(invoiceValue) }}</strong>
-        <small>{{
-          invoiceCount === null
-            ? "Data belum tersedia"
-            : `${invoiceCount} dokumen invoice`
-        }}</small>
+        <template v-if="loading">
+          <span class="hero-skeleton skeleton-stat-label" aria-hidden="true" />
+          <span class="hero-skeleton skeleton-stat-value skeleton-stat-value-featured" aria-hidden="true" />
+          <span class="hero-skeleton skeleton-stat-note" aria-hidden="true" />
+        </template>
+        <template v-else>
+          <span>Nilai invoice diterbitkan</span>
+          <strong>{{ formatDashboardCompactMoney(invoiceValue) }}</strong>
+          <small>{{
+            invoiceCount === null
+              ? "Data belum tersedia"
+              : `${invoiceCount} dokumen invoice`
+          }}</small>
+        </template>
       </div>
       <div class="hero-stat-grid">
         <div class="hero-stat">
-          <span>Invoice selesai</span
-          ><strong>{{ formatDashboardCompactMoney(paidValue) }}</strong
-          ><small>Invoice Terbayar</small>
+          <template v-if="loading">
+            <span class="hero-skeleton skeleton-stat-label" aria-hidden="true" />
+            <span class="hero-skeleton skeleton-stat-value" aria-hidden="true" />
+            <span class="hero-skeleton skeleton-stat-note" aria-hidden="true" />
+          </template>
+          <template v-else>
+            <span>Invoice selesai</span
+            ><strong>{{ formatDashboardCompactMoney(paidValue) }}</strong
+            ><small>Invoice Terbayar</small>
+          </template>
         </div>
         <div class="hero-stat">
-          <span>Pengeluaran proyek</span
-          ><strong>{{ formatDashboardCompactMoney(expenseValue) }}</strong
-          ><small>Tercatat di penawaran</small>
+          <template v-if="loading">
+            <span class="hero-skeleton skeleton-stat-label" aria-hidden="true" />
+            <span class="hero-skeleton skeleton-stat-value" aria-hidden="true" />
+            <span class="hero-skeleton skeleton-stat-note" aria-hidden="true" />
+          </template>
+          <template v-else>
+            <span>Pengeluaran proyek</span
+            ><strong>{{ formatDashboardCompactMoney(expenseValue) }}</strong
+            ><small>Tercatat di penawaran</small>
+          </template>
         </div>
       </div>
     </div>
@@ -80,6 +110,77 @@ defineProps<{
 .hero-stats {
   position: relative;
   z-index: 1;
+}
+.hero-copy-skeleton {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.hero-skeleton {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 20%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.1) 80%
+  );
+  background-size: 220% 100%;
+  animation: hero-skeleton-shimmer 1.35s ease-in-out infinite;
+}
+.skeleton-title {
+  width: min(390px, 78%);
+  height: 42px;
+  margin: 17px 0 18px;
+}
+.skeleton-copy {
+  height: 10px;
+  margin-bottom: 8px;
+}
+.skeleton-copy-wide {
+  width: min(470px, 94%);
+}
+.skeleton-copy-short {
+  width: min(330px, 66%);
+}
+.skeleton-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  width: 100%;
+  margin-top: 28px;
+}
+.skeleton-meta-item {
+  width: 138px;
+  height: 10px;
+}
+.skeleton-meta-item-short {
+  width: 112px;
+}
+.skeleton-stat-label {
+  width: 48%;
+  height: 9px;
+}
+.skeleton-stat-value {
+  width: 72%;
+  height: 21px;
+  margin: 1px 0;
+}
+.skeleton-stat-value-featured {
+  width: 66%;
+  height: 34px;
+}
+.skeleton-stat-note {
+  width: 42%;
+  height: 8px;
+}
+@keyframes hero-skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
 }
 .eyebrow {
   display: flex;
@@ -219,6 +320,15 @@ h1 em {
   }
   .hero-meta {
     margin-top: 22px;
+  }
+  .skeleton-title {
+    width: 85%;
+    height: 32px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-skeleton {
+    animation: none;
   }
 }
 @media (max-width: 390px) {

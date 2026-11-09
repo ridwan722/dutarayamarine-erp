@@ -136,6 +136,16 @@ const expenseShare = computed(() => {
         </div>
       </div>
 
+      <DashboardHero
+        :loading="!ready || loading"
+        :year="selectedYear"
+        :invoice-value="available.invoice ? summary.invoiceValue : null"
+        :paid-value="available.invoice ? summary.paidValue : null"
+        :expense-value="available.penawaran ? summary.expenseValue : null"
+        :invoice-count="available.invoice ? summary.invoiceCount : null"
+        :last-updated="lastUpdated"
+      />
+
       <div v-if="!ready" class="loading-state">
         <v-progress-circular indeterminate color="primary" size="35" /><span
           >Memuat analitik ERP...</span
@@ -152,14 +162,6 @@ const expenseShare = computed(() => {
             >
           </div>
         </div>
-        <DashboardHero
-          :year="selectedYear"
-          :invoice-value="available.invoice ? summary.invoiceValue : null"
-          :paid-value="available.invoice ? summary.paidValue : null"
-          :expense-value="available.penawaran ? summary.expenseValue : null"
-          :invoice-count="available.invoice ? summary.invoiceCount : null"
-          :last-updated="lastUpdated"
-        />
         <div class="section-line">
           <div>
             <span>01 / BUSINESS SNAPSHOT</span>

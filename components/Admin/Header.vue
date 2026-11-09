@@ -2,6 +2,7 @@
 import Sortable from "sortablejs";
 import { useDisplay } from "vuetify";
 import { useUserStore } from "@/stores/userStore";
+import { useinvoiceStore } from "@/stores/invoiceStore";
 import { getAuth, signOut } from "firebase/auth";
 import { navigateTo, useRoute } from "#app";
 import {
@@ -16,12 +17,14 @@ import { permissionForPath } from "~/utils/access-control";
 import {
   formatDashboardCompactMoney,
   formatDashboardDate,
+  toDashboardDate,
   useDashboardAnalytics,
 } from "~/components/dashboard/useDashboardAnalytics";
 
 const { mdAndUp } = useDisplay();
 const route = useRoute();
 const useuser = useUserStore();
+const invoiceStore = useinvoiceStore();
 const mobileMenuOpen = ref(false);
 const currentTime = ref(new Date());
 const isLoggingOut = ref(false);
@@ -91,6 +94,7 @@ const {
   loading: notificationLoading,
   ready: notificationReady,
   selectedYear: notificationYear,
+  snapshot: notificationSnapshot,
   refresh: refreshNotifications,
 } = notificationDashboard;
 const notificationItems = computed(() => notificationActivities.value.slice(0, 6));
@@ -337,6 +341,24 @@ const normalizePath = (path) => {
   return normalized || "/";
 };
 
+const invoiceWorkspaceTabTitle = (documentId) => {
+  const decodedId = decodeURIComponent(documentId);
+  const invoices = [
+    invoiceStore.getDetailInvoice,
+    ...invoiceStore.getDataInvoice,
+    ...notificationSnapshot.value.invoice,
+  ];
+  const invoice = invoices.find((item) =>
+    [item?.id, item?.id_invoice, item?.no_inv].some(
+      (identifier) => String(identifier || "") === decodedId,
+    ),
+  );
+  const createdDate = toDashboardDate(invoice?.createdAt);
+
+  if (!invoice || !createdDate) return decodedId;
+  return `INV/DRM/${createdDate.getFullYear()}/${invoice.no_inv || decodedId}`;
+};
+
 const workspaceStorageKey = computed(() => {
   const accountKey = (useuser.getEmail || useuser.profileId || "default")
     .trim()
@@ -392,7 +414,10 @@ const workspaceTabMeta = (path) => {
 
   if (isDocumentDetail) {
     return {
-      title: decodeURIComponent(nestedSegments[0]),
+      title:
+        menuPath === "/admin/invoice"
+          ? invoiceWorkspaceTabTitle(nestedSegments[0])
+          : decodeURIComponent(nestedSegments[0]),
       icon: currentMenu.icon,
     };
   }
@@ -738,6 +763,23 @@ watch(mdAndUp, (isDesktop) => {
 watch(
   () => route.fullPath,
   () => updateActiveWorkspaceTabFromRoute(),
+);
+
+watch(
+  [
+    () => invoiceStore.getDetailInvoice,
+    () => invoiceStore.getDataInvoice,
+    () => notificationSnapshot.value.invoice,
+  ],
+  () => {
+    if (!workspaceTabsReady.value) return;
+
+    workspaceTabs.value = workspaceTabs.value.map((tab) => {
+      const meta = workspaceTabMeta(tab.path);
+      return { ...tab, title: meta.title, icon: meta.icon };
+    });
+    persistWorkspaceTabs();
+  },
 );
 
 const logout = async () => {
