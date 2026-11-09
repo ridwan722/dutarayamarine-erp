@@ -191,6 +191,9 @@ async function save() {
     form.value.displayName = name;
     form.value.email = email;
     form.value.id_perusahaan ||= "";
+    form.value.nama_perusahaan = form.value.id_perusahaan
+      ? companyName(form.value.id_perusahaan)
+      : "";
     if (editing.value) {
       form.value.updated_at = tanggalunixskrg();
       form.value.updated_by = currentUser.getEmail;

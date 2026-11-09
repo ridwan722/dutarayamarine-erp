@@ -1020,6 +1020,18 @@ async function save() {
   ) {
     return;
   }
+  const spkDocument = props.penawaran.dokumen_spk;
+  const hasSpkDocument = Boolean(
+    spkDocument?.firestoreFileId || spkDocument?.url || spkDocument?.dataUrl,
+  );
+  if (
+    !hasSpkDocument ||
+    !["SPK", "INVOICE"].includes(props.penawaran.status)
+  ) {
+    return notificationStore.showError(
+      "Upload dokumen SPK sebelum membuat invoice",
+    );
+  }
   if (
     !form.value.tanggal ||
     !form.value.id_customer ||

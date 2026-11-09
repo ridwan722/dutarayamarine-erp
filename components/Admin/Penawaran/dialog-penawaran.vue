@@ -1754,6 +1754,7 @@ function openDialogRevisiPenawaran(item: penawaranM) {
   delete revisionDraft.spk_at;
   delete revisionDraft.spk_by;
   delete revisionDraft.tanggal_spk;
+  delete revisionDraft.dokumen_spk;
   delete revisionDraft.pengeluaran;
   delete revisionDraft.grandtotal_pengeluaran;
   revisionDraft.created_at = 0;

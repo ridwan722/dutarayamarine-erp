@@ -791,7 +791,7 @@ async function deleteProductService(item: productServiceM) {
       </div>
     </div>
 
-    <section class="catalog-summary" aria-label="Ringkasan product dan service">
+    <!-- <section class="catalog-summary" aria-label="Ringkasan product dan service">
       <article class="summary-card">
         <span class="summary-icon summary-icon--blue"
           ><v-icon icon="mdi-shape-outline" size="21"
@@ -812,7 +812,7 @@ async function deleteProductService(item: productServiceM) {
           ><span>Seluruh katalog</span>
         </div>
       </article>
-    </section>
+    </section> -->
 
     <section class="category-management">
       <header class="category-management-header">

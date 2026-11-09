@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { collection, doc, getDocs, runTransaction } from "firebase/firestore";
 import { useFirestore } from "vuefire";
-import type { penawaranM } from "~/types/penawaranModel";
+import type { dokumenSpkM, penawaranM } from "~/types/penawaranModel";
 
 type RootPenawaran = penawaranM & { jumlah_revisi?: number };
 
@@ -14,6 +14,7 @@ const operationalPenawaranKeys: (keyof penawaranM)[] = [
   "spk_at",
   "spk_by",
   "tanggal_spk",
+  "dokumen_spk",
   "pengeluaran",
   "grandtotal_pengeluaran",
 ];
@@ -304,6 +305,61 @@ export const usePenawaranStore = defineStore("PenawaranStore", {
       } catch (error) {
         console.error("Gagal memperbarui status penawaran:", error);
         notificationStore.showError("Gagal memperbarui status penawaran");
+        return false;
+      }
+    },
+
+    async saveSpkDocumentAct(
+      idPenawaran: string,
+      dokumenSpk: dokumenSpkM,
+    ) {
+      const notificationStore = useNotificationStore();
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const actor = useUserStore().getEmail || "-";
+        const currentPenawaran = [
+          this.detailPenawaran,
+          ...this.dataPenawaran,
+          ...this.dataPenawaranTampil,
+        ].find(
+          (item) => (item.id || item.id_penawaran) === idPenawaran,
+        );
+        const update = {
+          // Data invoice lama yang belum mempunyai lampiran SPK boleh
+          // dilengkapi tanpa menurunkan statusnya kembali ke SPK.
+          status:
+            currentPenawaran?.status === "INVOICE" ? "INVOICE" : "SPK",
+          dokumen_spk: dokumenSpk,
+          tanggal_spk: new Date(now * 1000).toISOString().slice(0, 10),
+          spk_at: now,
+          spk_by: actor,
+          updated_at: now,
+          updated_by: actor,
+          updatedAt: now,
+          updatedBy: actor,
+        };
+
+        await updatedatabase("penawaran", idPenawaran, update);
+
+        const applySpk = (items: penawaranM[]) =>
+          items.map((item) =>
+            (item.id || item.id_penawaran) === idPenawaran
+              ? { ...item, ...update }
+              : item,
+          );
+        this.dataPenawaran = applySpk(this.dataPenawaran);
+        this.dataPenawaranTampil = applySpk(this.dataPenawaranTampil);
+        if (
+          (this.detailPenawaran.id || this.detailPenawaran.id_penawaran) ===
+          idPenawaran
+        ) {
+          this.detailPenawaran = { ...this.detailPenawaran, ...update };
+        }
+
+        return true;
+      } catch (error) {
+        console.error("Gagal menyimpan dokumen SPK:", error);
+        notificationStore.showError("Gagal menyimpan dokumen SPK");
         return false;
       }
     },

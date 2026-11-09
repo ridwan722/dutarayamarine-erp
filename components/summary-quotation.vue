@@ -190,6 +190,13 @@ const invoiceCount = computed(
     ).length,
 );
 
+const spkCount = computed(
+  () =>
+    quotations.value.filter(
+      (quotation) => normalizedStatus(quotation.status) === "SPK",
+    ).length,
+);
+
 const cancelledCount = computed(
   () =>
     quotations.value.filter(
@@ -254,6 +261,11 @@ const statusSummary = computed(() => [
     tone: "draft",
   },
   {
+    label: "SPK",
+    count: spkCount.value,
+    tone: "spk",
+  },
+  {
     label: "Invoice",
     count: invoiceCount.value,
     tone: "invoice",
@@ -269,11 +281,13 @@ const conversionRate = computed(() => percentage(invoiceCount.value));
 
 const donutStyle = computed<Record<string, string>>(() => {
   const draftEnd = percentage(draftCount.value);
-  const invoiceEnd = draftEnd + percentage(invoiceCount.value);
+  const spkEnd = draftEnd + percentage(spkCount.value);
+  const invoiceEnd = spkEnd + percentage(invoiceCount.value);
   const cancelEnd = invoiceEnd + percentage(cancelledCount.value);
 
   return {
     "--draft-end": `${draftEnd}%`,
+    "--spk-end": `${spkEnd}%`,
     "--invoice-end": `${invoiceEnd}%`,
     "--cancel-end": `${Math.min(cancelEnd, 100)}%`,
   };
@@ -675,7 +689,8 @@ function formatFullAmount(value: number, currency: string) {
   place-items: center;
   background: conic-gradient(
     #d49a44 0 var(--draft-end),
-    #31836b var(--draft-end) var(--invoice-end),
+    #2563eb var(--draft-end) var(--spk-end),
+    #31836b var(--spk-end) var(--invoice-end),
     #bd6262 var(--invoice-end) var(--cancel-end),
     #e9edf1 var(--cancel-end) 100%
   );
@@ -755,6 +770,8 @@ function formatFullAmount(value: number, currency: string) {
 
 .summary-dot--draft,
 .summary-progress--draft { background: #d49a44; }
+.summary-dot--spk,
+.summary-progress--spk { background: #2563eb; }
 .summary-dot--invoice,
 .summary-progress--invoice { background: #31836b; }
 .summary-dot--cancel,

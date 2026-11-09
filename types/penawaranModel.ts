@@ -60,8 +60,22 @@ export interface penawaranM {
   spk_at?: number;
   spk_by?: string;
   tanggal_spk?: string;
+  dokumen_spk?: dokumenSpkM;
 
   termCondition?: { id: string; nama_term: string }[];
+}
+
+export interface dokumenSpkM {
+  name: string;
+  url?: string;
+  dataUrl?: string;
+  size: number;
+  contentType: string;
+  storagePath?: string;
+  firestoreFileId?: string;
+  chunkCount?: number;
+  uploadedAt: number;
+  uploadedBy: string;
 }
 
 export interface penawaranItemM {

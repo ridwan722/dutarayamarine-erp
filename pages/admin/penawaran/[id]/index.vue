@@ -8,12 +8,19 @@ import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import DialogPenawaran from "~/components/Admin/Penawaran/dialog-penawaran.vue";
 import dialogBuatInvoice from "~/components/Admin/Penawaran/dialog-buat-invoice.vue";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
-import { doc } from "firebase/firestore";
+import {
+  Bytes,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  setDoc,
+} from "firebase/firestore";
 import { nextTick, ref } from "vue";
 import { useDocument, useFirestore } from "vuefire";
 import { queryambilid } from "~/composables/useFirestoreQuery";
 import type { invoiceM } from "~/types/invoice";
-import type { penawaranM } from "~/types/penawaranModel";
+import type { dokumenSpkM, penawaranM } from "~/types/penawaranModel";
 
 const purchaseorderPreviewKey = ref(0);
 const hasPurchaseOrder = ref(false);
@@ -30,6 +37,14 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
   null,
 );
 const dialogPenawaran = ref<InstanceType<typeof DialogPenawaran> | null>(null);
+const dialogSpk = ref(false);
+const spkFile = ref<File | null>(null);
+const spkSaving = ref(false);
+const spkUploadProgress = ref(0);
+
+const MAX_SPK_FILE_BYTES = 10 * 1024 * 1024;
+const SPK_CHUNK_BYTES = 700 * 1024;
+const SPK_FILES_COLLECTION = "penawaran_spk";
 
 definePageMeta({ layout: "admin" });
 
@@ -37,6 +52,7 @@ const route = useRoute();
 const router = useRouter();
 const penawaranstore = usePenawaranStore();
 const penawaranId = String(route.params.id);
+const db = useFirestore();
 
 const basePenawaran = computed(() => penawaranstore.getDetailPenawaran);
 const requestedRevisionId = computed(() => {
@@ -108,6 +124,10 @@ const detailpenawaran = computed(() => {
     active_revision_number: base.active_revision_number,
     materialized_revision_id: base.materialized_revision_id,
     materialized_revision_number: base.materialized_revision_number,
+    dokumen_spk: base.dokumen_spk,
+    tanggal_spk: base.tanggal_spk,
+    spk_at: base.spk_at,
+    spk_by: base.spk_by,
   } as penawaranM;
 });
 
@@ -134,7 +154,7 @@ if (cachedPenawaran) {
 // Firestore dan otomatis dilepas ketika pengguna meninggalkan halaman. Nilai
 // cache Pinia tidak ditimpa sampai dokumen segar benar-benar tersedia.
 const livePenawaran = useDocument<penawaranM>(
-  doc(useFirestore(), "penawaran", penawaranId),
+  doc(db, "penawaran", penawaranId),
 );
 watch(
   livePenawaran,
@@ -278,7 +298,8 @@ async function ensureActiveRevisionIsMaterialized() {
     revisionHistoryLoading.value ||
     revisionSelectionSaving.value ||
     !revisionHistory.value.length
-  ) return;
+  )
+    return;
 
   const targetRevisionId = selectedRevisionId.value;
   if (
@@ -286,14 +307,15 @@ async function ensureActiveRevisionIsMaterialized() {
     !revisionHistory.value.some(
       (revision) => revision.id_revisi === targetRevisionId,
     )
-  ) return;
+  )
+    return;
 
-  const materializedTarget =
-    targetRevisionId || `${penawaranId}-R00`;
+  const materializedTarget = targetRevisionId || `${penawaranId}-R00`;
   if (
     basePenawaran.value.materialized_revision_id === materializedTarget ||
     automaticMaterializationTarget === materializedTarget
-  ) return;
+  )
+    return;
 
   automaticMaterializationTarget = materializedTarget;
   revisionSelectionSaving.value = true;
@@ -362,11 +384,7 @@ function canDeleteRevision(revision: penawaranM) {
 
 async function deleteRevision(revision: penawaranM) {
   const revisionId = revision.id_revisi || "";
-  if (
-    !revisionId ||
-    revisionDeletingId.value ||
-    !canDeleteRevision(revision)
-  ) {
+  if (!revisionId || revisionDeletingId.value || !canDeleteRevision(revision)) {
     return;
   }
 
@@ -475,6 +493,274 @@ const isFullyInvoiced = computed(
     remainingInvoiceAmount.value <= 0.5,
 );
 
+const hasSpkDocument = computed(() => {
+  const document = detailpenawaran.value?.dokumen_spk;
+  return Boolean(
+    document?.firestoreFileId || document?.url || document?.dataUrl,
+  );
+});
+const canCreateInvoice = computed(
+  () =>
+    hasSpkDocument.value &&
+    ["SPK", "INVOICE"].includes(String(detailpenawaran.value?.status || "")),
+);
+const invoiceActionDisabled = computed(
+  () =>
+    invoiceLinksLoading.value ||
+    isFullyInvoiced.value ||
+    !canCreateInvoice.value ||
+    detailpenawaran.value?.status === "Cancel",
+);
+
+function openSpkDialog() {
+  spkFile.value = null;
+  spkUploadProgress.value = 0;
+  dialogSpk.value = true;
+}
+
+function selectSpkFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0] || null;
+  input.value = "";
+
+  if (!file) return;
+  if (file.size <= 0) {
+    spkFile.value = null;
+    return useNotificationStore().showError(
+      "File kosong tidak dapat diunggah",
+    );
+  }
+  if (file.size > MAX_SPK_FILE_BYTES) {
+    spkFile.value = null;
+    return useNotificationStore().showError(
+      "Ukuran file SPK maksimal 10 MB",
+    );
+  }
+
+  spkFile.value = file;
+  spkUploadProgress.value = 0;
+}
+
+function formatFileSize(bytes = 0) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function createSpkChunkId(fileId: string, chunkIndex: number) {
+  return `${fileId}-${String(chunkIndex).padStart(4, "0")}`;
+}
+
+async function saveSpkFileToFirestore(
+  fileId: string,
+  file: File,
+  onProgress: (completedBytes: number) => void,
+) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const chunkCount = Math.ceil(bytes.byteLength / SPK_CHUNK_BYTES);
+
+  for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
+    const start = chunkIndex * SPK_CHUNK_BYTES;
+    const end = Math.min(start + SPK_CHUNK_BYTES, bytes.byteLength);
+    const chunk = bytes.slice(start, end);
+
+    await setDoc(
+      doc(
+        db,
+        SPK_FILES_COLLECTION,
+        createSpkChunkId(fileId, chunkIndex),
+      ),
+      {
+        penawaranId,
+        fileId,
+        chunkIndex,
+        chunkCount,
+        bytes: Bytes.fromUint8Array(chunk),
+      },
+    );
+    onProgress(end);
+  }
+
+  return { fileId, chunkCount };
+}
+
+async function deleteFirestoreSpkFile(fileId: string, chunkCount: number) {
+  await Promise.all(
+    Array.from({ length: chunkCount }, (_, chunkIndex) =>
+      deleteDoc(
+        doc(
+          db,
+          SPK_FILES_COLLECTION,
+          createSpkChunkId(fileId, chunkIndex),
+        ),
+      ),
+    ),
+  );
+}
+
+async function saveSpkDocument() {
+  if (spkSaving.value) return;
+  if (hasSpkDocument.value) {
+    return useNotificationStore().showInfo("Dokumen SPK sudah tersimpan");
+  }
+  if (!spkFile.value) {
+    return useNotificationStore().showError("Pilih file SPK terlebih dahulu");
+  }
+  if (spkFile.value.size > MAX_SPK_FILE_BYTES) {
+    return useNotificationStore().showError("Ukuran file SPK maksimal 10 MB");
+  }
+
+  spkSaving.value = true;
+  spkUploadProgress.value = 0;
+  const file = spkFile.value;
+  const fileId = doc(collection(db, SPK_FILES_COLLECTION)).id;
+  const expectedChunkCount = Math.ceil(file.size / SPK_CHUNK_BYTES);
+  let penawaranUpdated = false;
+
+  try {
+    const { chunkCount } = await saveSpkFileToFirestore(
+      fileId,
+      file,
+      (completedBytes) => {
+        spkUploadProgress.value = file.size
+          ? Math.round((completedBytes / file.size) * 100)
+          : 100;
+      },
+    );
+
+    const actor = useUserStore().getEmail || "-";
+    const uploadedAt = Math.floor(Date.now() / 1000);
+    const document: dokumenSpkM = {
+      name: file.name,
+      dataUrl: "",
+      size: file.size,
+      contentType: file.type || "application/octet-stream",
+      firestoreFileId: fileId,
+      chunkCount,
+      uploadedAt,
+      uploadedBy: actor,
+    };
+    const saved = await penawaranstore.saveSpkDocumentAct(
+      penawaranId,
+      document,
+    );
+    if (!saved) return;
+    penawaranUpdated = true;
+
+    useNotificationStore().showSuccess(
+      "SPK berhasil diunggah. Invoice sekarang dapat dibuat.",
+    );
+    spkFile.value = null;
+    dialogSpk.value = false;
+  } catch (error) {
+    console.error("Gagal mengunggah dokumen SPK:", error);
+    useNotificationStore().showError(
+      error instanceof Error
+        ? error.message
+        : "Dokumen SPK gagal diunggah atau disimpan. Silakan coba lagi.",
+    );
+  } finally {
+    if (!penawaranUpdated) {
+      void deleteFirestoreSpkFile(fileId, expectedChunkCount).catch((error) => {
+        console.warn("Data chunk SPK yang gagal disimpan tidak dapat dibersihkan:", error);
+      });
+    }
+    spkSaving.value = false;
+  }
+}
+
+const spkObjectUrls = new Map<string, string>();
+
+async function openSpkDocument() {
+  const document = detailpenawaran.value?.dokumen_spk;
+  if (!document) return;
+
+  const previewWindow = window.open("about:blank", "_blank");
+  if (previewWindow) previewWindow.opener = null;
+
+  try {
+    let url = document.url || document.dataUrl || "";
+    const firestoreFileId = document.firestoreFileId;
+
+    if (firestoreFileId) {
+      const cacheKey = `firestore:${firestoreFileId}`;
+      const cachedUrl = spkObjectUrls.get(cacheKey);
+
+      if (cachedUrl) {
+        url = cachedUrl;
+      } else {
+        const chunkCount = Number(document.chunkCount);
+        if (!Number.isInteger(chunkCount) || chunkCount < 1) {
+          throw new Error("Metadata dokumen SPK tidak valid");
+        }
+
+        const chunks = await Promise.all(
+          Array.from({ length: chunkCount }, async (_, chunkIndex) => {
+            const snapshot = await getDoc(
+              doc(
+                db,
+                SPK_FILES_COLLECTION,
+                createSpkChunkId(firestoreFileId, chunkIndex),
+              ),
+            );
+            if (!snapshot.exists()) {
+              throw new Error("Sebagian data dokumen SPK tidak ditemukan");
+            }
+
+            const bytes = snapshot.data().bytes;
+            if (!(bytes instanceof Bytes)) {
+              throw new Error("Format data dokumen SPK tidak valid");
+            }
+            return bytes.toUint8Array();
+          }),
+        );
+
+        url = URL.createObjectURL(
+          new Blob(chunks, {
+            type: document.contentType || "application/octet-stream",
+          }),
+        );
+        spkObjectUrls.set(cacheKey, url);
+      }
+    } else if (url.startsWith("data:")) {
+      const cachedUrl = spkObjectUrls.get(url);
+      if (cachedUrl) {
+        url = cachedUrl;
+      } else {
+        const separator = url.indexOf(",");
+        const header = url.slice(0, separator);
+        if (separator < 0 || !header.endsWith(";base64")) {
+          throw new Error("Format dokumen SPK tidak valid");
+        }
+
+        const bytes = Uint8Array.from(
+          atob(url.slice(separator + 1)),
+          (character) => character.charCodeAt(0),
+        );
+        const contentType =
+          header.slice(5).split(";")[0] ||
+          document.contentType ||
+          "application/octet-stream";
+        const objectUrl = URL.createObjectURL(
+          new Blob([bytes], { type: contentType }),
+        );
+        spkObjectUrls.set(url, objectUrl);
+        url = objectUrl;
+      }
+    }
+
+    if (!url) throw new Error("Dokumen SPK tidak tersedia");
+    if (previewWindow) previewWindow.location.replace(url);
+    else window.open(url, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    previewWindow?.close();
+    console.error("Gagal membuka dokumen SPK:", error);
+    useNotificationStore().showError(
+      "Dokumen SPK tidak dapat dibuka. Silakan unggah ulang file.",
+    );
+  }
+}
+
 const data = reactive({
   dialogAdd: false,
   dialogRevisi: false,
@@ -510,6 +796,16 @@ const data = reactive({
 
 async function opendialogaddinv() {
   if (invoiceLinksLoading.value) return;
+  if (!canCreateInvoice.value) {
+    return useNotificationStore().showError(
+      "Upload dokumen SPK sebelum membuat invoice",
+    );
+  }
+  if (detailpenawaran.value.status === "Cancel") {
+    return useNotificationStore().showError(
+      "Quotation berstatus Cancel tidak dapat dibuatkan invoice",
+    );
+  }
   if (isFullyInvoiced.value) {
     return useNotificationStore().showInfo(
       "Seluruh nominal quotation sudah ditagih",
@@ -608,7 +904,8 @@ async function scrollToPurchaseOrderPreview() {
     !import.meta.client ||
     route.hash !== "#purchase-order-preview" ||
     !hasPurchaseOrder.value
-  ) return;
+  )
+    return;
 
   await nextTick();
 
@@ -653,6 +950,9 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  spkObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+  spkObjectUrls.clear();
+
   previewObserver?.disconnect();
   window.removeEventListener("resize", schedulePreviewLayout);
   if (previewMeasureFrame !== null) {
@@ -663,16 +963,10 @@ onBeforeUnmount(() => {
 
 <template>
   <ConfirmationDialog ref="confirmationDialog" />
-  <DialogPenawaran
-    ref="dialogPenawaran"
-    @saved="handlePenawaranDialogSaved"
-  />
+  <DialogPenawaran ref="dialogPenawaran" @saved="handlePenawaranDialogSaved" />
 
   <!-- DIALOG BUAT INVOICE -->
-  <dialog-buat-invoice
-    v-model="data.dialogAdd"
-    :penawaran="detailpenawaran"
-  />
+  <dialog-buat-invoice v-model="data.dialogAdd" :penawaran="detailpenawaran" />
   <!-- @saved="navigateTo('/admin/invoice')" -->
 
   <dialog-buat-pengeluaran
@@ -686,6 +980,91 @@ onBeforeUnmount(() => {
     :penawaran="detailpenawaran"
     @saved="handlePurchaseOrderSaved"
   />
+
+  <v-dialog v-model="dialogSpk" max-width="520" persistent>
+    <v-card rounded="lg">
+      <v-card-title class="d-flex align-center justify-space-between px-5 py-4">
+        <div class="d-flex align-center ga-3">
+          <v-avatar color="primary" variant="tonal" size="36">
+            <v-icon icon="mdi-file-upload-outline" size="20" />
+          </v-avatar>
+          <div>
+            <div class="text-subtitle-1 font-weight-bold">Upload SPK</div>
+            <div class="text-caption text-medium-emphasis">
+              Dokumen ini wajib sebelum membuat invoice
+            </div>
+          </div>
+        </div>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          :disabled="spkSaving"
+          aria-label="Tutup dialog SPK"
+          @click="dialogSpk = false"
+        />
+      </v-card-title>
+
+      <v-divider />
+
+      <v-card-text class="px-5 py-5">
+        <label class="spk-upload-field">
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            :disabled="spkSaving"
+            @change="selectSpkFile"
+          />
+          <v-icon icon="mdi-tray-arrow-up" size="28" color="primary" />
+          <strong>{{ spkFile ? spkFile.name : "Pilih file SPK" }}</strong>
+          <span>
+            {{
+              spkFile
+                ? formatFileSize(spkFile.size)
+                : "PDF, gambar, atau dokumen Word · maksimal 10 MB"
+            }}
+          </span>
+        </label>
+
+        <div v-if="spkSaving" class="spk-upload-progress">
+          <div class="spk-upload-progress-label">
+            <span class="text-truncate">
+              Menyiapkan {{ spkFile?.name || "dokumen SPK" }}
+            </span>
+            <span>{{ spkUploadProgress }}%</span>
+          </div>
+          <v-progress-linear
+            :model-value="spkUploadProgress"
+            color="primary"
+            height="4"
+            rounded
+          />
+        </div>
+      </v-card-text>
+
+      <v-card-actions class="px-5 pb-5 pt-0 justify-end">
+        <v-btn
+          variant="text"
+          class="text-none"
+          :disabled="spkSaving"
+          @click="dialogSpk = false"
+        >
+          Batal
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          class="text-none"
+          prepend-icon="mdi-upload"
+          :loading="spkSaving"
+          :disabled="!spkFile"
+          @click="saveSpkDocument"
+        >
+          Upload & Lanjut ke SPK
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
   <div v-if="detailpenawaran" class="quotation-page">
     <!-- STICKY HEADER WRAPPER -->
@@ -704,7 +1083,9 @@ onBeforeUnmount(() => {
             />
             <div>
               <h1>Detail Quotation</h1>
-              <p>Review quotation details, revisions, and related transactions.</p>
+              <p>
+                Review quotation details, revisions, and related transactions.
+              </p>
             </div>
           </div>
         </div>
@@ -729,54 +1110,75 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="quotation-number-box">
-              <div class="field-label">NO. PENAWARAN</div>
+              <div class="quotation-number-heading">
+                <div class="field-label">Quotation No.</div>
+                <div class="quotation-status-row">
+                  <v-chip
+                    size="x-small"
+                    variant="tonal"
+                    color="primary"
+                    class="font-weight-medium text-capitalize"
+                  >
+                    {{ detailpenawaran.status }}
+                  </v-chip>
+                  <v-chip
+                    v-if="Number(detailpenawaran.revision_number) > 0"
+                    size="x-small"
+                    variant="tonal"
+                    color="indigo"
+                    class="font-weight-bold"
+                  >
+                    {{ revisionLabel(detailpenawaran) }}
+                  </v-chip>
+                </div>
+              </div>
+
               <div class="quotation-number">
                 {{ detailpenawaran.no_penawaran }}
               </div>
-              <div class="mt-2 d-flex align-center ga-2">
-                <span class="text-caption text-medium-emphasis">Status:</span>
-                <v-chip
-                  size="x-small"
-                  variant="outlined"
-                  color="grey"
-                  class="font-weight-medium text-capitalize"
-                >
-                  {{ detailpenawaran.status }}
-                </v-chip>
-                <v-chip
-                  v-if="Number(detailpenawaran.revision_number) > 0"
-                  size="x-small"
-                  variant="tonal"
-                  color="indigo"
-                  class="font-weight-bold"
-                >
-                  {{ revisionLabel(detailpenawaran) }}
-                </v-chip>
-              </div>
-            </div>
 
-            <div class="info-section">
-              <!-- PERIHAL -->
-              <div class="info-field">
-                <div class="field-label">SUBJECT</div>
-                <div class="field-value">
-                  {{ detailpenawaran.perihal || "-" }}
+              <div class="quotation-compact-meta">
+                <div
+                  class="quotation-meta-row quotation-meta-subject"
+                  :title="detailpenawaran.perihal || '-'"
+                >
+                  <!-- <span class="quotation-meta-label">Subject</span> -->
+                  <span class="quotation-meta-value">
+                    {{ detailpenawaran.perihal || "-" }}
+                  </span>
+                </div>
+
+                <div class="quotation-meta-row quotation-meta-client">
+                  <v-icon icon="mdi-domain" size="13" />
+                  <strong :title="detailpenawaran.nama_perusahaan || '-'">
+                    {{ detailpenawaran.nama_perusahaan || "-" }}
+                  </strong>
+                  <template v-if="detailpenawaran.vessel">
+                    <i aria-hidden="true"></i>
+                    <v-icon icon="mdi-ferry" size="13" />
+                    <span :title="detailpenawaran.vessel">
+                      {{ detailpenawaran.vessel }}
+                    </span>
+                  </template>
                 </div>
               </div>
-
-              <div class="info-field">
-                <!-- <div class="field-label">CLIENT / PERUSAHAAN</div> -->
-                <div class="field-value strong">
-                  {{ detailpenawaran.nama_perusahaan || "-" }}
-                </div>
-                 <span class="text-caption text-grey font-weight-bold">
-                  {{ detailpenawaran.vessel || "-" }}
-                </span>
-              </div>
-
             </div>
 
             <div class="info-card-footer text-center">
+              <button
+                v-if="hasSpkDocument"
+                type="button"
+                class="spk-document-link"
+                @click="openSpkDocument"
+              >
+                <v-icon icon="mdi-file-check-outline" size="17" />
+                <span>
+                  <strong>Dokumen SPK</strong>
+                  <small>{{ detailpenawaran.dokumen_spk?.name }}</small>
+                </span>
+                <v-icon icon="mdi-open-in-new" size="14" />
+              </button>
+
               <div
                 v-if="detailpenawaran.status == 'INVOICE'"
                 class="invoice-status"
@@ -804,75 +1206,92 @@ onBeforeUnmount(() => {
                   <span>Seluruh nominal quotation sudah ditagih.</span>
                 </div>
 
-                <v-btn
-                  v-if="detailpenawaran.status !== 'Cancel'"
-                  block
-                  color="indigo"
-                  variant="outlined"
-                  size="small"
-                  append-icon="mdi-pencil-circle"
-                  class="corporate-btn"
-                  @click="openRevisionDialog"
+                <div
+                  v-else-if="!canCreateInvoice"
+                  class="spk-required-notice"
+                  role="status"
                 >
-                  Revisi Quotation
-                </v-btn>
+                  <v-icon size="16">mdi-alert-circle-outline</v-icon>
+                  <span>Upload SPK untuk membuka pembuatan invoice.</span>
+                </div>
 
-                <!-- Invoice -->
-                <v-btn
-                  block
-                  color="orange"
-                  variant="flat"
-                  size="small"
-                  append-icon="mdi-file-document-plus-outline"
-                  class="corporate-btn btn-invoice"
-                  :disabled="invoiceLinksLoading || isFullyInvoiced"
-                  :loading="invoiceLinksLoading"
-                  @click="opendialogaddinv"
-                >
-                  Buat Invoice
-                </v-btn>
+                <div class="action-card-grid">
+                  <v-btn
+                    v-if="detailpenawaran.status !== 'Cancel'"
+                    variant="flat"
+                    class="corporate-btn action-card--revision"
+                    @click="openRevisionDialog"
+                  >
+                    <span class="action-card-icon">
+                      <v-icon icon="mdi-file-edit-outline" />
+                    </span>
+                    <span class="action-card-label">Revisi Quotation</span>
+                  </v-btn>
 
-                <!-- PO -->
-                <v-btn
-                  block
-                  color="primary"
-                  variant="flat"
-                  size="small"
-                  :append-icon="
-                    hasPurchaseOrder
-                      ? 'mdi-check-circle'
-                      : 'mdi-dolly'
-                  "
-                  class="corporate-btn btn-po"
-                  @click="data.dialogPurchaseOrder = true"
-                >
-                  Buat / Edit PO
-                </v-btn>
+                  <v-btn
+                    v-if="
+                      !hasSpkDocument &&
+                      ['Draft', 'SPK', 'INVOICE'].includes(
+                        detailpenawaran.status,
+                      )
+                    "
+                    variant="flat"
+                    class="corporate-btn action-card--spk"
+                    @click="openSpkDialog"
+                  >
+                    <span class="action-card-icon">
+                      <v-icon icon="mdi-file-upload-outline" />
+                    </span>
+                    <span class="action-card-label">Upload SPK</span>
+                  </v-btn>
 
-                <!-- Pengeluaran
-                <v-btn
-                  block
-                  color="green"
-                  variant="flat"
-                  size="small"
-                  append-icon="mdi-pencil-outline"
-                  class="corporate-btn btn-expense"
-                  @click="opendialogaddpengeluaran"
-                >
-                  Buat Catatan Pengeluaran
-                </v-btn> -->
+                  <v-btn
+                    variant="flat"
+                    class="corporate-btn action-card--invoice"
+                    :disabled="invoiceActionDisabled"
+                    :loading="invoiceLinksLoading"
+                    @click="opendialogaddinv"
+                  >
+                    <v-icon
+                      v-if="invoiceActionDisabled"
+                      class="action-card-lock"
+                      icon="mdi-lock-outline"
+                      aria-hidden="true"
+                    />
+                    <span class="action-card-icon">
+                      <v-icon icon="mdi-file-document-plus-outline" />
+                    </span>
+                    <span class="action-card-label">Buat Invoice</span>
+                  </v-btn>
 
-                <!-- Lihat Pengeluaran -->
-                <v-btn
-                  :to="`/admin/penawaran/${encodeURIComponent(String(route.params.id))}/pengeluaran`"
-                  block
-                  variant="outlined"
-                  size="small"
-                  append-icon="mdi-arrow-top-right"
-                  class="corporate-btn btn-view"
-                >
-                  Lihat Catatan Pengeluaran
-                </v-btn>
+                  <v-btn
+                    variant="flat"
+                    class="corporate-btn action-card--po"
+                    @click="data.dialogPurchaseOrder = true"
+                  >
+                    <span class="action-card-icon">
+                      <v-icon
+                        :icon="
+                          hasPurchaseOrder
+                            ? 'mdi-check-circle-outline'
+                            : 'mdi-dolly'
+                        "
+                      />
+                    </span>
+                    <span class="action-card-label">Buat / Edit PO</span>
+                  </v-btn>
+
+                  <v-btn
+                    :to="`/admin/penawaran/${encodeURIComponent(String(route.params.id))}/pengeluaran`"
+                    variant="flat"
+                    class="corporate-btn action-card--expense"
+                  >
+                    <span class="action-card-icon">
+                      <v-icon icon="mdi-cash-multiple" />
+                    </span>
+                    <span class="action-card-label"> Catatan Pengeluaran </span>
+                  </v-btn>
+                </div>
               </div>
             </div>
           </section>
@@ -940,8 +1359,7 @@ onBeforeUnmount(() => {
                 :value="revision.id_revisi"
                 class="tab-item"
                 :class="{
-                  'tab-item--active':
-                    selectedRevisionId === revision.id_revisi,
+                  'tab-item--active': selectedRevisionId === revision.id_revisi,
                 }"
                 :aria-pressed="selectedRevisionId === revision.id_revisi"
                 :disabled="revisionSelectionSaving"
@@ -1068,15 +1486,15 @@ onBeforeUnmount(() => {
 .quotation-page {
   width: 100%;
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #ffff;
   box-sizing: border-box;
 }
 
 .top-sticky-container {
   position: sticky;
-  top: 60px;
+  top: 15px;
   z-index: 100;
-  background: #f5f7fa;
+  background: #ffff;
   width: 100%;
   padding: 16px 28px 14px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.9);
@@ -1156,7 +1574,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   position: sticky;
 
-  top: calc(145px + 24px);
+  top: calc(145px + -10px);
   max-height: calc(100vh - (105px + 48px));
   overflow-y: auto;
 
@@ -1219,79 +1637,130 @@ onBeforeUnmount(() => {
 
 .quotation-number-box {
   margin: 9px;
-  padding: 15px 16px;
-  border-radius: 11px;
+  padding: 12px 13px;
+  border-radius: 10px;
   background: #f8fafc;
   border: 1px solid #edf1f5;
+}
+
+.quotation-number-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quotation-status-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.quotation-status-row :deep(.v-chip) {
+  height: 19px;
+  padding-inline: 6px;
+  font-size: 8px;
 }
 
 .field-label {
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.7px;
-  text-transform: uppercase;
+
   color: #94a3b8;
 }
 
 .quotation-number {
-  margin-top: 6px;
-  font-size: 16px;
+  margin-top: 4px;
+  font-size: 15px;
   line-height: 1.3;
   font-weight: 800;
   color: #1e3a8a;
   word-break: break-word;
 }
 
-.info-section {
-  padding: 0 18px 8px;
+.quotation-compact-meta {
+  display: flex;
+  margin-top: 9px;
+  padding-top: 8px;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid #e8edf3;
 }
 
-.info-field {
-  padding: 9px 0;
-  border-bottom: 1px solid #f1f3f6;
+.quotation-meta-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
-.info-field:last-child {
-  border-bottom: none;
+.quotation-meta-subject {
+  gap: 7px;
 }
 
-.field-value {
-  margin-top: 6px;
-  font-size: 13px;
-  line-height: 1.5;
+.quotation-meta-label {
+  padding: 2px 5px;
+  flex: 0 0 auto;
+  color: #64748b;
+  background: #eef2f6;
+  border-radius: 4px;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+}
+
+.quotation-meta-value {
+  min-width: 0;
+  overflow: hidden;
   color: #334155;
-  word-break: break-word;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.field-value.strong {
-  color: #1e293b;
+.quotation-meta-client {
+  gap: 5px;
+}
+
+.quotation-meta-client strong,
+.quotation-meta-client span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quotation-meta-client strong {
+  max-width: 60%;
+  color: #334155;
   font-weight: 700;
 }
 
-.contact-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: 7px;
-  font-size: 13px;
-  color: #475569;
+.quotation-meta-client span {
+  flex: 1;
 }
 
-.contact-icon {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 7px;
-  background: #f8fafc;
-  color: #64748b;
+.quotation-meta-client i {
+  width: 3px;
+  height: 3px;
+  margin: 0 2px;
+  flex: 0 0 auto;
+  background: #cbd5e1;
+  border-radius: 50%;
 }
 
 .info-card-footer {
   padding: 15px 16px;
   border-top: 1px solid #edf0f4;
-  background: #fafbfc;
+  background: #ffffff;
 }
 
 .invoice-button {
@@ -1314,8 +1783,8 @@ onBeforeUnmount(() => {
 }
 
 .preview-header {
-  min-height: 62px;
-  padding: 12px 18px;
+  min-height: 22px;
+  padding: 6px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1461,20 +1930,12 @@ onBeforeUnmount(() => {
   }
 
   .quotation-number-box {
-    margin: 12px;
-    padding: 13px;
+    margin: 10px;
+    padding: 11px 12px;
   }
 
   .quotation-number {
     font-size: 14px;
-  }
-
-  .info-section {
-    padding: 0 14px 6px;
-  }
-
-  .info-field {
-    padding: 12px 0;
   }
 
   .info-card-footer {
@@ -1657,6 +2118,143 @@ onBeforeUnmount(() => {
   gap: 9px;
 }
 
+.action-card-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.action-card-grid > .corporate-btn {
+  grid-column: span 2;
+}
+
+.action-card-grid > .corporate-btn:last-child:nth-child(3n + 1) {
+  grid-column: 1 / -1;
+}
+
+.action-card-grid > .corporate-btn:nth-last-child(2):nth-child(3n + 1),
+.action-card-grid > .corporate-btn:last-child:nth-child(3n + 2) {
+  grid-column: span 3;
+}
+
+.spk-upload-field {
+  display: flex;
+  min-height: 150px;
+  padding: 22px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  cursor: pointer;
+  color: #334155;
+  text-align: center;
+  background: #f8fafc;
+  border: 1px dashed #93c5fd;
+  border-radius: 10px;
+}
+
+.spk-upload-field:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+}
+
+.spk-upload-field input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.spk-upload-field strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spk-upload-field span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.spk-upload-progress {
+  margin-top: 14px;
+}
+
+.spk-upload-progress-label {
+  display: flex;
+  margin-bottom: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.spk-document-link {
+  display: flex;
+  width: 100%;
+  margin-bottom: 9px;
+  padding: 9px 10px;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #166534;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+}
+
+.spk-document-link span {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.spk-document-link strong,
+.spk-document-link small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spk-document-link strong {
+  font-size: 11px;
+}
+
+.spk-document-link small {
+  color: #4b5563;
+  font-size: 9px;
+}
+
+.spk-required-notice {
+  display: flex;
+  padding: 9px 10px;
+  align-items: flex-start;
+  gap: 7px;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 7px;
+}
+
+.spk-required-notice .v-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #d97706;
+}
+
 .invoice-fully-billed-notice {
   display: flex;
   align-items: flex-start;
@@ -1679,62 +2277,136 @@ onBeforeUnmount(() => {
 }
 
 .corporate-btn {
-  height: 28px !important;
-  min-height: 28px !important;
-  border-radius: 7px !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
+  --action-color: #475569;
+  --action-soft: #f1f5f9;
+  --action-border: #94a3b8;
+  width: 100%;
+  position: relative;
+  height: 78px !important;
+  min-width: 0 !important;
+  padding: 8px 6px !important;
+  color: #1e293b !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%) !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
-  box-shadow: none !important;
-  transition: all 0.18s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
 }
 
-/* Icon */
-.corporate-btn :deep(.v-icon) {
-  font-size: 16px !important;
-  opacity: 0.9;
+.corporate-btn :deep(.v-btn__content) {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.25;
+  white-space: normal;
 }
 
-/* Hover */
+.action-card-icon {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  place-items: center;
+  color: var(--action-color);
+  background: var(--action-soft);
+  border: 1px solid color-mix(in srgb, var(--action-color) 18%, transparent);
+  border-radius: 7px;
+  transition: transform 0.18s ease;
+}
+
+.action-card-icon .v-icon {
+  font-size: 17px !important;
+}
+
+.action-card-lock {
+  position: absolute !important;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  padding: 3px;
+  color: #545961;
+  border-radius: 5px;
+  font-size: 11px !important;
+}
+
+.action-card-label {
+  display: block;
+  width: 100%;
+  color: #334155;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: center;
+}
+
 .corporate-btn:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  background: linear-gradient(
+    180deg,
+    #ffffff 35%,
+    var(--action-soft)
+  ) !important;
+  border-color: var(--action-border) !important;
+  box-shadow: 0 7px 16px rgba(15, 23, 42, 0.08) !important;
+}
+
+.corporate-btn:hover .action-card-icon {
+  transform: translateY(-1px) scale(1.04);
+}
+
+.corporate-btn.v-btn--disabled {
+  color: #94a3b8 !important;
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  opacity: 0.7;
 }
 
 .corporate-btn.v-btn--disabled:hover {
   transform: none;
+  box-shadow: none !important;
 }
 
-/* Invoice */
-.btn-invoice {
-  background: #f59e0b !important;
-  color: #fff !important;
+.action-card--revision {
+  --action-color: #4f46e5;
+  --action-soft: #eef2ff;
+  --action-border: #a5b4fc;
 }
 
-.btn-invoice:hover {
-  background: #d97706 !important;
+.action-card--spk {
+  --action-color: #2563eb;
+  --action-soft: #eff6ff;
+  --action-border: #93c5fd;
 }
 
-/* Pengeluaran */
-.btn-expense {
-  background: #2563eb !important;
-  color: #fff !important;
+.action-card--invoice {
+  --action-color: #ea580c;
+  --action-soft: #fff7ed;
+  --action-border: #fdba74;
 }
 
-.btn-expense:hover {
-  background: #1d4ed8 !important;
+.action-card--po {
+  --action-color: #059669;
+  --action-soft: #ecfdf5;
+  --action-border: #6ee7b7;
 }
 
-/* Lihat pengeluaran */
-.btn-view {
-  border: 1px solid #d1d5db !important;
-  background: #fff !important;
-  color: #374151 !important;
-}
-
-.btn-view:hover {
-  background: #f8fafc !important;
-  border-color: #9ca3af !important;
+.action-card--expense {
+  --action-color: #475569;
+  --action-soft: #f1f5f9;
+  --action-border: #94a3b8;
 }
 
 /* Status invoice */

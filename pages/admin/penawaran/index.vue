@@ -539,6 +539,12 @@ onMounted(async () => {
   try {
     if (needsQuotationData) {
       await penawaranStore.tarikDataPenawaranAct();
+    } else {
+      // Halaman lain dapat menyaring data tampil pada store. Saat kembali ke
+      // index, pulihkan master data agar status SPK ikut muncul di tabel.
+      penawaranStore.$patch({
+        dataPenawaranTampil: [...penawaranStore.getDataPenawaran],
+      });
     }
     await dialogPenawaran.value?.openRequestedRevision();
   } finally {
@@ -670,7 +676,7 @@ watch(
 
 
 const availableQuotationStatuses = computed(() => {
-  const defaultStatuses = ["Draft", "INVOICE", "Cancel"];
+  const defaultStatuses = ["Draft", "SPK", "INVOICE", "Cancel"];
   const storedStatuses = activeQuotationRows.value
     .map((quotation) => quotation.status)
     .filter(Boolean);
@@ -852,6 +858,7 @@ function activeRevisionChipLabel(quotation: penawaranM) {
 
 function statusColor(status: string) {
   if (status === "INVOICE") return "warning";
+  if (status === "SPK") return "success";
   if (status === "Draft") return "primary";
   if (status === "Ditolak") return "error";
   return "grey";

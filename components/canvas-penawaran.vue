@@ -44,24 +44,26 @@
     </v-card>
   </v-dialog>
 
-  <div class="top-bar-actions d-flex justify-center align-center mb-4 no-print">
-    <v-btn-toggle
-      v-model="lang"
-      mandatory
-      color="primary"
-      variant="outlined"
-      density="comfortable"
-      class="rounded-lg bg-white elevation-1"
-    >
-      <v-btn value="id" class="px-4 font-weight-bold text-caption">
-        <v-icon start size="16">mdi-translate</v-icon>
-        Bahasa Indonesia
-      </v-btn>
-      <v-btn value="en" class="px-4 font-weight-bold text-caption">
-        <v-icon start size="16">mdi-earth</v-icon>
-        English
-      </v-btn>
-    </v-btn-toggle>
+  <div class="language-switch-bar no-print">
+    <div class="language-switch" aria-label="Pilih bahasa">
+      <button
+        type="button"
+        :class="{ active: lang === 'en' }"
+        :aria-pressed="lang === 'en'"
+        @click="lang = 'en'"
+      >
+        EN
+      </button>
+      <span aria-hidden="true">|</span>
+      <button
+        type="button"
+        :class="{ active: lang === 'id' }"
+        :aria-pressed="lang === 'id'"
+        @click="lang = 'id'"
+      >
+        ID
+      </button>
+    </div>
   </div>
 
   <div>
@@ -1426,6 +1428,58 @@ const handleSavePdf = async () => {
 </script>
 
 <style scoped>
+.language-switch-bar {
+  display: flex;
+  width: 210mm;
+  max-width: 100%;
+  margin: 0 auto 6px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.language-switch {
+  display: inline-flex;
+  height: 24px;
+  padding: 0 5px;
+  align-items: center;
+  gap: 1px;
+  color: #94a3b8;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.language-switch button {
+  min-width: 25px;
+  height: 22px;
+  padding: 0 4px;
+  cursor: pointer;
+  color: #94a3b8;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.language-switch button:hover,
+.language-switch button.active {
+  color: #1d4ed8;
+}
+
+.language-switch button:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #93c5fd;
+  outline-offset: -1px;
+}
+
+.language-switch span {
+  color: #cbd5e1;
+  font-size: 9px;
+}
+
 .offer-card {
   width: 210mm;
   min-height: 297mm;

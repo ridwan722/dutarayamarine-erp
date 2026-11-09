@@ -24,8 +24,12 @@ import {
 const { mdAndUp } = useDisplay();
 const route = useRoute();
 const useuser = useUserStore();
+const customerStore = usecustomerStore();
 const invoiceStore = useinvoiceStore();
 const mobileMenuOpen = ref(false);
+const accountMenuOpen = ref(false);
+const accountCompanyName = ref("");
+const accountCompanyLoading = ref(false);
 const currentTime = ref(new Date());
 const isLoggingOut = ref(false);
 const workspaceTabs = ref([]);
@@ -55,6 +59,54 @@ const accountName = computed(() => {
 const accountRole = computed(() => useuser.getRole?.trim() || "Pengguna");
 const accountEmail = computed(() => useuser.getEmail?.trim() || "-");
 const accountPhoto = computed(() => useuser.getUser?.photoURL || "");
+const accountCompanyId = computed(() => useuser.getIdPerusahaan?.trim() || "");
+const accountCompany = computed(() => {
+  if (!accountCompanyId.value) return "Semua perusahaan";
+  return (
+    useuser.getNamaPerusahaan?.trim() ||
+    accountCompanyName.value ||
+    (accountCompanyLoading.value ? "Memuat..." : "Perusahaan terhubung")
+  );
+});
+let accountCompanyLookupFor = "";
+let accountCompanyLookupPromise = null;
+
+async function loadAccountCompanyName() {
+  const companyId = accountCompanyId.value;
+  if (!companyId || useuser.getNamaPerusahaan?.trim()) return;
+  if (accountCompanyLookupFor === companyId) return;
+  if (accountCompanyLookupPromise) await accountCompanyLookupPromise;
+  if (accountCompanyLookupFor === companyId) return;
+
+  accountCompanyLoading.value = true;
+  accountCompanyLookupFor = companyId;
+  accountCompanyLookupPromise = (async () => {
+    try {
+      const name = await customerStore.cariNamaPerusahaanAct(companyId);
+      if (accountCompanyId.value === companyId) {
+        accountCompanyName.value = name || "Perusahaan tidak ditemukan";
+      }
+    } catch (error) {
+      console.error("Gagal memuat perusahaan profil:", error);
+      if (accountCompanyId.value === companyId) {
+        accountCompanyName.value = "Data perusahaan tidak tersedia";
+      }
+    } finally {
+      accountCompanyLoading.value = false;
+      accountCompanyLookupPromise = null;
+    }
+  })();
+
+  await accountCompanyLookupPromise;
+}
+
+watch(accountCompanyId, () => {
+  accountCompanyName.value = "";
+  accountCompanyLookupFor = "";
+});
+watch(accountMenuOpen, (isOpen) => {
+  if (isOpen) void loadAccountCompanyName();
+});
 const accountInitials = computed(() => {
   const parts = accountName.value
     .split(/\s+/)
@@ -787,6 +839,7 @@ const logout = async () => {
 
   isLoggingOut.value = true;
   mobileMenuOpen.value = false;
+  accountMenuOpen.value = false;
 
   // Mulai menghapus sesi Firebase, tetapi jangan tahan navigasi halaman login.
   void signOut(getAuth()).catch((error) => {
@@ -1033,7 +1086,7 @@ const logout = async () => {
               aria-label="Buka menu navigasi"
               :aria-expanded="mobileMenuOpen"
             >
-              <v-icon :icon="mobileMenuOpen ? 'mdi-close' : 'mdi-menu'" />
+              <v-icon size="17" :icon="mobileMenuOpen ? 'mdi-close' : 'mdi-menu'" />
             </v-btn>
           </template>
 
@@ -1066,59 +1119,81 @@ const logout = async () => {
 
             </div>
 
-            <div class="mobile-menu-footer">
-              <div class="mobile-account">
-                <v-avatar size="34" class="account-avatar">
-                  <v-img v-if="accountPhoto" :src="accountPhoto" :alt="accountName" />
-                  <span v-else>{{ accountInitials }}</span>
-                </v-avatar>
-                <div class="mobile-account-copy">
-                  <strong>{{ accountName }}</strong>
-                  <span class="account-email">{{ accountEmail }}</span>
-                  <span class="account-meta-divider" aria-hidden="true" />
-                  <span class="account-role">{{ accountRole }}</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                class="mobile-logout-button"
-                :disabled="isLoggingOut"
-                @click="logout"
-              >
-                <v-progress-circular v-if="isLoggingOut" indeterminate size="16" width="2" />
-                <v-icon v-else icon="mdi-logout-variant" size="17" />
-                {{ isLoggingOut ? "Keluar..." : "Logout" }}
-              </button>
-            </div>
           </v-card>
         </v-menu>
 
-        <div v-if="mdAndUp" class="desktop-account-area">
-          <div class="account-summary" :title="accountEmail">
-            <v-avatar size="36" class="account-avatar">
-              <v-img v-if="accountPhoto" :src="accountPhoto" :alt="accountName" />
-              <span v-else>{{ accountInitials }}</span>
-            </v-avatar>
-            <div class="account-copy">
-              <strong>{{ accountName }}</strong>
-              <span class="account-email">{{ accountEmail }}</span>
-              <span class="account-meta-divider" aria-hidden="true" />
-              <span class="account-role">{{ accountRole }}</span>
-            </div>
-          </div>
+        <v-menu
+          v-model="accountMenuOpen"
+          location="bottom end"
+          :offset="10"
+          :close-on-content-click="false"
+        >
+          <template #activator="{ props: accountMenuProps }">
+            <button
+              v-bind="accountMenuProps"
+              type="button"
+              class="account-menu-trigger"
+              :aria-expanded="accountMenuOpen"
+              :aria-label="`Profil ${accountName}`"
+              title="Profil akun"
+            >
+              <v-avatar size="32" class="account-avatar">
+                <v-img v-if="accountPhoto" :src="accountPhoto" alt="" />
+                <span v-else>{{ accountInitials }}</span>
+              </v-avatar>
+              <span class="account-trigger-name">{{ accountName }}</span>
+              <v-icon
+                icon="mdi-chevron-down"
+                size="17"
+                class="account-trigger-chevron"
+                aria-hidden="true"
+              />
+            </button>
+          </template>
 
-          <button
-            type="button"
-            class="logout-icon-button"
-            :disabled="isLoggingOut"
-            aria-label="Logout dari aplikasi"
-            title="Logout"
-            @click="logout"
-          >
-            <v-progress-circular v-if="isLoggingOut" indeterminate size="17" width="2" />
-            <v-icon v-else icon="mdi-logout-variant" size="19" />
-          </button>
-        </div>
+          <v-card class="account-menu-card" width="292" elevation="0">
+            <div class="account-menu-profile">
+              <v-avatar size="44" class="account-avatar account-menu-avatar">
+                <v-img v-if="accountPhoto" :src="accountPhoto" alt="" />
+                <span v-else>{{ accountInitials }}</span>
+              </v-avatar>
+              <div class="account-menu-identity">
+                <strong>{{ accountName }}</strong>
+                <span>{{ accountEmail }}</span>
+              </div>
+            </div>
+
+            <div class="account-menu-details">
+
+              <div class="account-menu-detail">
+                <span class="account-menu-detail-label">Role</span>
+                <span class="account-menu-role">
+                  <v-icon icon="mdi-shield-account-outline" size="15" />
+                  {{ accountRole }}
+                </span>
+              </div>
+              <div v-if="accountCompanyId" class="account-menu-detail">
+                <span class="account-menu-role">
+                  <v-icon icon="mdi-domain" size="15" />
+                  {{ accountCompany }}
+                </span>
+              </div>
+            </div>
+
+            <div class="account-menu-divider" aria-hidden="true" />
+
+            <button
+              type="button"
+              class="account-menu-logout"
+              :disabled="isLoggingOut"
+              @click="logout"
+            >
+              <v-progress-circular v-if="isLoggingOut" indeterminate size="17" width="2" />
+              <v-icon v-else icon="mdi-location-exit" size="18" />
+              {{ isLoggingOut ? "Keluar..." : "Keluar" }}
+            </button>
+          </v-card>
+        </v-menu>
       </div>
     </template>
 
@@ -2004,8 +2079,8 @@ const logout = async () => {
 }
 
 .mobile-menu-btn {
-  width: 40px !important;
-  height: 40px !important;
+  width: 30px !important;
+  height: 30px !important;
   border-color: #dbe3ee !important;
   border-radius: 10px !important;
   background: #ffffff !important;
@@ -2087,119 +2162,6 @@ const logout = async () => {
   color: #34465a;
 }
 
-.mobile-menu-footer {
-  display: flex;
-  padding: 10px 12px;
-  align-items: center;
-  gap: 10px;
-  border-top: 1px solid #e8ecf0;
-  background: #ffffff;
-}
-
-.mobile-account {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  gap: 9px;
-}
-
-.mobile-account-copy,
-.account-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.mobile-account-copy strong,
-.account-copy strong {
-  overflow: hidden;
-  color: #1e293b;
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-email,
-.account-role {
-  display: block;
-  overflow: hidden;
-  color: #7b8794;
-  font-size: 8.5px;
-  font-weight: 600;
-  line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-email {
-  margin-top: 1px;
-  font-weight: 450;
-}
-
-.account-meta-divider {
-  display: block;
-  width: 100%;
-  height: 1px;
-  margin: 3px 0 2px;
-  background: #e5e9ed;
-}
-
-.account-role {
-  color: #526171;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.025em;
-}
-
-.mobile-logout-button {
-  display: flex;
-  height: 32px;
-  flex: 0 0 auto;
-  padding: 0 4px;
-  align-items: center;
-  gap: 6px;
-  color: #64748b;
-  background: transparent;
-  border: 0;
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 650;
-  text-align: left;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.mobile-logout-button:hover,
-.mobile-logout-button:active {
-  color: #b4232d;
-}
-
-.mobile-logout-button:disabled,
-.logout-icon-button:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.desktop-account-area {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 7px;
-}
-
-.account-summary {
-  display: flex;
-  width: max-content;
-  min-width: max-content;
-  max-width: none;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 9px;
-}
-
 .account-avatar {
   flex: 0 0 auto;
   border: 1px solid #dbe2e8;
@@ -2210,38 +2172,175 @@ const logout = async () => {
   letter-spacing: 0.01em;
 }
 
-.account-copy {
-  width: max-content;
-  min-width: max-content;
-  max-width: none;
-}
-
-.account-copy strong {
-  overflow: visible;
-  font-size: 12px;
-  text-overflow: clip;
-}
-
-.logout-icon-button {
+.account-menu-trigger {
   display: inline-flex;
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
+  min-width: 0;
+  max-width: 220px;
+  height: 40px;
+  padding: 4px 9px 4px 5px;
   flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #253448;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.account-menu-trigger:hover,
+.account-menu-trigger[aria-expanded="true"] {
+  border-color: #e5e9ee;
+  background: #f7f8fa;
+}
+
+.account-menu-trigger:focus-visible,
+.account-menu-logout:focus-visible {
+  outline: 2px solid #71839a;
+  outline-offset: 2px;
+}
+
+.account-trigger-name {
+  max-width: 148px;
+  overflow: hidden;
+  color: #253448;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-trigger-chevron {
+  flex: 0 0 auto;
+  color: #788596;
+  transition: transform 0.16s ease;
+}
+
+.account-menu-trigger[aria-expanded="true"] .account-trigger-chevron {
+  transform: rotate(180deg);
+}
+
+.account-menu-card {
+  width: min(292px, calc(100vw - 16px)) !important;
+  padding: 12px;
+  border: 1px solid #e1e6eb !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16) !important;
+}
+
+.account-menu-profile {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-menu-avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.account-menu-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-menu-identity strong {
+  overflow: hidden;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-identity span {
+  overflow: hidden;
+  color: #748092;
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-details {
+  display: grid;
+  margin-top: 16px;
+  gap: 8px;
+}
+
+.account-menu-detail {
+  display: flex;
+  min-width: 0;
+  padding: 11px 12px;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 7px;
+  background: #f7f8fa;
+}
+
+.account-menu-detail-label {
+  color: #8490a0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.account-menu-role {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: #35465a;
+  font-size: 11px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.account-menu-role .v-icon {
+  flex: 0 0 auto;
+  color: #758397;
+}
+
+.account-menu-divider {
+  height: 1px;
+  margin: 13px 0 9px;
+  background: #edf0f3;
+}
+
+.account-menu-logout {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  align-items: center;
+  gap: 9px;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #7b8794;
+  color: #a43a43;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: left;
   cursor: pointer;
-  transition:
-    color 0.2s ease,
-    background-color 0.2s ease;
+  transition: background-color 0.15s ease;
 }
 
-.logout-icon-button:hover {
-  color: #b4232d;
-  background: #f8eeee;
+.account-menu-logout:hover {
+  background: #fbf1f1;
+}
+
+.account-menu-logout:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 @media (max-width: 600px) {
@@ -2269,6 +2368,23 @@ const logout = async () => {
 
   .header-right {
     gap: 5px;
+  }
+
+  .account-menu-trigger {
+    max-width: 136px;
+    height: 36px;
+    padding-right: 6px;
+    gap: 5px;
+  }
+
+  .account-menu-trigger .account-avatar {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .account-trigger-name {
+    max-width: 76px;
+    font-size: 10px;
   }
 
   .header-notification-button {
@@ -2309,13 +2425,81 @@ const logout = async () => {
 }
 
 @media (max-width: 390px) {
+  .app-bar-border :deep(.v-toolbar__content) {
+    padding: 0 8px !important;
+  }
+
+  .header-right {
+    gap: 3px;
+  }
+
+  .account-menu-trigger {
+    max-width: 104px;
+    padding-left: 4px;
+    padding-right: 4px;
+    gap: 4px;
+  }
+
+  .account-menu-trigger .account-avatar {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .account-trigger-name {
+    max-width: 40px;
+    font-size: 9.5px;
+  }
+
+  .logo-box {
+    width: 44px;
+    height: 44px;
+    padding: 2px;
+  }
+
+  .logo-img {
+    width: 40px;
+    height: 40px;
+  }
+
   .company-name {
-    max-width: 160px;
+    max-width: 96px;
     font-size: 12.5px;
   }
 
   .company-subtitle {
-    font-size: 9px;
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .header-notification-button {
+    width: 28px !important;
+    height: 28px !important;
+    flex-basis: 28px;
+  }
+
+  .mobile-menu-btn {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .account-menu-trigger {
+    max-width: 94px;
+    height: 32px;
+    gap: 3px;
+  }
+
+  .account-menu-trigger .account-avatar {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .account-trigger-name {
+    max-width: 36px;
+  }
+
+  .company-name {
+    max-width: 76px;
   }
 }
 </style>

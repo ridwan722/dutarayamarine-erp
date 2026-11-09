@@ -7,6 +7,7 @@ export const useUserStore = defineStore("userstore", {
   displayName: "",
   role: "",
   idPerusahaan: "",
+  namaPerusahaan: "",
   permissions: [] as string[],
   active: true,
   profileId: "",
@@ -25,6 +26,7 @@ export const useUserStore = defineStore("userstore", {
     getDisplayName: (s) => s.displayName,
     getRole: (s) => s.role,
     getIdPerusahaan: (s) => s.idPerusahaan,
+    getNamaPerusahaan: (s) => s.namaPerusahaan,
     getPermissions: (s) => s.permissions,
     canAccess: (s) => (permission: string) =>
       s.role.toLowerCase() === "administrator" || s.permissions.includes(permission),
@@ -57,6 +59,7 @@ export const useUserStore = defineStore("userstore", {
       this.displayName = profile.displayName ?? "";
       this.role = profile.role ?? "";
       this.idPerusahaan = profile.id_perusahaan ?? "";
+      this.namaPerusahaan = profile.nama_perusahaan ?? "";
       this.permissions = Array.isArray(profile.permissions) ? profile.permissions : [];
       this.active = profile.active !== false;
     },

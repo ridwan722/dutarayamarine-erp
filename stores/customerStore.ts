@@ -1,6 +1,15 @@
 import { defineStore } from "pinia";
 import type { customerM } from "~/types/customerModel";
-import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { useFirestore } from "vuefire";
 
 const COLLECTION = "customer";
@@ -45,6 +54,31 @@ export const usecustomerStore = defineStore("customerStore", {
           };
         }),
       );
+    },
+
+    async cariNamaPerusahaanAct(companyId: string) {
+      if (!companyId) return "";
+
+      const cachedCustomer = this.dataCustomer.find(
+        (customer) =>
+          customer.id_customer === companyId || customer.id === companyId,
+      );
+      if (cachedCustomer?.nama) return cachedCustomer.nama;
+
+      const db = useFirestore();
+      const directSnapshot = await getDoc(doc(db, COLLECTION, companyId));
+      if (directSnapshot.exists()) {
+        return String(directSnapshot.data().nama || "");
+      }
+
+      const matchingSnapshot = await getDocs(
+        query(
+          collection(db, COLLECTION),
+          where("id_customer", "==", companyId),
+          limit(1),
+        ),
+      );
+      return String(matchingSnapshot.docs[0]?.data().nama || "");
     },
 
     async addCustomerAct(data: customerM) {
