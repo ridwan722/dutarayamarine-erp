@@ -11,7 +11,7 @@ defineProps<{ items: DashboardActivity[]; available: boolean }>();
   <section class="panel activity">
     <div class="panel-head">
       <div>
-        <div class="overline">LIVE OPERATIONS</div>
+        <!-- <div class="overline">LIVE OPERATIONS</div> -->
         <h2>Aktivitas terbaru</h2>
         <p>Dokumen dan transaksi pada periode terpilih.</p>
       </div>

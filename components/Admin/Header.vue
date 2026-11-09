@@ -13,6 +13,11 @@ import {
   watch,
 } from "vue";
 import { permissionForPath } from "~/utils/access-control";
+import {
+  formatDashboardCompactMoney,
+  formatDashboardDate,
+  useDashboardAnalytics,
+} from "~/components/dashboard/useDashboardAnalytics";
 
 const { mdAndUp } = useDisplay();
 const route = useRoute();
@@ -25,11 +30,16 @@ const workspaceTabsReady = ref(false);
 const workspaceTabsScroll = ref(null);
 const workspaceTabsList = ref(null);
 const activeWorkspaceTabId = ref("");
+const notificationMenuOpen = ref(false);
+const notificationLastLoadedAt = ref(0);
+const notificationSeenActivityIds = ref([]);
 let clockInterval;
 let workspaceTabSequence = 0;
 let workspaceTabsSortable = null;
+let notificationLoadPromise = null;
 
 const WORKSPACE_TABS_STORAGE_PREFIX = "drm-erp:workspace-tabs:v2";
+const NOTIFICATION_SEEN_STORAGE_PREFIX = "drm-erp:notification-seen:v1";
 
 const accountName = computed(() => {
   const name = useuser.getDisplayName?.trim();
@@ -74,8 +84,102 @@ const clockAriaLabel = computed(
   () => `${digitalDate.value}, pukul ${digitalTime.value} WIB`,
 );
 
+const notificationDashboard = useDashboardAnalytics();
+const {
+  activities: notificationActivities,
+  available: notificationSources,
+  loading: notificationLoading,
+  ready: notificationReady,
+  selectedYear: notificationYear,
+  refresh: refreshNotifications,
+} = notificationDashboard;
+const notificationItems = computed(() => notificationActivities.value.slice(0, 6));
+const notificationAvailable = computed(() =>
+  Object.values(notificationSources.value).some(Boolean),
+);
+const notificationSeenStorageKey = computed(() => {
+  const accountKey = (useuser.getEmail || useuser.profileId || "default")
+    .trim()
+    .toLowerCase();
+  return `${NOTIFICATION_SEEN_STORAGE_PREFIX}:${accountKey}`;
+});
+const notificationHasUnread = computed(
+  () =>
+    !notificationMenuOpen.value &&
+    notificationReady.value &&
+    notificationItems.value.some(
+      (item) => !notificationSeenActivityIds.value.includes(item.id),
+    ),
+);
+
+function restoreNotificationSeenState() {
+  try {
+    const stored = window.localStorage.getItem(notificationSeenStorageKey.value);
+    const parsed = stored ? JSON.parse(stored) : [];
+    notificationSeenActivityIds.value = Array.isArray(parsed)
+      ? parsed.filter((id) => typeof id === "string").slice(0, 50)
+      : [];
+  } catch {
+    notificationSeenActivityIds.value = [];
+  }
+}
+
+function markNotificationsAsRead() {
+  if (!notificationItems.value.length) return;
+  notificationSeenActivityIds.value = [
+    ...new Set([
+      ...notificationItems.value.map((item) => item.id),
+      ...notificationSeenActivityIds.value,
+    ]),
+  ].slice(0, 50);
+  try {
+    window.localStorage.setItem(
+      notificationSeenStorageKey.value,
+      JSON.stringify(notificationSeenActivityIds.value),
+    );
+  } catch {
+    // Status baca tetap berlaku selama sesi ketika penyimpanan browser tidak tersedia.
+  }
+}
+
+async function loadNotifications(force = false) {
+  if (notificationLoadPromise) return notificationLoadPromise;
+  const cacheIsFresh =
+    notificationReady.value &&
+    Date.now() - notificationLastLoadedAt.value < 60_000;
+  if (!force && cacheIsFresh) return;
+
+  notificationLoadPromise = (async () => {
+    notificationYear.value = 0;
+    await refreshNotifications();
+    notificationLastLoadedAt.value = Date.now();
+  })();
+
+  try {
+    await notificationLoadPromise;
+  } finally {
+    notificationLoadPromise = null;
+  }
+}
+
+async function openNotificationPanel() {
+  await loadNotifications();
+  markNotificationsAsRead();
+}
+
+async function refreshNotificationPanel() {
+  await loadNotifications(true);
+  if (notificationMenuOpen.value) markNotificationsAsRead();
+}
+
+watch(notificationMenuOpen, (isOpen) => {
+  if (isOpen) void openNotificationPanel();
+});
+
 onMounted(() => {
   currentTime.value = new Date();
+  restoreNotificationSeenState();
+  void loadNotifications();
   clockInterval = window.setInterval(() => {
     currentTime.value = new Date();
   }, 1_000);
@@ -717,7 +821,7 @@ const logout = async () => {
 
         <div class="company-info">
           <span class="company-name">PT. DUTA RAYA MARINE</span>
-          <span class="company-subtitle">Enterprise Resource Planning</span>
+          <span class="company-subtitle">ERP - Enterprise Resource Planning</span>
         </div>
 
         <nav v-if="mdAndUp" class="header-breadcrumbs" aria-label="Breadcrumb">
@@ -746,6 +850,119 @@ const logout = async () => {
 
     <template #append>
       <div class="header-right">
+        <v-menu
+          v-model="notificationMenuOpen"
+          location="bottom end"
+          :offset="10"
+        >
+          <template #activator="{ props: notificationMenuProps }">
+            <v-badge
+              :model-value="notificationHasUnread"
+              dot
+              color="error"
+              location="top end"
+              :offset-x="4"
+              :offset-y="4"
+              class="header-notification-badge"
+            >
+              <v-btn
+                v-bind="notificationMenuProps"
+                icon
+                variant="text"
+                class="header-notification-button"
+                aria-label="Buka aktivitas terbaru"
+                title="Aktivitas terbaru"
+              >
+                <v-icon icon="mdi-bell-outline" size="19" />
+              </v-btn>
+            </v-badge>
+          </template>
+
+          <v-card class="notification-menu-card" width="360" elevation="0">
+            <div class="notification-menu-header">
+              <div>
+                <strong>Aktivitas terbaru</strong>
+                <span>Dokumen dan transaksi ERP</span>
+              </div>
+              <button
+                type="button"
+                class="notification-refresh-button"
+                :disabled="notificationLoading"
+                aria-label="Perbarui aktivitas"
+                title="Perbarui aktivitas"
+                @click.stop="refreshNotificationPanel"
+              >
+                <v-icon
+                  icon="mdi-refresh"
+                  size="15"
+                  :class="{ 'notification-refresh-icon--loading': notificationLoading }"
+                />
+              </button>
+            </div>
+
+            <div
+              v-if="notificationLoading && !notificationReady"
+              class="notification-loading-state"
+            >
+              <v-progress-circular indeterminate size="20" width="2" color="primary" />
+              <span>Memuat aktivitas...</span>
+            </div>
+
+            <div
+              v-else-if="notificationReady && !notificationAvailable"
+              class="notification-empty-state"
+            >
+              <v-icon icon="mdi-alert-circle-outline" size="20" />
+              <strong>Aktivitas belum dapat dimuat</strong>
+              <p>Coba perbarui kembali beberapa saat lagi.</p>
+            </div>
+
+            <div
+              v-else-if="notificationReady && !notificationItems.length"
+              class="notification-empty-state"
+            >
+              <v-icon icon="mdi-bell-check-outline" size="20" />
+              <strong>Belum ada aktivitas</strong>
+              <p>Aktivitas terbaru akan tampil di sini.</p>
+            </div>
+
+            <div v-else class="notification-activity-list">
+              <NuxtLink
+                v-for="item in notificationItems"
+                :key="item.id"
+                :to="item.href"
+                class="notification-activity-item"
+                @click="notificationMenuOpen = false"
+              >
+                <span
+                  class="notification-activity-icon"
+                  :class="`notification-activity-icon--${item.tone}`"
+                >
+                  <v-icon :icon="item.icon" size="16" />
+                </span>
+                <span class="notification-activity-copy">
+                  <span class="notification-activity-title-row">
+                    <strong>{{ item.title }}</strong>
+                    <time>{{ formatDashboardDate(item.date) }}</time>
+                  </span>
+                  <span class="notification-activity-description">{{ item.description }}</span>
+                  <span class="notification-activity-meta">
+                    <small>{{ item.type }}</small>
+                    <em v-if="item.amount !== null">{{ formatDashboardCompactMoney(item.amount) }}</em>
+                  </span>
+                </span>
+              </NuxtLink>
+            </div>
+
+          </v-card>
+        </v-menu>
+
+        <span
+          v-if="mdAndUp"
+          class="header-utility-divider"
+          aria-hidden="true"
+        />
+
         <div
           v-if="mdAndUp"
           class="header-clock"
@@ -1366,13 +1583,13 @@ const logout = async () => {
   font-size: 14px;
   font-weight: 800;
   color: #13243e;
-  letter-spacing: 0.045em;
+  letter-spacing: 0em;
   white-space: nowrap;
 }
 
 .company-subtitle {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: #64748b;
   letter-spacing: 0.015em;
@@ -1497,6 +1714,251 @@ const logout = async () => {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+.header-utility-divider {
+  width: 1px;
+  height: 30px;
+  flex: 0 0 1px;
+  background: #e2e8f0;
+}
+
+.header-notification-badge :deep(.v-badge__badge) {
+  min-width: 7px !important;
+  width: 7px !important;
+  height: 7px !important;
+  border: 1.5px solid #ffffff !important;
+  box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.08);
+}
+
+.header-notification-button {
+  width: 32px !important;
+  height: 32px !important;
+  flex: 0 0 32px;
+  color: #667487 !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+}
+
+.header-notification-button:hover,
+.header-notification-button[aria-expanded="true"] {
+  color: #315f8d !important;
+  background: #edf3f8 !important;
+}
+
+.notification-menu-card {
+  overflow: hidden !important;
+  border: 1px solid #dce3e9 !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.13) !important;
+}
+
+.notification-menu-header {
+  display: flex;
+  min-height: 48px;
+  padding: 8px 11px 8px 13px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e8edf1;
+}
+
+.notification-menu-header > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-menu-header strong {
+  color: #253447;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.notification-menu-header span {
+  margin-top: 1px;
+  color: #8994a1;
+  font-size: 8px;
+}
+
+.notification-refresh-button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  place-items: center;
+  color: #718096;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.notification-refresh-button:hover:not(:disabled) {
+  color: #315f8d;
+  background: #edf3f8;
+}
+
+.notification-refresh-button:disabled {
+  opacity: 0.55;
+}
+
+.notification-refresh-icon--loading {
+  animation: notification-spin 0.8s linear infinite;
+}
+
+.notification-loading-state,
+.notification-empty-state {
+  display: flex;
+  min-height: 126px;
+  padding: 18px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  color: #77889a;
+  text-align: center;
+}
+
+.notification-loading-state {
+  flex-direction: row;
+  gap: 8px;
+  color: #7d8a98;
+  font-size: 9px;
+}
+
+.notification-empty-state strong {
+  color: #405063;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.notification-empty-state p {
+  margin: 0;
+  color: #8a95a2;
+  font-size: 8.5px;
+}
+
+.notification-activity-list {
+  max-height: min(390px, calc(100vh - 180px));
+  overflow-y: auto;
+}
+
+.notification-activity-item {
+  display: flex;
+  min-height: 58px;
+  padding: 8px 12px;
+  align-items: flex-start;
+  gap: 9px;
+  color: inherit;
+  border-bottom: 1px solid #eef1f4;
+  text-decoration: none;
+}
+
+.notification-activity-item:hover {
+  background: #f8fafb;
+}
+
+.notification-activity-item:last-child {
+  border-bottom: 0;
+}
+
+.notification-activity-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  color: #377da0;
+  background: #eaf3f7;
+  border-radius: 6px;
+}
+
+.notification-activity-icon--green {
+  color: #287e5b;
+  background: #e8f4ed;
+}
+
+.notification-activity-icon--orange {
+  color: #ad6b31;
+  background: #faf0e6;
+}
+
+.notification-activity-icon--violet {
+  color: #745aa5;
+  background: #f0edf7;
+}
+
+.notification-activity-icon--rose {
+  color: #ad4f68;
+  background: #faecef;
+}
+
+.notification-activity-icon--cyan {
+  color: #197f94;
+  background: #e7f4f6;
+}
+
+.notification-activity-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notification-activity-title-row,
+.notification-activity-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notification-activity-title-row strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #334455;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-activity-title-row time {
+  flex: 0 0 auto;
+  color: #98a2ad;
+  font-size: 7.5px;
+  white-space: nowrap;
+}
+
+.notification-activity-description {
+  overflow: hidden;
+  color: #778693;
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-activity-meta small {
+  color: #3c8298;
+  font-size: 7.5px;
+  font-weight: 700;
+}
+
+.notification-activity-meta em {
+  color: #526578;
+  font-size: 7.5px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@keyframes notification-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .mobile-menu-btn {
@@ -1761,6 +2223,20 @@ const logout = async () => {
 
   .header-left {
     gap: 9px;
+  }
+
+  .header-right {
+    gap: 5px;
+  }
+
+  .header-notification-button {
+    width: 32px !important;
+    height: 32px !important;
+    flex-basis: 32px;
+  }
+
+  .notification-menu-card {
+    width: min(360px, calc(100vw - 16px)) !important;
   }
 
   .logo-box {

@@ -244,7 +244,7 @@ const expenseShare = computed(() => {
         <div class="section-line">
           <div>
             <span>04 / LIVE OPERATIONS</span>
-            <h2>Aktivitas terbaru</h2>
+            <!-- <h2>Aktivitas terbaru</h2> -->
           </div>
         </div>
         <DashboardActivity
@@ -271,8 +271,8 @@ const expenseShare = computed(() => {
 .dashboard-page {
   min-height: 100%;
   overflow-x: hidden;
-  background: #f5f8fa;
-  padding: 24px clamp(14px, 2.5vw, 36px) 48px;
+  background: #ffff;
+  padding: 14px clamp(4px, 1.5vw, 26px) 38px;
   color: #1b3b4e;
 }
 .dashboard-inner {
