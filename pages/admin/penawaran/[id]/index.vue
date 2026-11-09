@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import _ from "lodash";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { usePenawaranStore } from "~/stores/penawaranStore";
 import type { ConfirmationDialog } from "#components";
 
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
+import DialogPenawaran from "~/components/Admin/Penawaran/dialog-penawaran.vue";
 import dialogBuatInvoice from "~/components/Admin/Penawaran/dialog-buat-invoice.vue";
 import dialogBuatPengeluaran from "~/components/Admin/Penawaran/dialog-buat-pengeluaran.vue";
 import { doc } from "firebase/firestore";
@@ -14,26 +15,108 @@ import { queryambilid } from "~/composables/useFirestoreQuery";
 import type { invoiceM } from "~/types/invoice";
 import type { penawaranM } from "~/types/penawaranModel";
 
-const activeTab = ref(0);
 const purchaseorderPreviewKey = ref(0);
 const hasPurchaseOrder = ref(false);
 const invoiceLinks = ref<(invoiceM & { id: string })[]>([]);
 const invoiceLinksLoading = ref(true);
+const revisionHistory = ref<penawaranM[]>([]);
+const originalPenawaran = ref<penawaranM | null>(null);
+const revisionHistoryLoading = ref(false);
+const revisionHistoryLoaded = ref(false);
+const revisionSelectionSaving = ref(false);
+const revisionSelectionOverride = ref<string | null>(null);
+const revisionDeletingId = ref("");
+const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
+  null,
+);
+const dialogPenawaran = ref<InstanceType<typeof DialogPenawaran> | null>(null);
 
 definePageMeta({ layout: "admin" });
 
 const route = useRoute();
+const router = useRouter();
 const penawaranstore = usePenawaranStore();
 const penawaranId = String(route.params.id);
 
-const detailpenawaran = computed(() => penawaranstore.getDetailPenawaran);
+const basePenawaran = computed(() => penawaranstore.getDetailPenawaran);
+const requestedRevisionId = computed(() => {
+  const value = Array.isArray(route.query.revisi)
+    ? route.query.revisi[0]
+    : route.query.revisi;
+  return value ? String(value) : "";
+});
+const selectedRevisionId = computed(() => {
+  if (revisionSelectionOverride.value !== null) {
+    return revisionSelectionOverride.value;
+  }
+  if (requestedRevisionId.value) return requestedRevisionId.value;
+
+  const storedRevisionId = basePenawaran.value.active_revision_id;
+  if (
+    storedRevisionId &&
+    revisionHistory.value.some(
+      (revision) => revision.id_revisi === storedRevisionId,
+    )
+  ) {
+    return storedRevisionId;
+  }
+
+  const storedRevisionNumber = basePenawaran.value.active_revision_number;
+  if (storedRevisionNumber === 0) return "";
+  if (Number(storedRevisionNumber) > 0) {
+    return (
+      revisionHistory.value.find(
+        (revision) =>
+          Number(revision.revision_number) === Number(storedRevisionNumber),
+      )?.id_revisi || ""
+    );
+  }
+
+  // Data lama belum mempunyai penunjuk revisi aktif. Gunakan revisi terbaru
+  // agar perilakunya sama dengan quotation yang baru dibuat.
+  if (
+    basePenawaran.value.active_revision_id === undefined &&
+    basePenawaran.value.active_revision_number === undefined
+  ) {
+    return revisionHistory.value.at(-1)?.id_revisi || "";
+  }
+
+  return "";
+});
+const selectedRevision = computed(() =>
+  revisionHistory.value.find(
+    (revision) => revision.id_revisi === selectedRevisionId.value,
+  ),
+);
+const detailpenawaran = computed(() => {
+  const base = basePenawaran.value;
+  const revision = selectedRevisionId.value
+    ? selectedRevision.value
+    : originalPenawaran.value;
+  if (!revision) return base;
+
+  return {
+    ...base,
+    ...revision,
+    id: penawaranId,
+    id_penawaran: penawaranId,
+    id_revisi: revision.id_revisi,
+    root_penawaran_id: penawaranId,
+    status: base.status,
+    revision_count: base.revision_count,
+    active_revision_id: base.active_revision_id,
+    active_revision_number: base.active_revision_number,
+    materialized_revision_id: base.materialized_revision_id,
+    materialized_revision_number: base.materialized_revision_number,
+  } as penawaranM;
+});
 
 // Saat masuk dari halaman daftar, dokumen lengkap sebenarnya sudah ada di
 // Pinia. Pakai data tersebut langsung agar halaman tidak menunggu Firestore.
 const cachedPenawaran = [
   ...penawaranstore.getDataPenawaranTampil,
   ...penawaranstore.getDataPenawaran,
-].find((item) => item.id === penawaranId);
+].find((item) => (item.id || item.id_penawaran) === penawaranId);
 
 if (cachedPenawaran) {
   penawaranstore.$patch({ detailPenawaran: cachedPenawaran });
@@ -62,6 +145,274 @@ watch(
   },
   { immediate: true },
 );
+
+watch(
+  basePenawaran,
+  (penawaran) => {
+    if (
+      !originalPenawaran.value &&
+      penawaran?.no_penawaran &&
+      (penawaran.materialized_revision_id === undefined ||
+        Number(penawaran.materialized_revision_number) === 0)
+    ) {
+      originalPenawaran.value = JSON.parse(
+        JSON.stringify(penawaran),
+      ) as penawaranM;
+    }
+  },
+  { immediate: true },
+);
+
+async function loadRevisionHistory() {
+  revisionHistoryLoading.value = true;
+  try {
+    const revisions = (await queryambilid(
+      `penawaran/${penawaranId}/revisi_penawaran`,
+    )) as penawaranM[];
+
+    const normalizedRevisions = revisions
+      .map((revision) => {
+        const revisionId = revision.id_revisi || revision.id || "";
+        const legacyRevisionNumber = Number(
+          revisionId.match(/(?:-R|-)(\d+)$/)?.[1],
+        );
+
+        return {
+          ...revision,
+          id: penawaranId,
+          id_penawaran: penawaranId,
+          id_revisi: revisionId,
+          revision_number:
+            Number(revision.revision_number) || legacyRevisionNumber || 0,
+          root_penawaran_id: penawaranId,
+        };
+      })
+      .sort(
+        (left, right) =>
+          Number(left.revision_number || 0) -
+            Number(right.revision_number || 0) ||
+          Number(left.created_at || 0) - Number(right.created_at || 0),
+      );
+    const originalRevisionId = `${penawaranId}-R00`;
+    const storedOriginal = normalizedRevisions.find(
+      (revision) => revision.id_revisi === originalRevisionId,
+    );
+    if (storedOriginal) {
+      originalPenawaran.value = storedOriginal;
+    }
+    revisionHistory.value = normalizedRevisions.filter(
+      (revision) => revision.id_revisi !== originalRevisionId,
+    );
+
+    if (
+      requestedRevisionId.value &&
+      !revisionHistory.value.some(
+        (revision) => revision.id_revisi === requestedRevisionId.value,
+      )
+    ) {
+      replaceRevisionRoute();
+    }
+  } catch (error) {
+    console.error("Gagal memuat riwayat revisi quotation:", error);
+  } finally {
+    revisionHistoryLoading.value = false;
+    revisionHistoryLoaded.value = true;
+  }
+}
+
+void loadRevisionHistory();
+
+function replaceRevisionRoute(revisionId = "") {
+  const nextQuery = { ...route.query };
+  if (revisionId) nextQuery.revisi = revisionId;
+  else delete nextQuery.revisi;
+  void router.replace({ path: route.path, query: nextQuery });
+}
+
+async function activateRevision(revisionId = "") {
+  if (revisionSelectionSaving.value) return;
+
+  const revision = revisionId
+    ? revisionHistory.value.find((item) => item.id_revisi === revisionId)
+    : undefined;
+  if (revisionId && !revision) return;
+
+  const previousRevisionId = selectedRevisionId.value;
+  revisionSelectionOverride.value = revisionId;
+  replaceRevisionRoute(revisionId);
+  revisionSelectionSaving.value = true;
+
+  try {
+    const materialized = await penawaranstore.activateRevisionPenawaranAct(
+      penawaranId,
+      revisionId,
+    );
+    if (!materialized) {
+      replaceRevisionRoute(previousRevisionId);
+    }
+  } catch (error) {
+    console.error("Gagal mengganti revisi aktif quotation:", error);
+    replaceRevisionRoute(previousRevisionId);
+    useNotificationStore().showError("Gagal mengganti revisi aktif");
+  } finally {
+    revisionSelectionOverride.value = null;
+    revisionSelectionSaving.value = false;
+  }
+}
+
+const activeRevisionTab = computed<string>({
+  get: () => selectedRevisionId.value || "original",
+  set: (revisionId) => {
+    const nextRevisionId = revisionId === "original" ? "" : revisionId;
+    if (nextRevisionId !== selectedRevisionId.value) {
+      void activateRevision(nextRevisionId);
+    }
+  },
+});
+
+let automaticMaterializationTarget = "";
+
+async function ensureActiveRevisionIsMaterialized() {
+  if (
+    !revisionHistoryLoaded.value ||
+    revisionHistoryLoading.value ||
+    revisionSelectionSaving.value ||
+    !revisionHistory.value.length
+  ) return;
+
+  const targetRevisionId = selectedRevisionId.value;
+  if (
+    targetRevisionId &&
+    !revisionHistory.value.some(
+      (revision) => revision.id_revisi === targetRevisionId,
+    )
+  ) return;
+
+  const materializedTarget =
+    targetRevisionId || `${penawaranId}-R00`;
+  if (
+    basePenawaran.value.materialized_revision_id === materializedTarget ||
+    automaticMaterializationTarget === materializedTarget
+  ) return;
+
+  automaticMaterializationTarget = materializedTarget;
+  revisionSelectionSaving.value = true;
+  try {
+    await penawaranstore.activateRevisionPenawaranAct(
+      penawaranId,
+      targetRevisionId,
+    );
+  } finally {
+    revisionSelectionSaving.value = false;
+    automaticMaterializationTarget = "";
+  }
+}
+
+watch(
+  [
+    revisionHistoryLoaded,
+    selectedRevisionId,
+    () => basePenawaran.value.materialized_revision_id,
+  ],
+  () => {
+    void ensureActiveRevisionIsMaterialized();
+  },
+  { immediate: true },
+);
+
+function openRevisionDialog() {
+  void dialogPenawaran.value?.openRevision(detailpenawaran.value);
+}
+
+async function handlePenawaranDialogSaved(
+  _quotation: penawaranM,
+  mode: "add" | "edit" | "revision",
+) {
+  if (mode === "revision") await loadRevisionHistory();
+}
+
+function revisionIsUsedByInvoice(revision: penawaranM) {
+  const revisionId = revision.id_revisi || "";
+  const revisionNumber = Number(revision.revision_number) || 0;
+
+  return invoiceLinks.value.some((invoice) => {
+    if (invoice.id_revisi_penawaran) {
+      return invoice.id_revisi_penawaran === revisionId;
+    }
+    return Number(invoice.nomor_revisi_penawaran) === revisionNumber;
+  });
+}
+
+function canDeleteRevision(revision: penawaranM) {
+  const revisionId = revision.id_revisi || "";
+  const revisionNumber = Number(revision.revision_number) || 0;
+  if (!revisionId || revisionNumber <= 0 || invoiceLinksLoading.value) {
+    return false;
+  }
+
+  const revisionIsActive =
+    selectedRevisionId.value === revisionId ||
+    basePenawaran.value.active_revision_id === revisionId ||
+    basePenawaran.value.materialized_revision_id === revisionId ||
+    Number(basePenawaran.value.active_revision_number) === revisionNumber ||
+    Number(basePenawaran.value.materialized_revision_number) === revisionNumber;
+
+  return !revisionIsActive && !revisionIsUsedByInvoice(revision);
+}
+
+async function deleteRevision(revision: penawaranM) {
+  const revisionId = revision.id_revisi || "";
+  if (
+    !revisionId ||
+    revisionDeletingId.value ||
+    !canDeleteRevision(revision)
+  ) {
+    return;
+  }
+
+  const confirmed = await confirmationDialog.value?.show(
+    "Hapus Revisi Quotation",
+    `Yakin ingin menghapus ${revisionLabel(revision)}? Tindakan ini tidak dapat dipulihkan.`,
+    { confirmText: "Hapus", variant: "danger" },
+  );
+  if (!confirmed) return;
+
+  revisionDeletingId.value = revisionId;
+  try {
+    const deleted = await penawaranstore.deleteRevisionPenawaranAct(
+      penawaranId,
+      revision,
+    );
+    if (deleted) await loadRevisionHistory();
+  } finally {
+    revisionDeletingId.value = "";
+  }
+}
+
+function revisionLabel(quotation: penawaranM) {
+  const revisionNumber = Number(quotation.revision_number) || 0;
+  return revisionNumber
+    ? `Rev. ${String(revisionNumber).padStart(2, "0")}`
+    : "Versi Awal";
+}
+
+function formatRevisionDate(quotation: penawaranM) {
+  const timestamp = Number(
+    quotation.revision_created_at ||
+      quotation.created_at ||
+      quotation.createdAt,
+  );
+  const date = timestamp
+    ? new Date(timestamp * 1000)
+    : new Date(`${quotation.tanggal_penawaran || ""}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) return "Tanggal tidak tersedia";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
 
 // Tautan invoice bukan data utama halaman, jadi muat independen di background
 // tanpa menahan preview quotation atau menampilkan loader global.
@@ -312,6 +663,10 @@ onBeforeUnmount(() => {
 
 <template>
   <ConfirmationDialog ref="confirmationDialog" />
+  <DialogPenawaran
+    ref="dialogPenawaran"
+    @saved="handlePenawaranDialogSaved"
+  />
 
   <!-- DIALOG BUAT INVOICE -->
   <dialog-buat-invoice
@@ -336,21 +691,22 @@ onBeforeUnmount(() => {
     <!-- STICKY HEADER WRAPPER -->
     <header class="top-sticky-container">
       <div class="sticky-inner-content">
-        <!-- TOP NAVIGATION -->
-        <div class="page-topbar">
-          <v-btn
-            variant="text"
-            color="grey-darken-3"
-            prepend-icon="mdi-arrow-left"
-            @click="$router.go(-1)"
-            class="back-button"
-          >
-            Kembali
-          </v-btn>
-        </div>
-
-        <div class="page-heading">
-          <h1 class="page-title">Detail Quotation</h1>
+        <div class="quotation-page-heading">
+          <div class="quotation-page-title">
+            <v-btn
+              icon="mdi-arrow-left"
+              variant="text"
+              color="grey-darken-3"
+              size="small"
+              class="quotation-back-btn"
+              aria-label="Kembali"
+              @click="$router.go(-1)"
+            />
+            <div>
+              <h1>Detail Quotation</h1>
+              <p>Review quotation details, revisions, and related transactions.</p>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -387,6 +743,15 @@ onBeforeUnmount(() => {
                 >
                   {{ detailpenawaran.status }}
                 </v-chip>
+                <v-chip
+                  v-if="Number(detailpenawaran.revision_number) > 0"
+                  size="x-small"
+                  variant="tonal"
+                  color="indigo"
+                  class="font-weight-bold"
+                >
+                  {{ revisionLabel(detailpenawaran) }}
+                </v-chip>
               </div>
             </div>
 
@@ -408,6 +773,7 @@ onBeforeUnmount(() => {
                   {{ detailpenawaran.vessel || "-" }}
                 </span>
               </div>
+
             </div>
 
             <div class="info-card-footer text-center">
@@ -437,6 +803,19 @@ onBeforeUnmount(() => {
                   <v-icon size="16">mdi-check-circle</v-icon>
                   <span>Seluruh nominal quotation sudah ditagih.</span>
                 </div>
+
+                <v-btn
+                  v-if="detailpenawaran.status !== 'Cancel'"
+                  block
+                  color="indigo"
+                  variant="outlined"
+                  size="small"
+                  append-icon="mdi-pencil-circle"
+                  class="corporate-btn"
+                  @click="openRevisionDialog"
+                >
+                  Revisi Quotation
+                </v-btn>
 
                 <!-- Invoice -->
                 <v-btn
@@ -508,35 +887,91 @@ onBeforeUnmount(() => {
 
               <div>
                 <div class="preview-title">Preview Dokumen</div>
-                <div class="preview-subtitle">Tampilan surat penawaran</div>
+                <!-- <div class="preview-subtitle">Tampilan surat penawaran</div> -->
               </div>
             </div>
 
             <div class="preview-status">
-              <span class="status-dot"></span>
-              Dokumen
+              <!-- <span class="status-dot"></span>
+              Dokumen -->
             </div>
           </div>
 
           <!-- TAB SELECTION -->
           <div class="preview-tabs-wrapper">
+            <div class="preview-revision-heading">
+              <v-icon icon="mdi-pencil-circle" size="16" />
+              <span>History</span>
+              <small v-if="revisionHistory.length">
+                {{ revisionHistory.length }}
+              </small>
+            </div>
+            <v-progress-circular
+              v-if="revisionHistoryLoading"
+              indeterminate
+              color="primary"
+              size="18"
+              width="2"
+              class="preview-revision-loading"
+            />
             <v-tabs
-              v-model="activeTab"
+              v-else
+              v-model="activeRevisionTab"
               color="primary"
               density="compact"
               align-tabs="start"
+              show-arrows
               class="preview-tabs"
             >
-              <v-tab :value="0" class="tab-item">
-                <v-icon start size="18">mdi-file-document-outline</v-icon>
-                Asli
+              <v-tab
+                value="original"
+                class="tab-item"
+                :class="{ 'tab-item--active': !selectedRevisionId }"
+                :aria-pressed="!selectedRevisionId"
+                :disabled="revisionSelectionSaving"
+                :title="formatRevisionDate(originalPenawaran || basePenawaran)"
+              >
+                <span class="revision-tab-number">00</span>
+                Versi Awal
               </v-tab>
-              <!-- <v-tab :value="1" class="tab-item">
-                <v-icon start size="18"
-                  >mdi-file-document-multiple-outline</v-icon
+              <v-tab
+                v-for="revision in revisionHistory"
+                :key="revision.id_revisi"
+                :value="revision.id_revisi"
+                class="tab-item"
+                :class="{
+                  'tab-item--active':
+                    selectedRevisionId === revision.id_revisi,
+                }"
+                :aria-pressed="selectedRevisionId === revision.id_revisi"
+                :disabled="revisionSelectionSaving"
+                :title="formatRevisionDate(revision)"
+              >
+                <!-- <span class="revision-tab-number">
+                  {{ String(revision.revision_number || 0).padStart(2, "0") }}
+                </span> -->
+                {{ revisionLabel(revision) }}
+                <span
+                  v-if="canDeleteRevision(revision)"
+                  class="revision-tab-delete"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`Hapus ${revisionLabel(revision)}`"
+                  :title="`Hapus ${revisionLabel(revision)}`"
+                  @pointerdown.stop
+                  @click.stop="deleteRevision(revision)"
+                  @keydown.enter.stop.prevent="deleteRevision(revision)"
+                  @keydown.space.stop.prevent="deleteRevision(revision)"
                 >
-                PT Lain
-              </v-tab> -->
+                  <v-progress-circular
+                    v-if="revisionDeletingId === revision.id_revisi"
+                    indeterminate
+                    size="12"
+                    width="2"
+                  />
+                  <v-icon v-else icon="mdi-delete-outline" size="13" />
+                </span>
+              </v-tab>
             </v-tabs>
           </div>
 
@@ -655,32 +1090,51 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.page-topbar {
-  display: flex;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.back-button {
-  margin-left: -8px !important;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: none !important;
-}
-
-.page-heading {
+.quotation-page-heading {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 0;
 }
 
-.page-title {
+.quotation-page-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.quotation-page-title > div {
+  min-width: 0;
+}
+
+.quotation-back-btn {
+  flex: 0 0 34px;
+  width: 34px !important;
+  height: 34px !important;
+  color: #596675 !important;
+  border-radius: 55px !important;
+}
+
+.quotation-back-btn:hover {
+  background: #eef2f5 !important;
+}
+
+.quotation-page-heading h1 {
   margin: 0;
-  font-size: 18px;
-  line-height: 1.2;
-  font-weight: 800;
-  color: #172033;
-  letter-spacing: -0.4px;
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.quotation-page-heading p {
+  margin: 3px 0 0;
+  color: #7b8490;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .grid-wrapper {
@@ -993,14 +1447,6 @@ onBeforeUnmount(() => {
     padding: 14px 10px 30px;
   }
 
-  .back-button {
-    font-size: 13px;
-  }
-
-  .page-title {
-    font-size: 20px;
-  }
-
   .info-card {
     border-radius: 12px;
   }
@@ -1063,20 +1509,126 @@ onBeforeUnmount(() => {
 }
 
 .preview-tabs-wrapper {
-  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  overflow: hidden;
+  padding: 0 14px;
   border-bottom: 1px solid #e9edf2;
-  padding: 0 16px;
+  background-color: #ffffff;
+}
+
+.preview-revision-heading {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-height: 28px;
+  margin-right: 8px;
+  padding-right: 12px;
+  border-right: 1px solid #e7ebf0;
+  color: #52667a;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.preview-revision-heading small {
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #315f8d;
+  background: #eaf1f8;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.preview-revision-loading {
+  margin-left: 6px;
 }
 
 .preview-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
   height: 44px;
 }
 
+.preview-tabs :deep(.v-slide-group__content) {
+  gap: 4px;
+}
+
+.preview-tabs :deep(.v-tab__slider) {
+  display: none;
+}
+
 .tab-item {
-  font-size: 13px !important;
-  font-weight: 600 !important;
+  min-width: auto !important;
+  height: 30px !important;
+  margin: auto 0;
+  padding: 0 9px !important;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 10px !important;
+  font-weight: 650 !important;
   text-transform: none !important;
   letter-spacing: normal !important;
+}
+
+.tab-item.v-tab--selected,
+.tab-item--active {
+  border-color: #315f8d !important;
+  color: #ffffff !important;
+  background: #315f8d !important;
+}
+
+.revision-tab-delete {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  margin-left: 5px;
+  place-items: center;
+  color: #7b8794;
+  border-radius: 5px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.revision-tab-delete:hover {
+  color: #b43c3c;
+  background: #feecec;
+}
+
+.revision-tab-delete:focus-visible {
+  color: #b43c3c;
+  background: #feecec;
+  outline: 2px solid #e7a8a8;
+  outline-offset: 1px;
+}
+
+.revision-tab-number {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 20px;
+  margin-right: 6px;
+  padding: 0 4px;
+  border-radius: 5px;
+  color: #718095;
+  background: #eef2f6;
+  font-size: 8px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.tab-item.v-tab--selected .revision-tab-number,
+.tab-item--active .revision-tab-number {
+  color: #315f8d;
+  background: #ffffff;
 }
 
 @media (max-width: 600px) {
@@ -1084,8 +1636,18 @@ onBeforeUnmount(() => {
     padding: 0 8px;
   }
 
+  .preview-revision-heading {
+    margin-right: 4px;
+    padding-right: 8px;
+  }
+
+  .preview-revision-heading span {
+    display: none;
+  }
+
   .tab-item {
-    font-size: 12px !important;
+    padding: 0 7px !important;
+    font-size: 9px !important;
   }
 }
 

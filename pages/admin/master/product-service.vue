@@ -774,25 +774,22 @@ async function deleteProductService(item: productServiceM) {
   <div class="catalog-page">
     <ConfirmationDialog ref="confirmationDialog" />
 
-    <v-btn
-      variant="text"
-      color="grey-darken-3"
-      prepend-icon="mdi-arrow-left"
-      class="back-button text-none"
-      @click="$router.go(-1)"
-    >
-      Kembali
-    </v-btn>
-
-    <header class="catalog-hero">
-      <div>
-        <h1>Product &amp; Service</h1>
-        <p>
-          Kelola katalog produk dan layanan Duta Raya Marine beserta deskripsi
-          dan galeri fotonya.
-        </p>
+    <div class="catalog-page-heading">
+      <div class="catalog-page-title">
+        <v-btn
+          icon="mdi-arrow-left"
+          variant="text"
+          color="grey-darken-3"
+          size="small"
+          class="catalog-back-btn"
+          aria-label="Kembali"
+          @click="$router.go(-1)"
+        />
+        <div>
+          <h1>Product &amp; Service</h1>
+        </div>
       </div>
-    </header>
+    </div>
 
     <section class="catalog-summary" aria-label="Ringkasan product dan service">
       <article class="summary-card">
@@ -1621,13 +1618,44 @@ async function deleteProductService(item: productServiceM) {
   padding: 2px 0 20px;
   color: #243447;
 }
-.back-button {
-  min-height: 32px;
-  margin-bottom: 8px;
-  padding-inline: 7px !important;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0;
+.catalog-page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.catalog-page-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.catalog-page-title > div {
+  min-width: 0;
+}
+
+.catalog-back-btn {
+  flex: 0 0 34px;
+  width: 34px !important;
+  height: 34px !important;
+  color: #596675 !important;
+  border-radius: 55px !important;
+}
+
+.catalog-back-btn:hover {
+  background: #eef2f5 !important;
+}
+
+.catalog-page-heading h1 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
 }
 .catalog-hero,
 .catalog-directory,
@@ -1639,7 +1667,7 @@ async function deleteProductService(item: productServiceM) {
 }
 .catalog-hero {
   display: flex;
-  min-height: 118px;
+  min-height: 78px;
   padding: 0px 22px;
   align-items: center;
   justify-content: space-between;

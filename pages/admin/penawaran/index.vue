@@ -1,900 +1,6 @@
 <template>
   <ConfirmationDialog ref="confirmationDialog" />
-
-  <v-dialog
-    v-model="data.dialogTambahMasterPerusahaan"
-    max-width="320"
-    persistent
-  >
-    <v-card class="rounded border elevation-1 bg-white">
-      <!-- Header Padat -->
-      <div
-        class="px-4 py-2-5 pa-3 d-flex align-center justify-space-between border-b"
-      >
-        <span class="text-caption font-weight-bold text-grey-darken-3"
-          >Tambah Master Perusahaan</span
-        >
-        <v-btn
-          icon="mdi-close"
-          variant="text"
-          density="compact"
-          size="x-small"
-          color="grey-darken-1"
-          @click="data.dialogTambahMasterPerusahaan = false"
-        />
-      </div>
-
-      <v-card-text class="pa-3">
-        <a-text-field-new
-          v-model="newCustomer.nama"
-          label="Nama Perusahaan"
-          placeholder="Nama perusahaan"
-          variant="outlined"
-          density="compact"
-          hide-details
-        />
-        <a-textarea-new
-          v-model="newCustomer.alamat"
-          label="Alamat Perusahaan"
-          placeholder="Alamat lengkap perusahaan"
-          rows="2"
-          variant="outlined"
-          density="compact"
-          hide-details
-          auto-grow
-        />
-      </v-card-text>
-
-      <!-- Footer Padat -->
-      <div
-        class="px-3 py-2 border-t d-flex justify-end gap-1 bg-grey-lighten-5"
-      >
-        <v-btn
-          variant="text"
-          color="grey-darken-1"
-          size="x-small"
-          class="text-none px-3"
-          :disabled="savingCustomer"
-          @click="data.dialogTambahMasterPerusahaan = false"
-        >
-          Batal
-        </v-btn>
-        <v-btn
-          color="grey-darken-4"
-          size="x-small"
-          variant="flat"
-          class="text-none px-3 text-white"
-          :loading="savingCustomer"
-          @click="simpanMasterPerusahaan"
-        >
-          Simpan
-        </v-btn>
-      </div>
-    </v-card>
-  </v-dialog>
-
-  <!-- Dialog Tambah / Edit Quotation -->
-  <v-dialog
-    v-model="data.dialogTambahPenawaran"
-    max-width="1040"
-    scrollable
-    :fullscreen="display.xs.value"
-    persistent
-    class="quotation-dialog-overlay"
-  >
-    <v-card class="quotation-dialog-card" elevation="0">
-      <header class="quotation-dialog-header">
-        <div class="quotation-dialog-heading">
-          <div class="quotation-dialog-icon" aria-hidden="true">
-            <v-icon icon="mdi-file-document-edit-outline" size="20" />
-          </div>
-          <div>
-            <h2>
-              {{ data.penawaranAddEdit === "add" ? "Create" : "Edit" }}
-              Quotation
-            </h2>
-            <p>Nomor quotation dibuat otomatis saat disimpan</p>
-          </div>
-        </div>
-
-        <div class="quotation-dialog-header-actions">
-          <span class="quotation-status">
-            <span class="quotation-status-dot"></span>
-            {{ newPenawaran.status || "Draft" }}
-          </span>
-          <v-btn
-            icon="mdi-close"
-            variant="text"
-            size="small"
-            color="grey-darken-1"
-            aria-label="Tutup dialog quotation"
-            @click="data.dialogTambahPenawaran = false"
-          />
-        </div>
-      </header>
-
-      <v-card-text class="quotation-dialog-body">
-        <section class="quotation-form-section">
-          <div class="quotation-section-header">
-            <div>
-              <span class="quotation-section-index">01</span>
-              <h3>Client Information</h3>
-            </div>
-            <p>Pilih perusahaan dan PIC, lalu isi vessel untuk penawaran ini.</p>
-          </div>
-
-          <div class="quotation-client-picker">
-            <a-date-picker-new
-              class="quotation-date-field"
-              v-model="newPenawaran.tanggal_penawaran"
-              label="Quotation Date"
-            />
-            <a-autocomplete-new
-              class="quotation-client-select"
-              v-model="newPenawaran.id_perusahaan"
-              label="Perusahaan"
-              placeholder="Pilih perusahaan"
-              item-title="label"
-              item-value="value"
-              :items="companyOptions"
-              :disabled="hasCompanyScope"
-            />
-            <a-select-new
-              class="quotation-client-select"
-              v-model="newPenawaran.id_pic"
-              label="PIC"
-              placeholder="Pilih PIC"
-              item-title="label"
-              item-value="value"
-              :items="picOptionsForCompany"
-              :disabled="!newPenawaran.id_perusahaan"
-            />
-          </div>
-
-          <div v-if="!hasCompanyScope" class="quotation-client-master-actions">
-            <v-btn
-              class="quotation-add-client-btn text-none"
-              variant="outlined"
-              color="primary"
-              prepend-icon="mdi-domain-plus"
-              @click="opendialogTambahMasterPerusahaan"
-            >
-              Tambah Perusahaan
-            </v-btn>
-            <v-btn
-              class="quotation-add-client-btn text-none"
-              variant="text"
-              color="grey-darken-1"
-              prepend-icon="mdi-account-cog-outline"
-              @click="router.push('/admin/master/client')"
-            >
-              Kelola Master PIC
-            </v-btn>
-          </div>
-
-          <dl class="quotation-client-details">
-            <div class="quotation-client-detail quotation-client-address">
-              <dt>Address</dt>
-              <dd>{{ newPenawaran.alamat_perusahaan || "—" }}</dd>
-            </div>
-            <div class="quotation-client-detail">
-              <dt>Phone Number</dt>
-              <dd>{{ newPenawaran.no_telp || "—" }}</dd>
-            </div>
-            <div class="quotation-client-detail">
-              <dt>Email</dt>
-              <dd>{{ newPenawaran.email || "—" }}</dd>
-            </div>
-          </dl>
-
-          <div class="quotation-operation-fields">
-            <a-text-field-new
-              class="quotation-client-select"
-              v-model="newPenawaran.vessel"
-              label="Vessel"
-              placeholder="vessel name"
-            />
-            <a-autocomplete-new
-              class="quotation-client-select"
-              v-model="newPenawaran.location"
-              label="Location"
-              placeholder="Select location"
-              item-title="label"
-              item-value="id_customer"
-              :items="[
-  'Batam',
-  'Jakarta',
-  'Lamongan',
-  'Agats',
-  'Ambon',
-  'Amurang',
-  'Atapupu',
-  'Bacan',
-  'Bahodopi',
-  'Bali',
-  'Balikpapan',
-  'Banjarmasin',
-  'Banten',
-  'Batu Ampar',
-  'Batulicin',
-  'Bau-Bau',
-  'Belawan',
-  'Bengkalis',
-  'Bengkulu',
-  'Benoa',
-  'Berau',
-  'Biak',
-  'Bima',
-  'Bintan',
-  'Bitung',
-  'Bontang',
-  'Boom Baru',
-  'Celukan Bawang',
-  'Cilegon',
-  'Cilacap',
-  'Cirebon',
-  'Donggala',
-  'Dumai',
-  'Ende',
-  'Fakfak',
-  'Garongkong',
-  'Gilimanuk',
-  'Gorontalo',
-  'Gresik',
-  'Jayapura',
-  'Kabil',
-  'Kaimana',
-  'Kendari',
-  'Ketapang',
-  'Kijing',
-  'Kolaka',
-  'Kotabaru',
-  'Kuala Tanjung',
-  'Kumai',
-  'Kupang',
-  'Labuan Bajo',
-  'Lampung',
-  'Lembar',
-  'Lombok',
-  'Makassar',
-  'Manado',
-  'Manokwari',
-  'Maumere',
-  'Medan',
-  'Merak',
-  'Merauke',
-  'Morowali',
-  'Muntok',
-  'Nabire',
-  'Namlea',
-  'Nunukan',
-  'Padang',
-  'Padang Bai',
-  'Palaran',
-  'Palembang',
-  'Palopo',
-  'Palu',
-  'Pangkal Pinang',
-  'Pangkalan Bun',
-  'Panjang',
-  'Pantoloan',
-  'Parepare',
-  'Pekanbaru',
-  'Pontianak',
-  'Samarinda',
-  'Sampit',
-  'Sangatta',
-  'Sape',
-  'Saumlaki',
-  'Sekupang',
-  'Selat Panjang',
-  'Semarang',
-  'Semayang',
-  'Serui',
-  'Sibolga',
-  'Soekarno Hatta Makassar',
-  'Sorong',
-  'Surabaya',
-  'Tanjung Balai Karimun',
-  'Tanjung Emas',
-  'Tanjung Intan',
-  'Tanjung Pandan',
-  'Tanjung Perak',
-  'Tanjung Pinang',
-  'Tanjung Priok',
-  'Tanjung Redeb',
-  'Tanjung Uban',
-  'Tanjung Wangi',
-  'Tarakan',
-  'Teluk Bayur',
-  'Tembilahan',
-  'Tenau',
-  'Ternate',
-  'Tidore',
-  'Timika',
-  'Tobelo',
-  'Trisakti',
-  'Tual',
-  'Tuban',
-  'Waingapu'
-]"
-            />
-          </div>
-        </section>
-
-        <section class="quotation-currency-section">
-          <div class="quotation-currency-heading">
-            <div>
-              <h3>Transaction Currency</h3>
-              <p>Currency dan subject yang digunakan pada quotation.</p>
-            </div>
-            <a-select-new
-              class="quotation-currency-field"
-              v-model="newPenawaran.currency"
-              :items="[
-                { title: 'IDR', value: 'IDR' },
-                { title: 'USD', value: 'USD' },
-                { title: 'SGD', value: 'SGD' },
-              ]"
-            />
-          </div>
-          <div class="quotation-currency-fields">
-            <a-textarea-new
-              v-model="newPenawaran.perihal"
-              label="Subject"
-              placeholder="Quotation subject"
-              rows="2"
-            />
-          </div>
-        </section>
-
-        <section class="quotation-form-section quotation-items-section">
-          <div class="quotation-section-header quotation-items-header">
-            <div>
-              <span class="quotation-section-index">02</span>
-              <h3>Quotation Items</h3>
-            </div>
-            <!-- <v-btn
-              size="small"
-              variant="outlined"
-              color="primary"
-              prepend-icon="mdi-plus"
-              class="quotation-add-row-btn text-none"
-              @click="tambahBarisPenawaran"
-            >
-              Add Item
-            </v-btn> -->
-          </div>
-
-          <div
-            ref="quotationItemsSortableContainer"
-            class="quotation-sortable-items"
-          >
-            <div
-              v-for="(item, index) in newPenawaran.penawaran_item"
-              :key="quotationItemKey(item)"
-              class="quotation-line-item"
-              @focusin="activeSuggestionIndex = index"
-              @focusout="activeSuggestionIndex = null"
-            >
-              <div class="quotation-line-item-header">
-                <div>
-                  <button
-                    type="button"
-                    class="quotation-item-drag-handle"
-                    :aria-label="`Pindahkan item ${index + 1}`"
-                    title="Tarik untuk mengubah urutan item"
-                    @keydown.up.prevent="moveQuotationItem(index, index - 1)"
-                    @keydown.down.prevent="moveQuotationItem(index, index + 1)"
-                  >
-                    <v-icon icon="mdi-drag-vertical" size="18" />
-                  </button>
-                  <span class="quotation-line-number">
-                    {{ String(index + 1).padStart(2, "0") }}
-                  </span>
-                  <span class="quotation-line-title">Item detail</span>
-                </div>
-                <v-btn
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  prepend-icon="mdi-trash-can-outline"
-                  class="quotation-delete-item-btn text-none"
-                  aria-label="Hapus item quotation"
-                  @click="hapusBarisPenawaran(index)"
-                >
-                  Delete
-                  <v-tooltip activator="parent" location="top">
-                    Delete item
-                  </v-tooltip>
-                </v-btn>
-              </div>
-
-              <a-textarea-new
-                v-model="item.nama"
-                label="Description"
-                placeholder="Describe the product, service, or scope of work"
-                rows="2"
-              />
-
-              <div
-                v-if="
-                  activeSuggestionIndex === index &&
-                  barangSesuaiNama(item.nama).length
-                "
-                class="quotation-suggestions"
-              >
-                <span>HPP history</span>
-                <div>
-                  <v-chip
-                    v-for="(barang, idxBarang) in barangSesuaiNama(item.nama)"
-                    :key="barang.id ?? idxBarang"
-                    size="x-small"
-                    variant="outlined"
-                    color="grey-darken-1"
-                  >
-                    {{ barang.nama_barang }} · Rp
-                    {{ rupiah(barang.harga_hpp) }}
-                  </v-chip>
-                </div>
-              </div>
-
-              <div class="quotation-category">
-                <span class="quotation-field-label">Category</span>
-                <div class="quotation-category-options">
-                  <a-checkbox
-                    label="Barang"
-                    :model-value="item.kategori_item === 'Barang'"
-                    @update:model-value="
-                      setKategoriItem(item, 'Barang', $event)
-                    "
-                  />
-                  <a-checkbox
-                    label="Jasa"
-                    :model-value="item.kategori_item === 'Jasa'"
-                    @update:model-value="setKategoriItem(item, 'Jasa', $event)"
-                  />
-                  <a-checkbox
-                    label="Barang & Jasa"
-                    :model-value="item.kategori_item === 'Barang & Jasa'"
-                    @update:model-value="
-                      setKategoriItem(item, 'Barang & Jasa', $event)
-                    "
-                  />
-                </div>
-              </div>
-
-              <div class="quotation-item-fields">
-                <a-field-number-new
-                  v-model="item.qty"
-                  label="Qty"
-                  placeholder="0"
-                />
-                <a-select-new
-                  :items="[
-                    'Unit',
-                    'Pcs',
-                    'Kg',
-                    'Lot',
-                    'Set',
-                    'Meter',
-                    'Box',
-                    'Liter',
-                    'Jerigen',
-                    'Can',
-                    'Pail',
-                  ]"
-                  v-model="item.uom"
-                  label="UOM"
-                  placeholder="Select"
-                />
-                <div class="quotation-hpp-field">
-                  <a-field-number-new
-                    v-model="item.harga_hpp"
-                    label="Harga Modal"
-                    placeholder="0"
-                  />
-                  <div
-                    v-if="item.harga_hpp > 0"
-                    class="quotation-markup-actions"
-                  >
-                    <button
-                      v-for="persentase in [10, 20, 30, 50]"
-                      :key="persentase"
-                      type="button"
-                      :class="{
-                        'is-active': isMarkupActive(item, persentase),
-                      }"
-                      :disabled="!Number(item.harga_hpp)"
-                      :aria-pressed="isMarkupActive(item, persentase)"
-                      @click="terapkanMarkup(item, persentase)"
-                    >
-                      +{{ persentase }}%
-                    </button>
-                    <div class="quotation-custom-markup">
-                      <input
-                        v-model="customMarkupPercentages[quotationItemKey(item)]"
-                        type="text"
-                        inputmode="decimal"
-                        placeholder="Custom"
-                        :aria-label="`Persentase markup manual item ${index + 1}`"
-                        @keydown.enter.prevent="terapkanMarkupManual(item)"
-                      />
-                      <span>%</span>
-                      <button
-                        type="button"
-                        class="quotation-custom-markup-apply"
-                        :disabled="!canApplyCustomMarkup(item)"
-                        :aria-label="`Terapkan markup manual item ${index + 1}`"
-                        title="Terapkan markup manual"
-                        @click="terapkanMarkupManual(item)"
-                      >
-                        <v-icon icon="mdi-check" size="14" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <a-field-number-new
-                  v-model="item.amount"
-                  :label="`Unit Price (${currencyLabel(newPenawaran.currency)})`"
-                  placeholder="0"
-                  :allow-decimal="newPenawaran.currency !== 'IDR'"
-                  :step="newPenawaran.currency === 'IDR' ? 1 : 0.01"
-                />
-                <a-text-field-new
-                  :model-value="
-                    formatCurrency(
-                      Number(item.qty || 0) * Number(item.amount || 0),
-                      newPenawaran.currency,
-                    )
-                  "
-                  label="Subtotal"
-                  placeholder="0"
-                  disabled
-                />
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            class="quotation-add-row-secondary"
-            @click="tambahBarisPenawaran"
-          >
-            <v-icon icon="mdi-plus" size="16" />
-            Add another item
-          </button>
-        </section>
-
-        <div class="quotation-commercial-grid">
-          <section class="quotation-form-section quotation-summary-section">
-            <div class="quotation-section-header">
-              <div>
-                <span class="quotation-section-index">03</span>
-                <h3>Commercial Summary</h3>
-              </div>
-              <p>Nilai quotation dan diskon.</p>
-            </div>
-            <div class="quotation-discount-fields">
-              <v-text-field
-                v-model.number="discountPercentPenawaran"
-                label="Discount (%)"
-                type="number"
-                suffix="%"
-                min="0"
-                max="100"
-                step="0.01"
-                density="compact"
-                variant="outlined"
-                hide-details
-              />
-              <v-text-field
-                v-model="discountAmountInput"
-                label="Discount Amount"
-                type="text"
-                inputmode="decimal"
-                :prefix="currencyInputPrefix"
-                density="compact"
-                variant="outlined"
-                hide-details
-                @focus="startEditingDiscountAmount"
-                @blur="finishEditingDiscountAmount"
-              />
-            </div>
-
-            <div class="quotation-totals">
-              <div>
-                <span>Subtotal</span>
-                <strong>
-                  {{ formatCurrency(subtotalPenawaran, newPenawaran.currency) }}
-                </strong>
-              </div>
-              <div>
-                <span>Discount ({{ discountPercentPenawaran }}%)</span>
-                <strong class="quotation-discount-value">
-                  -
-                  {{
-                    formatCurrency(
-                      discountAmountPenawaran,
-                      newPenawaran.currency,
-                    )
-                  }}
-                </strong>
-              </div>
-              <div class="quotation-grand-total">
-                <span>Total Quotation</span>
-                <strong>
-                  {{
-                    formatCurrency(grandTotalPenawaran, newPenawaran.currency)
-                  }}
-                </strong>
-              </div>
-            </div>
-          </section>
-
-          <section class="quotation-form-section quotation-sign-section">
-            <div class="quotation-section-header">
-              <div>
-                <span class="quotation-section-index">04</span>
-                <h3>Authorization</h3>
-              </div>
-              <p>Penandatangan quotation.</p>
-            </div>
-
-            <a-select-new
-              v-model="newPenawaran.sign_by"
-              label="Sign By"
-              :items="[
-                'Seilla Maryana',
-                'Leo Adiatmaja Sembiring',
-                'Muhammad Ridwan',
-                'Lilis',
-              ]"
-            />
-
-            <div
-              v-if="newPenawaran.sign_by"
-              class="quotation-signature-preview"
-            >
-              <div
-                v-if="newPenawaran.sign_by == 'Leo Adiatmaja Sembiring'"
-                class="signature-content"
-              >
-                <v-img width="130" height="65" contain src="/ttd_leo.png" />
-                <div class="signature-line"></div>
-                <div class="signature-name">Leo Adiatmaja Sembiring</div>
-              </div>
-
-              <div
-                v-if="newPenawaran.sign_by == 'Seilla Maryana'"
-                class="signature-content"
-              >
-                <v-img width="130" height="65" contain src="/ttd_seilla_hitam.png" />
-                <div class="signature-line"></div>
-                <div class="signature-name">Seilla Maryana</div>
-              </div>
-
-              <div
-                v-if="newPenawaran.sign_by == 'Muhammad Ridwan'"
-                class="signature-content"
-              >
-                <v-img width="130" height="65" contain src="/ttd_ridwan.png" />
-                <div class="signature-line"></div>
-                <div class="signature-name">Muhammad Ridwan</div>
-              </div>
-              
-
-              <div
-                 v-if="newPenawaran.sign_by == 'Lilis'"
-                class="signature-content"
-              >
-                <v-img width="130" height="65" contain src="/ttd_lilis_hitam.png" />
-                <div class="signature-line"></div>
-                <div class="signature-name">Lilis</div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <section class="quotation-form-section quotation-terms-section">
-          <div class="quotation-section-header quotation-terms-header">
-            <div>
-              <span class="quotation-section-index">05</span>
-              <h3>T&amp;C</h3>
-            </div>
-            <span class="quotation-selected-count">
-              {{ (newPenawaran.termCondition ?? []).length }} selected
-            </span>
-          </div>
-
-          <div class="quotation-term-controls">
-            <div class="quotation-term-search">
-              <v-icon icon="mdi-magnify" size="17" />
-              <a-text-field-new
-                v-model="termConditionSearch"
-                placeholder="Cari atau tulis term baru"
-                @keydown.enter.prevent="tambahTermConditionDariPencarian"
-              />
-              <v-btn
-                v-if="termConditionSearch"
-                icon="mdi-close"
-                size="x-small"
-                variant="text"
-                color="grey-darken-1"
-                aria-label="Hapus pencarian term dan condition"
-                @click="termConditionSearch = ''"
-              />
-            </div>
-            <v-btn
-              size="small"
-              color="primary"
-              variant="outlined"
-              :prepend-icon="existingTermCondition ? undefined : 'mdi-plus'"
-              class="quotation-term-add-btn text-none"
-              :disabled="!canAddTermCondition"
-              :loading="savingTermCondition"
-              @click="tambahTermConditionDariPencarian"
-            >
-              {{
-                existingTermCondition
-                  ? searchedTermConditionIsSelected
-                    ? "Selected"
-                    : "Available"
-                  : "Add master T&C"
-              }}
-            </v-btn>
-          </div>
-
-          <div class="quotation-terms-lists">
-            <div class="quotation-terms-table-wrap">
-              <table class="quotation-terms-table">
-                <caption>
-                  Dipilih
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col" aria-label="Ubah urutan"></th>
-                    <th scope="col">No.</th>
-                    <th scope="col">Selected</th>
-                    <th scope="col">Description</th>
-                  </tr>
-                </thead>
-                <tbody ref="termConditionsSortableContainer">
-                  <tr
-                    v-for="(item, index) in selectedTermConditions"
-                    :key="termConditionKey(item)"
-                    class="quotation-term-row"
-                  >
-                    <td>
-                      <button
-                        type="button"
-                        class="quotation-term-drag-handle"
-                        :aria-label="`Pindahkan term ${index + 1}`"
-                        title="Tarik untuk mengubah urutan term"
-                        @keydown.up.prevent="moveTermCondition(index, index - 1)"
-                        @keydown.down.prevent="
-                          moveTermCondition(index, index + 1)
-                        "
-                      >
-                        <v-icon icon="mdi-drag-vertical" size="17" />
-                      </button>
-                    </td>
-                    <td>{{ index + 1 }}</td>
-                    <td>
-                      <v-checkbox
-                        v-model="newPenawaran.termCondition"
-                        :value="item"
-                        :value-comparator="sameTermCondition"
-                        density="compact"
-                        hide-details
-                        color="primary"
-                        class="quotation-term-checkbox"
-                        @update:model-value="scheduleTermConditionSelectionSync"
-                      />
-                    </td>
-                    <td>{{ item.nama_term }}</td>
-                  </tr>
-                  <tr v-if="!selectedTermConditions.length">
-                    <td colspan="4" class="quotation-terms-empty">
-                      <strong>Belum ada T&amp;C yang dipilih.</strong>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="quotation-terms-table-wrap">
-              <table
-                class="quotation-terms-table quotation-terms-table--available"
-              >
-                <caption>
-                  Pilihan
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">No.</th>
-                    <th scope="col">Select</th>
-                    <th scope="col">Description</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="(item, index) in availableTermConditions"
-                    :key="termConditionKey(item)"
-                    class="quotation-term-row"
-                  >
-                    <td>{{ index + 1 }}</td>
-                    <td>
-                      <v-checkbox
-                        v-model="newPenawaran.termCondition"
-                        :value="{
-                          id: item.id ?? '',
-                          nama_term: item.nama_term,
-                        }"
-                        :value-comparator="sameTermCondition"
-                        density="compact"
-                        hide-details
-                        color="primary"
-                        class="quotation-term-checkbox"
-                        @update:model-value="scheduleTermConditionSelectionSync"
-                      />
-                    </td>
-                    <td>{{ item.nama_term }}</td>
-                  </tr>
-                  <tr v-if="!availableTermConditions.length">
-                    <td colspan="3" class="quotation-terms-empty">
-                      <strong>
-                        {{
-                          termConditionSearch
-                            ? "Term tidak ditemukan."
-                            : "Semua T&C sudah dipilih."
-                        }}
-                      </strong>
-                      <span v-if="canAddTermCondition">
-                        Klik “Add master T&amp;C” untuk menyimpannya ke master.
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      </v-card-text>
-
-      <footer class="quotation-dialog-footer">
-        <p>
-          Pastikan client, item, dan nilai quotation sudah sesuai sebelum
-          disimpan.
-        </p>
-        <div>
-          <v-btn
-            size="small"
-            variant="outlined"
-            color="grey-darken-1"
-            class="text-none quotation-cancel-btn"
-            @click="data.dialogTambahPenawaran = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            size="small"
-            color="primary"
-            variant="flat"
-            class="text-none quotation-save-btn"
-            prepend-icon="mdi-content-save-outline"
-            @click="simpanPenawaranDialog"
-          >
-            {{
-              data.penawaranAddEdit === "add"
-                ? "Save Quotation"
-                : "Save Changes"
-            }}
-          </v-btn>
-        </div>
-      </footer>
-    </v-card>
-  </v-dialog>
+  <DialogPenawaran ref="dialogPenawaran" />
 
   <!-- Header & Top Action -->
   <div class="quotation-page-heading">
@@ -910,7 +16,7 @@
       />
       <div>
         <h1>Quotation</h1>
-        <p>Manage quotation, client, status, and transaction value.</p>
+        <!-- <p>Manage quotation, client, status, and transaction value.</p> -->
       </div>
     </div>
     <div class="quotation-page-actions">
@@ -1108,11 +214,22 @@
 
       <template v-slot:item.no_penawaran="{ item }">
         <NuxtLink
-          :to="'/admin/penawaran/' + item.id"
-          class="quotation-reference"
+          :to="quotationDetailRoute(item)"
+          class="quotation-reference quotation-reference--number"
         >
-          {{ item.no_penawaran }}
-          <v-icon icon="mdi-arrow-top-right" size="12" />
+          <span class="quotation-reference-main">
+            <span>{{ item.no_penawaran }}</span>
+            <v-icon icon="mdi-arrow-top-right" size="12" />
+          </span>
+          <v-chip
+            v-if="Number(item.revision_count) > 0"
+            size="x-small"
+            color="indigo"
+            variant="tonal"
+            class="quotation-revision-chip"
+          >
+            {{ activeRevisionChipLabel(item) }}
+          </v-chip>
         </NuxtLink>
       </template>
 
@@ -1121,7 +238,7 @@
           <span>{{ item.perihal }}</span>
         </div> -->
          <NuxtLink
-          :to="'/admin/penawaran/' + item.id"
+          :to="quotationDetailRoute(item)"
           class="quotation-reference"
         >
           {{ item.perihal }}
@@ -1205,21 +322,27 @@
               class="quotation-action-menu"
             >
               <v-list-item
-                :to="'/admin/penawaran/' + item.id"
+                :to="quotationDetailRoute(item)"
                 :disabled="item.status == 'Cancel'"
                 prepend-icon="mdi-eye-outline"
                 title="Detail quotation"
               />
-              <v-list-item
+              <!-- <v-list-item
                 :disabled="item.status !== 'Draft'"
                 prepend-icon="mdi-pencil-outline"
                 title="Edit quotation"
                 @click="openDialogEditPenawaran(item)"
+              /> -->
+              <v-list-item
+                v-if="item.status !== 'Cancel'"
+                prepend-icon="mdi-file-document-plus-outline"
+                title="Revisi"
+                @click="openDialogRevisiPenawaran(item)"
               />
               <v-divider class="my-1" />
               <v-list-item
                 :disabled="item.status !== 'Draft'"
-                prepend-icon="mdi-trash-can-outline"
+                prepend-icon="mdi-delete-outline"
                 title="Delete quotation"
                 class="quotation-menu-danger"
                 @click="hapusPenawaran(item)"
@@ -1269,49 +392,144 @@ import {
   reactive,
   ref,
   computed,
-  nextTick,
-  onBeforeUnmount,
   onMounted,
   watch,
 } from "vue";
-import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import moment from "moment";
-import Sortable from "sortablejs";
 import type { ConfirmationDialog } from "#components";
+import DialogPenawaran from "~/components/Admin/Penawaran/dialog-penawaran.vue";
 import type { penawaranM } from "~/types/penawaranModel";
-import type { barangM } from "~/types/barangModel";
-import type { customerM } from "~/types/customerModel";
-import type { masterPicM } from "~/types/masterPicModel";
-import type { termconditionM } from "~/types/termconditionModel";
-import {
-  buildCompanyMaster,
-  buildLegacyMasterPics,
-  mergeMasterPics,
-  normalizeCompanyName,
-} from "~/utils/customer-master";
+import { queryambilid } from "~/composables/useFirestoreQuery";
 
 definePageMeta({
   layout: "admin",
 });
 
-const router = useRouter();
 const display = useDisplay();
-const customerStore = usecustomerStore();
-const masterPicStore = useMasterPicStore();
-const termconditionStore = usetermconditionStore();
-const barangStore = usebarangStore();
 const penawaranStore = usePenawaranStore();
-const invoiceStore = useinvoiceStore();
-const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
   null,
 );
-const activeSuggestionIndex = ref<number | null>(null);
-const savingCustomer = ref(false);
+const dialogPenawaran = ref<InstanceType<typeof DialogPenawaran> | null>(null);
 const isLoading = ref(!penawaranStore.hasCachedData());
 const isRefreshing = ref(false);
+const activeRevisionRows = ref<Record<string, penawaranM>>({});
+let activeRevisionLoadVersion = 0;
+
+function quotationRootId(quotation: penawaranM) {
+  return quotation.id || quotation.id_penawaran || "";
+}
+
+async function loadActiveRevisionRows(quotations: penawaranM[]) {
+  const loadVersion = ++activeRevisionLoadVersion;
+  const rowsWithRevisions = quotations.filter(
+    (quotation) =>
+      quotationRootId(quotation) && Number(quotation.revision_count) > 0,
+  );
+
+  const entries = await Promise.all(
+    rowsWithRevisions.map(async (quotation) => {
+      const rootId = quotationRootId(quotation);
+      try {
+        const revisions = (await queryambilid(
+          `penawaran/${rootId}/revisi_penawaran`,
+        )) as penawaranM[];
+        const normalizedRevisions = revisions
+          .map((revision) => ({
+            ...revision,
+            id_revisi: revision.id_revisi || revision.id || "",
+          }))
+          .sort(
+            (left, right) =>
+              Number(left.revision_number || 0) -
+                Number(right.revision_number || 0) ||
+              Number(left.created_at || 0) - Number(right.created_at || 0),
+          );
+
+        let activeRevision: penawaranM | undefined;
+        if (quotation.active_revision_id) {
+          activeRevision = normalizedRevisions.find(
+            (revision) =>
+              revision.id_revisi === quotation.active_revision_id,
+          );
+        } else if (Number(quotation.active_revision_number) > 0) {
+          activeRevision = normalizedRevisions.find(
+            (revision) =>
+              Number(revision.revision_number) ===
+              Number(quotation.active_revision_number),
+          );
+        } else if (
+          quotation.active_revision_id === undefined &&
+          quotation.active_revision_number === undefined
+        ) {
+          // Kompatibilitas data lama: sebelum ada penunjuk aktif, revisi
+          // bernomor paling tinggi dianggap sebagai versi berjalan.
+          activeRevision = normalizedRevisions.at(-1);
+        }
+
+        return [rootId, activeRevision] as const;
+      } catch (error) {
+        console.error(
+          `Gagal memuat revisi aktif quotation ${rootId}:`,
+          error,
+        );
+        return [rootId, undefined] as const;
+      }
+    }),
+  );
+
+  if (loadVersion !== activeRevisionLoadVersion) return;
+  activeRevisionRows.value = Object.fromEntries(
+    entries.filter(
+      (entry): entry is readonly [string, penawaranM] => Boolean(entry[1]),
+    ),
+  );
+}
+
+const activeQuotationRows = computed(() =>
+  penawaranStore.getDataPenawaranTampil.map((quotation) => {
+    const rootId = quotationRootId(quotation);
+    const revision = activeRevisionRows.value[rootId];
+    if (!revision) return quotation;
+
+    return {
+      ...quotation,
+      ...revision,
+      id: rootId,
+      id_penawaran: rootId,
+      id_revisi: revision.id_revisi,
+      root_penawaran_id: rootId,
+      revision_count: quotation.revision_count,
+      active_revision_id:
+        quotation.active_revision_id || revision.id_revisi || "",
+      active_revision_number:
+        Number(quotation.active_revision_number) ||
+        Number(revision.revision_number) ||
+        0,
+      // Revisi boleh mengganti isi quotation, tetapi tidak boleh mengubah
+      // posisi baris pada tabel utama. Urutan tetap memakai tanggal dibuatnya
+      // dokumen induk (revisi 00), bukan tanggal revisi terbaru.
+      created_at: quotation.created_at,
+      createdAt: quotation.createdAt,
+      status: quotation.status,
+    } as penawaranM;
+  }),
+);
+
+watch(
+  () =>
+    penawaranStore.getDataPenawaranTampil.map((quotation) => [
+      quotationRootId(quotation),
+      quotation.revision_count,
+      quotation.active_revision_id,
+      quotation.active_revision_number,
+    ]),
+  () => {
+    void loadActiveRevisionRows(penawaranStore.getDataPenawaranTampil);
+  },
+  { immediate: true, deep: true },
+);
 
 onMounted(async () => {
   restoreQuotationFilters();
@@ -1319,23 +537,10 @@ onMounted(async () => {
   isLoading.value = needsQuotationData;
 
   try {
-    const initialRequests: Promise<unknown>[] = [];
     if (needsQuotationData) {
-      initialRequests.push(penawaranStore.tarikDataPenawaranAct());
+      await penawaranStore.tarikDataPenawaranAct();
     }
-    if (!customerStore.getDataCustomer.length) {
-      initialRequests.push(customerStore.tarikDataCustomerAct());
-    }
-    if (!masterPicStore.getDataMasterPic.length) {
-      initialRequests.push(masterPicStore.tarikDataMasterPicAct());
-    }
-    if (!termconditionStore.getDataTermcondition.length) {
-      initialRequests.push(termconditionStore.tarikDataTermconditionAct());
-    }
-    if (!barangStore.getDataBarang.length) {
-      initialRequests.push(barangStore.tarikDataBarangAct());
-    }
-    await Promise.all(initialRequests);
+    await dialogPenawaran.value?.openRequestedRevision();
   } finally {
     isLoading.value = false;
   }
@@ -1356,11 +561,6 @@ const data = reactive({
   filterAmount: "",
   filterStatus: "",
 
-  dialogTambahPenawaran: false,
-  dialogTambahMasterPerusahaan: false,
-  penawaranAddEdit: "add" as "add" | "edit",
-  editOriginalTermconditionId: "",
-  editOriginalBarangId: "",
   headPenawaran: [
     {
       title: "No",
@@ -1468,102 +668,10 @@ watch(
   },
 );
 
-const newCustomer = ref<customerM>(emptyCustomer());
-
-const companies = computed(() => buildCompanyMaster(customerStore.getDataCustomer));
-const assignedCompanyId = computed(() => userStore.getIdPerusahaan.trim());
-const hasCompanyScope = computed(() => Boolean(assignedCompanyId.value));
-const accessibleCompanies = computed(() => {
-  if (!assignedCompanyId.value) return companies.value;
-
-  return companies.value.filter(
-    (company) =>
-      company.id_customer === assignedCompanyId.value ||
-      company.sourceIds.includes(assignedCompanyId.value),
-  );
-});
-const legacyMasterPics = computed(() =>
-  buildLegacyMasterPics(customerStore.getDataCustomer, companies.value),
-);
-const allMasterPics = computed(() =>
-  mergeMasterPics(
-    masterPicStore.getDataMasterPic,
-    legacyMasterPics.value,
-    companies.value,
-  ),
-);
-const companyOptions = computed(() =>
-  accessibleCompanies.value.map((company) => ({
-    ...company,
-    label: company.nama,
-    value: company.id_customer,
-  })),
-);
-const picOptionsForCompany = computed(() =>
-  allMasterPics.value
-    .filter((pic) => pic.id_perusahaan === newPenawaran.value.id_perusahaan)
-    .map((pic) => ({
-      ...pic,
-      label: pic.pic,
-      value: pic.id_master_pic || pic.id,
-    })),
-);
-
-function emptyCustomer(): customerM {
-  return {
-    nama: "",
-    pic: "",
-    alamat: "",
-    no_telp: "",
-    email: "",
-    vessel: "",
-    createdAt: 0,
-    createdBy: "",
-  };
-}
-
-function opendialogTambahMasterPerusahaan() {
-  newCustomer.value = emptyCustomer();
-  data.dialogTambahMasterPerusahaan = true;
-}
-
-async function simpanMasterPerusahaan() {
-  const customer = newCustomer.value;
-  if (!customer.nama.trim())
-    return notificationStore.showError("Nama perusahaan tidak boleh kosong");
-  if (!customer.alamat.trim())
-    return notificationStore.showError("Alamat perusahaan tidak boleh kosong");
-
-  if (
-    companies.value.some(
-      (item) =>
-        normalizeCompanyName(item.nama) === normalizeCompanyName(customer.nama),
-    )
-  ) {
-    return notificationStore.showError("Nama perusahaan sudah terdaftar");
-  }
-
-  customer.nama = customer.nama.trim();
-  customer.alamat = customer.alamat.trim();
-  customer.createdAt = moment().unix();
-  customer.createdBy = userStore.getEmail || "";
-  savingCustomer.value = true;
-  try {
-    const saved = await customerStore.addCustomerAct({ ...customer });
-    if (!saved) return;
-    const savedCustomer = buildCompanyMaster(customerStore.getDataCustomer).find(
-      (item) => normalizeCompanyName(item.nama) === normalizeCompanyName(customer.nama),
-    );
-    if (savedCustomer) applyCompany(savedCustomer, true);
-    data.dialogTambahMasterPerusahaan = false;
-  } finally {
-    savingCustomer.value = false;
-  }
-}
 
 const availableQuotationStatuses = computed(() => {
   const defaultStatuses = ["Draft", "INVOICE", "Cancel"];
-  const storedStatuses = penawaranStore.getDataPenawaranTampil
+  const storedStatuses = activeQuotationRows.value
     .map((quotation) => quotation.status)
     .filter(Boolean);
 
@@ -1571,7 +679,7 @@ const availableQuotationStatuses = computed(() => {
 });
 
 const availableQuotationClients = computed(() => {
-  const clients = penawaranStore.getDataPenawaranTampil
+  const clients = activeQuotationRows.value
     .map((quotation) => quotation.nama_perusahaan?.trim())
     .filter((client): client is string => Boolean(client));
 
@@ -1616,7 +724,7 @@ const penawaranTampilTersaring = computed(() => {
   const selectedClient = normalizeQuotationFilter(data.filterClient);
   const amountQuery = data.filterAmount.replace(/\D/g, "");
 
-  return penawaranStore.getDataPenawaranTampil.filter((quotation) => {
+  return activeQuotationRows.value.filter((quotation) => {
     const quotationAmount = Number(quotation.grand_total_penawaran) || 0;
     const quotationDate = String(quotation.tanggal_penawaran || "").slice(
       0,
@@ -1691,53 +799,6 @@ function resetQuotationFilters() {
   sessionStorage.removeItem(QUOTATION_FILTER_STORAGE_KEY);
 }
 
-function barangSesuaiNama(namaItem: string | null | undefined) {
-  const query = namaItem?.trim().toLocaleLowerCase("id-ID") ?? "";
-  if (!query) return [];
-
-  return barangStore.getDataBarang.filter((barang) =>
-    barang.nama_barang.toLocaleLowerCase("id-ID").includes(query),
-  );
-}
-
-function emptyPenawaran(): penawaranM {
-  const generatedNo = generateNoPenawaran();
-  return {
-    no_penawaran: generatedNo,
-    id_perusahaan: "",
-    id_pic: "",
-    pic: "",
-    vessel: "",
-    nama_perusahaan: "",
-    alamat_perusahaan: "",
-    no_telp: "",
-    email: "",
-    location: "",
-    tanggal_penawaran: moment().format("YYYY-MM-DD"),
-    created_at: 0,
-    created_by: "",
-    sign_by: "Seilla Maryana",
-    status: "Draft",
-    perihal: "",
-    currency: "IDR",
-    penawaran_item: [
-      {
-        nama: "",
-        qty: 1,
-        uom: "Unit",
-        kategori_item: "Barang",
-        amount: 0,
-        subtotal_item: 0,
-        harga_hpp: 0,
-      },
-    ],
-    subtotal_penawaran: 0,
-    discount_penawaran: 0,
-    grand_total_penawaran: 0,
-    terbilang: "",
-    termCondition: [],
-  };
-}
 
 function formatCurrency(value: number | null | undefined, currency?: string) {
   const code = currency === "USD" || currency === "SGD" ? currency : "IDR";
@@ -1771,530 +832,23 @@ function hasQuotationDiscount(item: penawaranM) {
   );
 }
 
-function currencyLabel(currency?: string) {
-  switch (currency) {
-    case "USD":
-      return "USD";
-    case "SGD":
-      return "SGD";
-    default:
-      return "IDR";
-  }
-}
-
-type TermConditionOrderItem = { id?: string; nama_term: string };
-
-const termConditionOrder = ref<string[]>([]);
-
-function termConditionKey(term: TermConditionOrderItem) {
-  return term.id
-    ? `id:${term.id}`
-    : `name:${normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID")}`;
-}
-
-function orderTermConditions<T extends TermConditionOrderItem>(terms: T[]) {
-  const orderIndex = new Map(
-    termConditionOrder.value.map((key, index) => [key, index]),
-  );
-
-  return [...terms].sort((left, right) => {
-    const leftIndex = orderIndex.get(termConditionKey(left));
-    const rightIndex = orderIndex.get(termConditionKey(right));
-
-    if (leftIndex !== undefined && rightIndex !== undefined) {
-      return leftIndex - rightIndex;
-    }
-    if (leftIndex !== undefined) return -1;
-    if (rightIndex !== undefined) return 1;
-    return left.nama_term.localeCompare(right.nama_term, "id-ID");
-  });
-}
-
-const selectedTermConditions = computed(
-  () => newPenawaran.value.termCondition ?? [],
-);
-
-const availableTermConditions = computed(() => {
-  const search = normalizeTermCondition(
-    termConditionSearch.value,
-  ).toLocaleLowerCase("id-ID");
-
-  return orderTermConditions(
-    termconditionStore.getDataTermcondition.filter(
-      (term) =>
-        !isTermConditionSelected(term) &&
-        normalizeTermCondition(term.nama_term)
-          .toLocaleLowerCase("id-ID")
-          .includes(search),
-    ),
-  );
-});
-
-function generateNoPenawaran(): string {
-  const year = moment().format("YYYY");
-  const pattern = new RegExp(`^QT/ICI/${year}/DRM/(\\d{5})$`);
-  const lastSequence = (penawaranStore.getDataPenawaran || []).reduce(
-    (highest, penawaran) => {
-      const match = penawaran.no_penawaran?.match(pattern);
-      return match ? Math.max(highest, Number(match[1])) : highest;
-    },
-    0,
-  );
-
-  return `QT/DRM/${year}/${String(lastSequence + 1).padStart(5, "0")}`;
-}
-
-const newPenawaran = ref<penawaranM>(emptyPenawaran());
-const termConditionSearch = ref("");
-const savingTermCondition = ref(false);
-const customMarkupPercentages = ref<Record<string, string | number>>({});
-const quotationItemsSortableContainer = ref<HTMLElement | null>(null);
-const termConditionsSortableContainer = ref<HTMLTableSectionElement | null>(
-  null,
-);
-const quotationItemKeys = new WeakMap<object, string>();
-let quotationItemKeySequence = 0;
-let quotationItemsSortable: Sortable | null = null;
-let termConditionsSortable: Sortable | null = null;
-
-function quotationItemKey(item: penawaranM["penawaran_item"][number]) {
-  const existingKey = quotationItemKeys.get(item);
-  if (existingKey) return existingKey;
-
-  quotationItemKeySequence += 1;
-  const key = `quotation-item-${quotationItemKeySequence}`;
-  quotationItemKeys.set(item, key);
-  return key;
-}
-
-function normalizeTermCondition(value: string) {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-const existingTermCondition = computed(() => {
-  const search = normalizeTermCondition(
-    termConditionSearch.value,
-  ).toLocaleLowerCase("id-ID");
-  if (!search) return undefined;
-
-  return termconditionStore.getDataTermcondition.find(
-    (term) =>
-      normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID") ===
-      search,
-  );
-});
-
-const searchedTermConditionIsSelected = computed(() => {
-  const existingTerm = existingTermCondition.value;
-  return existingTerm ? isTermConditionSelected(existingTerm) : false;
-});
-
-const canAddTermCondition = computed(
-  () =>
-    Boolean(normalizeTermCondition(termConditionSearch.value)) &&
-    !existingTermCondition.value &&
-    !savingTermCondition.value,
-);
-
-async function tambahTermConditionDariPencarian() {
-  if (savingTermCondition.value) return;
-
-  const termName = normalizeTermCondition(termConditionSearch.value);
-  if (!termName) {
-    return notificationStore.showError("Term & Condition tidak boleh kosong");
-  }
-  if (existingTermCondition.value) {
-    return notificationStore.showInfo("Term & Condition sudah ada di master");
-  }
-
-  savingTermCondition.value = true;
-  try {
-    const payload: termconditionM = {
-      nama_term: termName,
-      createdAt: moment().unix(),
-      createdBy: userStore.getEmail,
-    };
-    await termconditionStore.addTermconditionAct(payload);
-
-    const normalizedName = termName.toLocaleLowerCase("id-ID");
-    const addedTerm = termconditionStore.getDataTermcondition.find(
-      (term) =>
-        normalizeTermCondition(term.nama_term).toLocaleLowerCase("id-ID") ===
-        normalizedName,
-    );
-    if (!addedTerm) return;
-
-    const addedTermKey = termConditionKey(addedTerm);
-    if (!termConditionOrder.value.includes(addedTermKey)) {
-      termConditionOrder.value.push(addedTermKey);
-    }
-
-    newPenawaran.value.termCondition ??= [];
-    const selectedTerm = {
-      id: addedTerm.id ?? "",
-      nama_term: addedTerm.nama_term,
-    };
-    if (
-      !newPenawaran.value.termCondition.some((term) =>
-        sameTermCondition(term, selectedTerm),
-      )
-    ) {
-      newPenawaran.value.termCondition.push(selectedTerm);
-    }
-    rebuildTermConditionOrderFromSelection();
-    termConditionSearch.value = "";
-  } finally {
-    savingTermCondition.value = false;
-  }
-}
-
-function sameTermCondition(
-  left: NonNullable<penawaranM["termCondition"]>[number],
-  right: NonNullable<penawaranM["termCondition"]>[number],
-) {
-  return left.id && right.id
-    ? left.id === right.id
-    : left.nama_term === right.nama_term;
-}
-
-function isTermConditionSelected(term: TermConditionOrderItem) {
-  const comparableTerm = {
-    id: term.id ?? "",
-    nama_term: term.nama_term,
-  };
-
-  return (newPenawaran.value.termCondition ?? []).some((selectedTerm) =>
-    sameTermCondition(selectedTerm, comparableTerm),
-  );
-}
-
-function initializeTermConditionOrder() {
-  const availableTerms = [...termconditionStore.getDataTermcondition].sort(
-    (left, right) => left.nama_term.localeCompare(right.nama_term, "id-ID"),
-  );
-  const availableKeys = new Set(availableTerms.map(termConditionKey));
-  const selectedKeys = (newPenawaran.value.termCondition ?? [])
-    .map(termConditionKey)
-    .filter((key, index, keys) => {
-      return availableKeys.has(key) && keys.indexOf(key) === index;
-    });
-  const selectedKeySet = new Set(selectedKeys);
-
-  termConditionOrder.value = [
-    ...selectedKeys,
-    ...availableTerms
-      .map(termConditionKey)
-      .filter((key) => !selectedKeySet.has(key)),
-  ];
-}
-
-function rebuildTermConditionOrderFromSelection() {
-  const selectedKeys = (newPenawaran.value.termCondition ?? [])
-    .map(termConditionKey)
-    .filter((key, index, keys) => keys.indexOf(key) === index);
-  const availableKeys = orderTermConditions(
-    termconditionStore.getDataTermcondition.filter(
-      (term) => !isTermConditionSelected(term),
-    ),
-  ).map(termConditionKey);
-
-  termConditionOrder.value = [
-    ...selectedKeys,
-    ...availableKeys.filter((key) => !selectedKeys.includes(key)),
-  ];
-}
-
-function scheduleTermConditionSelectionSync() {
-  void nextTick(rebuildTermConditionOrderFromSelection);
-}
-
-function moveQuotationItem(fromIndex: number, toIndex: number) {
-  const items = newPenawaran.value.penawaran_item;
-  if (
-    fromIndex === toIndex ||
-    fromIndex < 0 ||
-    toIndex < 0 ||
-    fromIndex >= items.length ||
-    toIndex >= items.length
-  ) {
-    return;
-  }
-
-  const [movedItem] = items.splice(fromIndex, 1);
-  if (!movedItem) return;
-  items.splice(toIndex, 0, movedItem);
-  activeSuggestionIndex.value = null;
-}
-
-function moveTermCondition(fromIndex: number, toIndex: number) {
-  const selectedTerms = newPenawaran.value.termCondition ?? [];
-  if (
-    fromIndex === toIndex ||
-    fromIndex < 0 ||
-    toIndex < 0 ||
-    fromIndex >= selectedTerms.length ||
-    toIndex >= selectedTerms.length
-  ) {
-    return;
-  }
-
-  const [movedTerm] = selectedTerms.splice(fromIndex, 1);
-  if (!movedTerm) return;
-  selectedTerms.splice(toIndex, 0, movedTerm);
-  rebuildTermConditionOrderFromSelection();
-}
-
-function sortableEventIndexes(event: Sortable.SortableEvent) {
+function quotationDetailRoute(quotation: penawaranM) {
+  const rootId = quotationRootId(quotation);
   return {
-    fromIndex: event.oldDraggableIndex ?? event.oldIndex,
-    toIndex: event.newDraggableIndex ?? event.newIndex,
+    path: `/admin/penawaran/${encodeURIComponent(rootId)}`,
+    query: quotation.id_revisi
+      ? { revisi: quotation.id_revisi }
+      : undefined,
   };
 }
 
-function destroyQuotationSortables() {
-  quotationItemsSortable?.destroy();
-  termConditionsSortable?.destroy();
-  quotationItemsSortable = null;
-  termConditionsSortable = null;
-}
-
-function initializeQuotationSortables() {
-  destroyQuotationSortables();
-
-  if (quotationItemsSortableContainer.value) {
-    quotationItemsSortable = new Sortable(
-      quotationItemsSortableContainer.value,
-      {
-        animation: 160,
-        draggable: ".quotation-line-item",
-        handle: ".quotation-item-drag-handle",
-        ghostClass: "quotation-sortable-ghost",
-        chosenClass: "quotation-sortable-chosen",
-        dragClass: "quotation-sortable-drag",
-        delay: 120,
-        delayOnTouchOnly: true,
-        touchStartThreshold: 4,
-        forceFallback: true,
-        fallbackOnBody: true,
-        fallbackTolerance: 3,
-        scroll: true,
-        onEnd(event) {
-          const { fromIndex, toIndex } = sortableEventIndexes(event);
-          if (fromIndex === undefined || toIndex === undefined) return;
-          moveQuotationItem(fromIndex, toIndex);
-        },
-      },
-    );
+function activeRevisionChipLabel(quotation: penawaranM) {
+  const revisionNumber = Number(quotation.revision_number) || 0;
+  if (revisionNumber > 0) {
+    return `Rev. ${String(revisionNumber).padStart(2, "0")} aktif`;
   }
-
-  if (termConditionsSortableContainer.value) {
-    termConditionsSortable = new Sortable(
-      termConditionsSortableContainer.value,
-      {
-        animation: 160,
-        draggable: ".quotation-term-row",
-        handle: ".quotation-term-drag-handle",
-        ghostClass: "quotation-sortable-ghost",
-        chosenClass: "quotation-sortable-chosen",
-        dragClass: "quotation-sortable-drag",
-        delay: 120,
-        delayOnTouchOnly: true,
-        touchStartThreshold: 4,
-        forceFallback: true,
-        fallbackOnBody: true,
-        fallbackTolerance: 3,
-        scroll: true,
-        onEnd(event) {
-          const { fromIndex, toIndex } = sortableEventIndexes(event);
-          if (fromIndex === undefined || toIndex === undefined) return;
-          moveTermCondition(fromIndex, toIndex);
-        },
-      },
-    );
-  }
+  return `${Number(quotation.revision_count) || 0} revisi`;
 }
-
-watch(
-  () => data.dialogTambahPenawaran,
-  async (isOpen) => {
-    destroyQuotationSortables();
-    if (!isOpen) return;
-
-    await nextTick();
-    initializeQuotationSortables();
-  },
-  { flush: "post" },
-);
-
-onBeforeUnmount(destroyQuotationSortables);
-
-const subtotalPenawaran = computed(() =>
-  newPenawaran.value.penawaran_item.reduce(
-    (total, item) =>
-      total + (Number(item.qty) || 0) * (Number(item.amount) || 0),
-    0,
-  ),
-);
-const discountPercentPenawaran = computed({
-  get: () =>
-    Math.min(
-      100,
-      Math.max(0, Number(newPenawaran.value.discount_penawaran) || 0),
-    ),
-  set: (value: number) => {
-    newPenawaran.value.discount_penawaran = Math.min(
-      100,
-      Math.max(0, Number(value) || 0),
-    );
-  },
-});
-const discountAmountPenawaran = computed({
-  get: () => {
-    const amount =
-      (subtotalPenawaran.value * discountPercentPenawaran.value) / 100;
-    return newPenawaran.value.currency === "IDR"
-      ? Math.round(amount)
-      : Math.round(amount * 100) / 100;
-  },
-  set: (value: number) => {
-    const amount = Math.min(
-      subtotalPenawaran.value,
-      Math.max(0, Number(value) || 0),
-    );
-    discountPercentPenawaran.value =
-      subtotalPenawaran.value > 0
-        ? (amount / subtotalPenawaran.value) * 100
-        : 0;
-  },
-});
-const currencyInputPrefix = computed(() => {
-  switch (newPenawaran.value.currency) {
-    case "USD":
-      return "US$";
-    case "SGD":
-      return "S$";
-    default:
-      return "Rp";
-  }
-});
-const discountAmountInput = ref("");
-const isEditingDiscountAmount = ref(false);
-
-function formatDiscountAmount(value: number) {
-  const isIdr = newPenawaran.value.currency === "IDR";
-  const locale = isIdr
-    ? "id-ID"
-    : newPenawaran.value.currency === "SGD"
-      ? "en-SG"
-      : "en-US";
-  return new Intl.NumberFormat(locale, {
-    minimumFractionDigits: isIdr ? 0 : 2,
-    maximumFractionDigits: isIdr ? 0 : 2,
-  }).format(value);
-}
-
-function parseDiscountAmount(value: string) {
-  const numericValue =
-    newPenawaran.value.currency === "IDR"
-      ? value.replace(/\D/g, "")
-      : value.replace(/,/g, "").replace(/[^\d.]/g, "");
-  return Number(numericValue) || 0;
-}
-
-function startEditingDiscountAmount() {
-  isEditingDiscountAmount.value = true;
-  discountAmountInput.value =
-    newPenawaran.value.currency === "IDR"
-      ? formatDiscountAmount(discountAmountPenawaran.value)
-      : String(discountAmountPenawaran.value);
-}
-
-function finishEditingDiscountAmount() {
-  isEditingDiscountAmount.value = false;
-  discountAmountInput.value = formatDiscountAmount(
-    discountAmountPenawaran.value,
-  );
-}
-
-watch(discountAmountInput, (value) => {
-  if (isEditingDiscountAmount.value) {
-    discountAmountPenawaran.value = parseDiscountAmount(value);
-  }
-});
-
-watch(
-  [discountAmountPenawaran, () => newPenawaran.value.currency],
-  ([amount]) => {
-    if (
-      !isEditingDiscountAmount.value ||
-      newPenawaran.value.currency === "IDR"
-    ) {
-      discountAmountInput.value = formatDiscountAmount(amount);
-    }
-  },
-  { immediate: true },
-);
-
-const grandTotalPenawaran = computed(() =>
-  Math.max(0, subtotalPenawaran.value - discountAmountPenawaran.value),
-);
-
-const syncingClientSelection = ref(false);
-
-function clearPicSelection() {
-  newPenawaran.value.id_pic = "";
-  newPenawaran.value.pic = "";
-  newPenawaran.value.no_telp = "";
-  newPenawaran.value.email = "";
-}
-
-function applyCompany(customer: customerM, resetPic = false) {
-  newPenawaran.value.id_perusahaan = customer.id_customer || customer.id || "";
-  newPenawaran.value.nama_perusahaan = customer.nama;
-  newPenawaran.value.alamat_perusahaan = customer.alamat;
-  if (resetPic) clearPicSelection();
-}
-
-function applyMasterPic(pic: masterPicM) {
-  newPenawaran.value.id_pic = pic.id_master_pic || pic.id || "";
-  newPenawaran.value.pic = pic.pic;
-  newPenawaran.value.no_telp = pic.no_telp;
-  newPenawaran.value.email = pic.email;
-}
-
-watch(
-  () => newPenawaran.value.id_perusahaan,
-  (idCustomer) => {
-    if (syncingClientSelection.value) return;
-    if (!idCustomer) {
-      newPenawaran.value.nama_perusahaan = "";
-      newPenawaran.value.alamat_perusahaan = "";
-      clearPicSelection();
-      return;
-    }
-    const company = companies.value.find(
-      (item) =>
-        item.id_customer === idCustomer || item.sourceIds.includes(idCustomer),
-    );
-    if (!company) return;
-    applyCompany(company, true);
-  },
-);
-
-watch(
-  () => newPenawaran.value.id_pic,
-  (idPic) => {
-    if (syncingClientSelection.value) return;
-    if (!idPic) {
-      clearPicSelection();
-      return;
-    }
-    const pic = allMasterPics.value.find(
-      (item) => (item.id_master_pic || item.id) === idPic,
-    );
-    if (pic) applyMasterPic(pic);
-  },
-);
 
 function statusColor(status: string) {
   if (status === "INVOICE") return "warning";
@@ -2304,292 +858,15 @@ function statusColor(status: string) {
 }
 
 function openDialogTambahPenawaran() {
-  data.penawaranAddEdit = "add";
-  data.editOriginalTermconditionId = "";
-  termConditionSearch.value = "";
-  customMarkupPercentages.value = {};
-  newPenawaran.value = emptyPenawaran();
-  if (assignedCompanyId.value) {
-    const assignedCompany = accessibleCompanies.value[0];
-    if (assignedCompany) applyCompany(assignedCompany, true);
-  }
-  initializeTermConditionOrder();
-  data.dialogTambahPenawaran = true;
+  void dialogPenawaran.value?.openAdd();
 }
 
 function openDialogEditPenawaran(item: penawaranM) {
-  const company =
-    companies.value.find(
-      (candidate) =>
-        candidate.id_customer === item.id_perusahaan ||
-        candidate.sourceIds.includes(item.id_perusahaan),
-    ) ??
-    companies.value.find(
-      (candidate) =>
-        normalizeCompanyName(candidate.nama) ===
-        normalizeCompanyName(item.nama_perusahaan),
-    );
-
-  syncingClientSelection.value = true;
-  const penawaran = JSON.parse(JSON.stringify(item)) as penawaranM;
-  penawaran.termCondition ??= [];
-  penawaran.id_pic ??= "";
-  newPenawaran.value = penawaran;
-  if (company) {
-    applyCompany(company);
-    const selectedPic =
-      allMasterPics.value.find(
-        (pic) => (pic.id_master_pic || pic.id) === item.id_pic,
-      ) ??
-      allMasterPics.value.find(
-        (pic) =>
-          pic.id_perusahaan === company.id_customer &&
-          pic.pic.trim().toLocaleLowerCase("id-ID") ===
-            (item.pic || "").trim().toLocaleLowerCase("id-ID"),
-      );
-    if (selectedPic) applyMasterPic(selectedPic);
-  }
-  nextTick(() => {
-    syncingClientSelection.value = false;
-  });
-
-  data.penawaranAddEdit = "edit";
-  termConditionSearch.value = "";
-  customMarkupPercentages.value = {};
-  initializeTermConditionOrder();
-  data.dialogTambahPenawaran = true;
+  void dialogPenawaran.value?.openEdit(item);
 }
 
-function tambahBarisPenawaran() {
-  newPenawaran.value.penawaran_item.push({
-    nama: "",
-    amount: 0,
-    uom: "Unit",
-    kategori_item: "Barang",
-    qty: 1,
-    subtotal_item: 0,
-    harga_hpp: 0,
-  });
-}
-
-function setKategoriItem(
-  item: { kategori_item: string },
-  kategori: string,
-  checked: boolean,
-) {
-  if (checked) item.kategori_item = kategori;
-}
-
-function terapkanMarkup(
-  item: { harga_hpp?: number; amount: number },
-  persentase: number,
-) {
-  const hargaHpp = Number(item.harga_hpp) || 0;
-  if (hargaHpp <= 0) return;
-
-  item.amount = hargaHpp * (1 + persentase / 100);
-}
-
-function isMarkupActive(
-  item: { harga_hpp?: number; amount: number },
-  persentase: number,
-) {
-  const hargaHpp = Number(item.harga_hpp) || 0;
-  const amount = Number(item.amount) || 0;
-  if (hargaHpp <= 0 || amount <= 0) return false;
-
-  const expectedAmount = hargaHpp * (1 + persentase / 100);
-  return Math.abs(amount - expectedAmount) < 0.000001;
-}
-
-function customMarkupPercentage(
-  item: penawaranM["penawaran_item"][number],
-) {
-  const rawValue = customMarkupPercentages.value[quotationItemKey(item)];
-  if (rawValue === undefined || String(rawValue).trim() === "") return NaN;
-  return Number(String(rawValue).trim().replace(",", "."));
-}
-
-function canApplyCustomMarkup(
-  item: penawaranM["penawaran_item"][number],
-) {
-  const percentage = customMarkupPercentage(item);
-  return (
-    Number(item.harga_hpp) > 0 &&
-    Number.isFinite(percentage) &&
-    percentage >= 0
-  );
-}
-
-function terapkanMarkupManual(
-  item: penawaranM["penawaran_item"][number],
-) {
-  if (!canApplyCustomMarkup(item)) {
-    return notificationStore.showError(
-      "Isi persentase markup manual dengan angka 0 atau lebih",
-    );
-  }
-
-  terapkanMarkup(item, customMarkupPercentage(item));
-}
-
-async function hapusBarisPenawaran(index: number) {
-  if (newPenawaran.value.penawaran_item.length === 1) {
-    return notificationStore.showError("Minimal harus ada 1 baris item");
-  }
-
-  const confirmed = await confirmationDialog.value?.show(
-    "Konfirmasi Hapus Item",
-    `Yakin ingin menghapus item #${index + 1}?`,
-    { confirmText: "Hapus", variant: "danger" },
-  );
-  if (!confirmed) return;
-
-  const itemToDelete = newPenawaran.value.penawaran_item[index];
-  if (itemToDelete) {
-    delete customMarkupPercentages.value[quotationItemKey(itemToDelete)];
-  }
-  newPenawaran.value.penawaran_item.splice(index, 1);
-}
-
-async function sinkronkanBarangDariPenawaran(
-  penawaranItems: penawaranM["penawaran_item"],
-) {
-  const barangUntukDisinkronkan = new Map<
-    string,
-    { namaBarang: string; hargaHpp: number }
-  >();
-
-  for (const item of penawaranItems) {
-    const namaBarang = item.nama?.trim();
-    const hargaHpp = Number(item.harga_hpp) || 0;
-    if (!namaBarang || hargaHpp <= 0) continue;
-
-    barangUntukDisinkronkan.set(namaBarang.toLocaleLowerCase("id-ID"), {
-      namaBarang,
-      hargaHpp,
-    });
-  }
-
-  const barangLamaByName = new Map(
-    barangStore.getDataBarang.map((barang) => [
-      barang.nama_barang.trim().toLocaleLowerCase("id-ID"),
-      barang,
-    ]),
-  );
-
-  const operations = [...barangUntukDisinkronkan.entries()].map(
-    async ([normalizedName, { namaBarang, hargaHpp }]) => {
-      const barangLama = barangLamaByName.get(normalizedName);
-
-      if (barangLama) {
-        if (Number(barangLama.harga_hpp) !== hargaHpp && barangLama.id) {
-          await updatedatabase("barang", barangLama.id, {
-            ...barangLama,
-            harga_hpp: hargaHpp,
-          });
-        }
-        return;
-      }
-
-      const barangBaru: barangM = {
-        nama_barang: namaBarang,
-        harga_hpp: hargaHpp,
-        createdAt: moment().unix(),
-        createdBy: userStore.getEmail,
-      };
-      await tambahdatabase("barang", barangBaru);
-    },
-  );
-
-  if (!operations.length) return;
-  await Promise.all(operations);
-  await barangStore.tarikDataBarangAct();
-}
-
-function sinkronkanBarangDiLatarBelakang(
-  penawaranItems: penawaranM["penawaran_item"],
-) {
-  void sinkronkanBarangDariPenawaran(penawaranItems).catch((error) => {
-    console.error("Gagal menyinkronkan master barang:", error);
-    notificationStore.showError(
-      "Penawaran tersimpan, tetapi master barang gagal disinkronkan",
-    );
-  });
-}
-
-async function simpanPenawaranDialog() {
-  if (!newPenawaran.value.id_perusahaan) {
-    return notificationStore.showError("Perusahaan belum dipilih");
-  }
-  if (!(newPenawaran.value.pic || "").trim()) {
-    return notificationStore.showError("PIC belum dipilih");
-  }
-  if (!(newPenawaran.value.vessel || "").trim()) {
-    return notificationStore.showError("Vessel wajib diisi");
-  }
-  if (
-    !newPenawaran.value.tanggal_penawaran ||
-    !newPenawaran.value.perihal.trim()
-  ) {
-    return notificationStore.showError("Location wajib diisi");
-  }
-
-  if (!newPenawaran.value.location || !newPenawaran.value.location.trim()) {
-    return notificationStore.showError("Location wajib diisi");
-  }
-
-  // if (
-  //   !newPenawaran.value.penawaran_item.length ||
-  //   newPenawaran.value.penawaran_item.some(
-  //     (item) => !item.nama || item.qty <= 0 || item.amount <= 0,
-  //   )
-  // )
-  // {
-  //   return notificationStore.showError("Setiap item harus dilengkapi");
-  // }
-
-  newPenawaran.value.penawaran_item.forEach((item) => {
-    item.harga_hpp = Number(item.harga_hpp) || 0;
-    item.subtotal_item = Number(item.qty) * Number(item.amount);
-  });
-  newPenawaran.value.discount_penawaran = discountPercentPenawaran.value;
-  newPenawaran.value.subtotal_penawaran = subtotalPenawaran.value;
-  newPenawaran.value.grand_total_penawaran = grandTotalPenawaran.value;
-  newPenawaran.value.terbilang = terbilang(grandTotalPenawaran.value);
-
-  if (data.penawaranAddEdit === "add") {
-    newPenawaran.value.no_penawaran ||= generateNoPenawaran();
-    newPenawaran.value.id_penawaran =
-      newPenawaran.value.no_penawaran.replaceAll("/", "-");
-    newPenawaran.value.created_at = moment().unix();
-    newPenawaran.value.created_by = userStore.getEmail;
-    useloadingStore().setLoading(true);
-    const result = await setPenawaran(newPenawaran.value);
-    if (result.status !== "ok") {
-      useloadingStore().setLoading(false);
-      notificationStore.showError(result.message);
-      return;
-    }
-
-    penawaranStore.upsertPenawaranLocal(result.data);
-    data.dialogTambahPenawaran = false;
-    newPenawaran.value = emptyPenawaran();
-    useloadingStore().setLoading(false);
-    notificationStore.showSuccess("Penawaran berhasil disimpan");
-    sinkronkanBarangDiLatarBelakang(result.data.penawaran_item);
-    return;
-  }
-
-  const updatedPenawaran = JSON.parse(
-    JSON.stringify(newPenawaran.value),
-  ) as penawaranM;
-  const updated = await penawaranStore.updatePenawaranAct(updatedPenawaran);
-  if (!updated) return;
-
-  data.dialogTambahPenawaran = false;
-  newPenawaran.value = emptyPenawaran();
-  sinkronkanBarangDiLatarBelakang(updatedPenawaran.penawaran_item);
+function openDialogRevisiPenawaran(item: penawaranM) {
+  void dialogPenawaran.value?.openRevision(item);
 }
 
 async function hapusPenawaran(item: penawaranM) {
@@ -2685,7 +962,7 @@ async function refreshData() {
   width: 34px !important;
   height: 34px !important;
   color: #596675 !important;
-  border-radius: 5px !important;
+  border-radius: 55px !important;
 }
 
 .quotation-back-btn:hover {
@@ -2978,7 +1255,7 @@ async function refreshData() {
   letter-spacing: 0.01em;
   text-decoration: none;
   white-space: nowrap;
-   white-space: normal;      
+   white-space: normal;
   word-break: break-word;
   max-width: 250px;
 }
@@ -2987,6 +1264,26 @@ async function refreshData() {
   color: #174a79;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.quotation-reference--number {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quotation-reference-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quotation-revision-chip {
+  height: 18px !important;
+  margin: 0 !important;
+  font-size: 8.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
 }
 
 .subject-cell {
@@ -3109,6 +1406,12 @@ async function refreshData() {
   background: #eef1f4 !important;
 }
 
+.quotation-action-trigger[aria-expanded="true"] {
+  color: #fcfcfc !important;
+  background: #fe9258 !important;
+  box-shadow: inset 0 0 0 1px #d3e2ef;
+}
+
 .quotation-action-menu {
   padding: 4px !important;
   border: 1px solid #dfe3e8;
@@ -3143,940 +1446,6 @@ async function refreshData() {
   text-align: center;
 }
 
-.gap-2 {
-  gap: 8px;
-}
-
-.signature-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.signature-line {
-  width: 180px;
-  border-bottom: 1px solid #737b86;
-  margin-top: -2px;
-}
-
-.signature-name {
-  margin-top: 7px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #303740;
-  text-align: center;
-}
-
-/* Quotation form dialog */
-.quotation-dialog-card {
-  color: #1f2937;
-  background: #f5f6f8;
-  border: 1px solid #d9dee5;
-  border-radius: 10px !important;
-  overflow: hidden;
-}
-
-.quotation-dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  min-height: 72px;
-  padding: 14px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid #dfe3e8;
-}
-
-.quotation-dialog-heading,
-.quotation-dialog-header-actions,
-.quotation-dialog-heading > div:last-child {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.quotation-dialog-heading {
-  gap: 12px;
-}
-
-.quotation-dialog-heading > div:last-child {
-  align-items: flex-start;
-  flex-direction: column;
-}
-
-.quotation-dialog-heading h2 {
-  margin: 0;
-  color: #202833;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.quotation-dialog-heading p {
-  max-width: 520px;
-  margin: 2px 0 0;
-  overflow: hidden;
-  color: #7a8491;
-  font-size: 11px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quotation-dialog-icon {
-  display: grid;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  color: #315f8c;
-  background: #eef3f8;
-  border: 1px solid #dce6ef;
-  border-radius: 6px;
-}
-
-.quotation-dialog-header-actions {
-  flex: 0 0 auto;
-  gap: 8px;
-}
-
-.quotation-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  padding: 0 10px;
-  color: #586474;
-  font-size: 11px;
-  font-weight: 600;
-  background: #f7f8fa;
-  border: 1px solid #dfe3e8;
-  border-radius: 4px;
-}
-
-.quotation-status-dot {
-  width: 6px;
-  height: 6px;
-  background: #d8972e;
-  border-radius: 50%;
-}
-
-.quotation-dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 18px !important;
-  background: #f5f6f8;
-}
-
-.quotation-form-section {
-  padding: 18px;
-  background: #ffffff;
-  border: 1px solid #dfe3e8;
-  border-radius: 7px;
-}
-
-.quotation-section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.quotation-section-header > div {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.quotation-section-header h3 {
-  margin: 0;
-  color: #27313d;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 22px;
-}
-
-.quotation-section-header p {
-  margin: 3px 0 0;
-  color: #8a939f;
-  font-size: 10px;
-  line-height: 1.5;
-  text-align: right;
-}
-
-.quotation-section-index {
-  display: inline-grid;
-  width: 24px;
-  height: 22px;
-  place-items: center;
-  color: #566575;
-  font-size: 9px;
-  font-weight: 700;
-  background: #f1f3f5;
-  border: 1px solid #e0e4e8;
-  border-radius: 4px;
-}
-
-.quotation-client-picker {
-  display: grid;
-  grid-template-columns: 180px repeat(2, minmax(0, 1fr));
-  align-items: flex-end;
-  gap: 10px;
-  margin-bottom: 9px;
-}
-
-.quotation-date-field {
-  min-width: 0;
-}
-
-.quotation-client-select {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.quotation-add-client-btn {
-  flex: 0 0 auto;
-  height: 32px !important;
-  padding-inline: 13px !important;
-  font-size: 11px !important;
-  letter-spacing: 0 !important;
-  border-radius: 4px !important;
-}
-
-.quotation-client-master-actions {
-  display: flex;
-  margin-bottom: 12px;
-  align-items: center;
-  gap: 4px;
-}
-
-.quotation-operation-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.quotation-client-details {
-  display: grid;
-  grid-template-columns: minmax(220px, 1.7fr) repeat(2, minmax(140px, 1fr));
-  gap: 1px;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: #dfe3e8;
-  border: 1px solid #dfe3e8;
-  border-radius: 5px;
-}
-
-.quotation-client-detail {
-  min-width: 0;
-  min-height: 52px;
-  padding: 8px 11px;
-  background: #fafbfc;
-}
-
-.quotation-client-detail dt {
-  margin-bottom: 3px;
-  color: #828c98;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.035em;
-  line-height: 1.25;
-  text-transform: uppercase;
-}
-
-.quotation-client-detail dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: #354150;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.quotation-currency-section {
-  padding: 13px 18px;
-  background: #ffffff;
-  border: 1px solid #dfe3e8;
-  border-radius: 7px;
-}
-
-.quotation-currency-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 13px;
-}
-
-.quotation-currency-heading > div:first-child {
-  min-width: 0;
-}
-
-.quotation-currency-section h3 {
-  margin: 0;
-  color: #27313d;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.quotation-currency-section p {
-  margin: 2px 0 0;
-  color: #8a939f;
-  font-size: 10px;
-}
-
-.quotation-currency-fields {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-.quotation-currency-field {
-  flex: 0 0 160px;
-  width: 160px;
-}
-
-.quotation-items-section {
-  padding: 0;
-}
-
-.quotation-items-header {
-  align-items: center;
-  margin: 0;
-  padding: 16px 18px;
-  border-bottom: 1px solid #e4e7eb;
-}
-
-.quotation-add-row-btn {
-  height: 30px !important;
-  padding-inline: 11px !important;
-  font-size: 10px !important;
-  letter-spacing: 0 !important;
-  border-radius: 4px !important;
-}
-
-.quotation-line-item {
-  margin: 14px 18px 0;
-  padding: 14px;
-  background: #fbfcfd;
-  border: 1px solid #dfe3e8;
-  border-radius: 6px;
-}
-
-.quotation-line-item-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 26px;
-  margin: -3px 0 10px;
-}
-
-.quotation-line-item-header > div {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.quotation-item-drag-handle,
-.quotation-term-drag-handle {
-  display: inline-grid;
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  place-items: center;
-  color: #7a8795;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-}
-
-.quotation-item-drag-handle {
-  margin-left: -5px;
-}
-
-.quotation-item-drag-handle:hover,
-.quotation-term-drag-handle:hover {
-  color: #315f8c;
-  background: #edf3f8;
-  border-color: #d4e0eb;
-}
-
-.quotation-item-drag-handle:focus-visible,
-.quotation-term-drag-handle:focus-visible {
-  outline: 2px solid rgba(24, 103, 192, 0.32);
-  outline-offset: 1px;
-}
-
-.quotation-item-drag-handle:active,
-.quotation-term-drag-handle:active {
-  cursor: grabbing;
-}
-
-.quotation-sortable-ghost {
-  opacity: 0.35;
-}
-
-.quotation-sortable-chosen {
-  background: #f2f7fb !important;
-  border-color: #9db8d1 !important;
-}
-
-.quotation-sortable-drag {
-  opacity: 0.95;
-  box-shadow: 0 10px 28px rgba(31, 50, 70, 0.18);
-}
-
-.quotation-delete-item-btn {
-  min-width: 76px;
-  height: 28px !important;
-  padding-inline: 9px !important;
-  font-size: 10px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0 !important;
-  border-radius: 4px !important;
-}
-
-.quotation-line-number {
-  min-width: 25px;
-  color: #315f8c;
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.quotation-line-title {
-  color: #687482;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.quotation-suggestions {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.quotation-suggestions > span {
-  flex: 0 0 auto;
-  padding-top: 4px;
-  color: #7a8491;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.quotation-suggestions > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.quotation-category {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin: 13px 0;
-}
-
-.quotation-field-label {
-  color: #495057;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.quotation-category-options {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
-}
-
-.quotation-item-fields {
-  display: grid;
-  grid-template-columns:
-    minmax(66px, 0.55fr) minmax(90px, 0.75fr) minmax(150px, 1.2fr)
-    minmax(155px, 1.25fr) minmax(165px, 1.3fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.quotation-markup-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.quotation-markup-actions button {
-  min-width: 42px;
-  height: 23px;
-  padding: 0 7px;
-  color: #21764b;
-  font: inherit;
-  font-size: 10px;
-  font-weight: 600;
-  background: #f3faf6;
-  border: 1px solid #bddfc9;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.quotation-markup-actions button:hover:not(:disabled) {
-  color: #155e3a;
-  background: #e6f5ec;
-  border-color: #81bf98;
-}
-
-.quotation-markup-actions > button.is-active {
-  color: #ffffff;
-  background: #21764b;
-  border-color: #21764b;
-  box-shadow: 0 0 0 2px rgba(33, 118, 75, 0.14);
-}
-
-.quotation-markup-actions > button.is-active:hover:not(:disabled) {
-  color: #ffffff;
-  background: #155e3a;
-  border-color: #155e3a;
-}
-
-.quotation-markup-actions button:focus-visible,
-.quotation-add-row-secondary:focus-visible {
-  outline: 2px solid rgba(24, 103, 192, 0.3);
-  outline-offset: 2px;
-}
-
-.quotation-markup-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.quotation-custom-markup {
-  display: grid;
-  grid-template-columns: 52px auto 24px;
-  align-items: center;
-  height: 23px;
-  overflow: hidden;
-  color: #4f5d68;
-  background: #ffffff;
-  border: 1px solid #bddfc9;
-  border-radius: 4px;
-}
-
-.quotation-custom-markup input {
-  width: 52px;
-  height: 21px;
-  padding: 0 5px;
-  color: #33404d;
-  font: inherit;
-  font-size: 10px;
-  background: transparent;
-  border: 0;
-  outline: 0;
-}
-
-.quotation-custom-markup input::placeholder {
-  color: #929ca6;
-}
-
-.quotation-custom-markup span {
-  padding-right: 3px;
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.quotation-markup-actions .quotation-custom-markup-apply {
-  min-width: 24px;
-  width: 24px;
-  height: 21px;
-  padding: 0;
-  color: #21764b;
-  background: #f3faf6;
-  border: 0;
-  border-left: 1px solid #d6e8dd;
-  border-radius: 0;
-}
-
-.quotation-markup-actions .quotation-custom-markup-apply:hover:not(:disabled) {
-  background: #e6f5ec;
-}
-
-.quotation-custom-markup:focus-within {
-  border-color: #70ad87;
-  box-shadow: 0 0 0 2px rgba(33, 118, 75, 0.12);
-}
-
-.quotation-add-row-secondary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: calc(100% - 36px);
-  min-height: 34px;
-  margin: 12px 18px 16px;
-  color: #4f6377;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  background: #ffffff;
-  border: 1px dashed #b8c2cc;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.quotation-add-row-secondary:hover {
-  color: #245b8f;
-  background: #f7fafc;
-  border-color: #7f9db9;
-}
-
-.quotation-commercial-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
-  gap: 14px;
-  align-items: stretch;
-}
-
-.quotation-summary-section,
-.quotation-sign-section {
-  min-width: 0;
-}
-
-.quotation-discount-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.quotation-discount-fields :deep(.v-field) {
-  border-radius: 4px;
-}
-
-.quotation-discount-fields :deep(.v-field__input) {
-  min-height: 38px;
-  padding-block: 6px;
-  font-size: 12px;
-}
-
-.quotation-discount-fields :deep(.v-label) {
-  font-size: 11px;
-}
-
-.quotation-totals {
-  border-top: 1px solid #e1e5ea;
-}
-
-.quotation-totals > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 35px;
-  color: #697585;
-  font-size: 11px;
-  border-bottom: 1px solid #edf0f2;
-}
-
-.quotation-totals strong {
-  color: #303a46;
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.quotation-totals .quotation-discount-value {
-  color: #b54747;
-}
-
-.quotation-totals .quotation-grand-total {
-  min-height: 48px;
-  color: #263443;
-  border-bottom: 0;
-}
-
-.quotation-grand-total span {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.quotation-grand-total strong {
-  color: #173f66;
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.quotation-signature-preview {
-  display: grid;
-  min-height: 112px;
-  margin-top: 12px;
-  padding: 12px;
-  place-items: center;
-  background: #fafbfc;
-  border: 1px solid #e1e5ea;
-  border-radius: 5px;
-}
-
-.quotation-terms-header {
-  align-items: center;
-}
-
-.quotation-selected-count {
-  padding: 4px 8px;
-  color: #596777;
-  font-size: 10px;
-  font-weight: 600;
-  background: #f2f4f6;
-  border: 1px solid #e0e4e8;
-  border-radius: 4px;
-}
-
-.quotation-terms-lists {
-  display: grid;
-  gap: 12px;
-}
-
-.quotation-term-controls {
-  display: flex;
-  max-width: 680px;
-  margin-bottom: 12px;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.quotation-term-search {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 7px;
-  padding-left: 9px;
-  color: #7b8794;
-  background: #ffffff;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-}
-
-.quotation-term-search :deep(.input-field) {
-  display: block;
-  height: 32px !important;
-  min-height: 32px !important;
-  padding: 5px 0 !important;
-  overflow: hidden;
-  line-height: 20px !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  resize: none;
-}
-
-.quotation-term-search :deep(.form-group),
-.quotation-term-search :deep(.input-wrapper) {
-  height: 32px;
-}
-
-.quotation-term-add-btn {
-  flex: 0 0 auto;
-  min-width: 118px;
-  height: 34px !important;
-  padding-inline: 11px !important;
-  font-size: 9px !important;
-  font-weight: 650 !important;
-  letter-spacing: 0 !important;
-  border-radius: 4px !important;
-}
-
-.quotation-terms-table-wrap {
-  overflow-x: auto;
-  border: 1px solid #dfe3e8;
-  border-radius: 5px;
-}
-
-.quotation-terms-table {
-  width: 100%;
-  color: #485462;
-  font-size: 11px;
-  border-collapse: collapse;
-}
-
-.quotation-terms-table caption {
-  padding: 7px 10px;
-  color: #3f4d5c;
-  font-size: 10px;
-  font-weight: 700;
-  text-align: left;
-  background: #ffffff;
-  border-bottom: 1px solid #dfe3e8;
-}
-
-.quotation-terms-table th {
-  height: 32px;
-  padding: 7px 10px;
-  color: #657281;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-align: left;
-  text-transform: uppercase;
-  background: #f5f6f8;
-  border-bottom: 1px solid #dfe3e8;
-}
-
-.quotation-terms-table th:first-child,
-.quotation-terms-table td:first-child {
-  width: 40px;
-  padding: 0;
-  text-align: center;
-}
-
-.quotation-terms-table th:nth-child(2),
-.quotation-terms-table td:nth-child(2) {
-  width: 44px;
-  text-align: center;
-}
-
-.quotation-terms-table th:nth-child(3),
-.quotation-terms-table td:nth-child(3) {
-  width: 58px;
-  padding: 0;
-  text-align: center;
-}
-
-.quotation-terms-table--available th:first-child,
-.quotation-terms-table--available td:first-child {
-  width: 44px;
-}
-
-.quotation-terms-table--available th:nth-child(2),
-.quotation-terms-table--available td:nth-child(2) {
-  width: 58px;
-  padding: 0;
-}
-
-.quotation-terms-table--available th:nth-child(3),
-.quotation-terms-table--available td:nth-child(3) {
-  width: auto;
-  padding: 6px 10px;
-  text-align: left;
-}
-
-.quotation-term-drag-handle {
-  margin: 0 auto;
-}
-
-.quotation-terms-table td {
-  min-height: 38px;
-  padding: 6px 10px;
-  line-height: 1.45;
-  vertical-align: middle;
-  border-bottom: 1px solid #e8ebee;
-}
-
-.quotation-terms-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.quotation-terms-table tbody tr:hover {
-  background: #fafbfc;
-}
-
-.quotation-term-checkbox {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 38px;
-  margin: 0;
-}
-
-.quotation-term-checkbox :deep(.v-input__control),
-.quotation-term-checkbox :deep(.v-selection-control) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
-.quotation-term-checkbox :deep(.v-selection-control) {
-  min-height: 38px;
-}
-
-.quotation-terms-empty {
-  height: 52px;
-  color: #8b95a1;
-  text-align: center !important;
-}
-
-.quotation-terms-empty strong,
-.quotation-terms-empty span {
-  display: block;
-}
-
-.quotation-terms-empty strong {
-  color: #687582;
-  font-size: 10px;
-}
-
-.quotation-terms-empty span {
-  margin-top: 3px;
-  color: #929ca6;
-  font-size: 8px;
-}
-
-.quotation-dialog-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  min-height: 64px;
-  padding: 12px 20px;
-  background: #ffffff;
-  border-top: 1px solid #dfe3e8;
-}
-
-.quotation-dialog-footer p {
-  margin: 0;
-  color: #7b8591;
-  font-size: 10px;
-  line-height: 1.45;
-}
-
-.quotation-dialog-footer > div {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 8px;
-}
-
-.quotation-cancel-btn,
-.quotation-save-btn {
-  min-width: 104px;
-  height: 34px !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0 !important;
-  border-radius: 4px !important;
-}
-
-.quotation-save-btn {
-  min-width: 142px;
-}
-
-.quotation-dialog-card :deep(.input-field),
-.quotation-dialog-card :deep(.date-input-wrapper) {
-  border-radius: 4px;
-}
-
 @media (max-width: 1199px) {
   .quotation-filter-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4086,26 +1455,6 @@ async function refreshData() {
 @media (max-width: 959px) {
   .quotation-filter-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .quotation-dialog-body {
-    padding: 14px !important;
-  }
-
-  .quotation-item-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .quotation-client-details {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .quotation-client-address {
-    grid-column: 1 / -1;
-  }
-
-  .quotation-commercial-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -4122,7 +1471,9 @@ async function refreshData() {
     flex-basis: auto;
   }
 
-  .quotation-list-tools { justify-content: flex-end; }
+  .quotation-list-tools {
+    justify-content: flex-end;
+  }
 
   .quotation-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4134,155 +1485,6 @@ async function refreshData() {
   .quotation-filter-divider,
   .quotation-filter-toggle {
     display: none !important;
-  }
-
-  .quotation-dialog-card {
-    border: 0;
-    border-radius: 0 !important;
-  }
-
-  .quotation-dialog-header {
-    min-height: 64px;
-    padding: 11px 12px;
-  }
-
-  .quotation-dialog-heading {
-    gap: 9px;
-  }
-
-  .quotation-dialog-icon {
-    flex-basis: 32px;
-    width: 32px;
-    height: 32px;
-  }
-
-  .quotation-dialog-heading h2 {
-    font-size: 14px;
-  }
-
-  .quotation-dialog-heading p,
-  .quotation-status {
-    display: none;
-  }
-
-  .quotation-dialog-body {
-    gap: 10px;
-    padding: 10px !important;
-  }
-
-  .quotation-form-section {
-    padding: 14px;
-  }
-
-  .quotation-section-header {
-    margin-bottom: 13px;
-  }
-
-  .quotation-section-header p {
-    display: none;
-  }
-
-  .quotation-client-details,
-  .quotation-item-fields,
-  .quotation-discount-fields {
-    grid-template-columns: 1fr;
-  }
-
-  .quotation-subject-field,
-  .quotation-client-address {
-    grid-column: auto;
-  }
-
-  .quotation-client-picker {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .quotation-operation-fields {
-    grid-template-columns: 1fr;
-  }
-
-  .quotation-client-master-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .quotation-client-master-actions .v-btn {
-    width: 100%;
-  }
-
-  .quotation-currency-section {
-    padding: 13px 14px;
-  }
-
-  .quotation-currency-heading {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .quotation-currency-field {
-    flex-basis: auto;
-    width: 100%;
-  }
-
-  .quotation-add-client-btn {
-    align-self: flex-start;
-  }
-
-  .quotation-items-header {
-    padding: 13px 14px;
-  }
-
-  .quotation-line-item {
-    margin: 10px 10px 0;
-    padding: 12px;
-  }
-
-  .quotation-category {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .quotation-category-options {
-    gap: 10px 16px;
-  }
-
-  .quotation-add-row-secondary {
-    width: calc(100% - 20px);
-    margin: 10px;
-  }
-
-  .quotation-term-controls {
-    max-width: none;
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .quotation-term-add-btn {
-    width: 100%;
-  }
-
-  .quotation-dialog-footer {
-    align-items: stretch;
-    padding: 10px 12px;
-  }
-
-  .quotation-dialog-footer p {
-    display: none;
-  }
-
-  .quotation-dialog-footer > div {
-    display: grid;
-    flex: 1;
-    grid-template-columns: 1fr 1.25fr;
-  }
-
-  .quotation-cancel-btn,
-  .quotation-save-btn {
-    width: 100%;
-    min-width: 0;
   }
 }
 </style>

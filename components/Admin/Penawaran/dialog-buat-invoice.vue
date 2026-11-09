@@ -1065,8 +1065,17 @@ async function save() {
     ppn: ppn.value,
     status: "Draft",
     grandtotal_invoice: grandTotal.value,
-    id_penawaran: props.penawaran.id,
+    id_penawaran:
+      props.penawaran.root_penawaran_id ||
+      props.penawaran.id ||
+      props.penawaran.id_penawaran,
     no_penawaran: props.penawaran.no_penawaran,
+    id_revisi_penawaran:
+      props.penawaran.id_revisi || props.penawaran.active_revision_id,
+    nomor_revisi_penawaran:
+      Number(props.penawaran.revision_number) ||
+      Number(props.penawaran.active_revision_number) ||
+      0,
     tanggal_preorder: form.value.tanggal_preorder,
     tanggal_penawaran: props.penawaran.tanggal_penawaran,
     createdAt: moment().unix(),
@@ -1109,11 +1118,17 @@ async function save() {
     const result = await createInvoicePenawaran(payload);
     if (!result) return;
 
-    const penawaran = JSON.parse(JSON.stringify(props.penawaran)) as penawaranM;
-    const penawaranUpdated = await penawaranStore.updatePenawaranAct({
-      ...penawaran,
-      status: "INVOICE",
-    });
+    const rootPenawaranId =
+      props.penawaran.root_penawaran_id ||
+      props.penawaran.id ||
+      props.penawaran.id_penawaran;
+    if (!rootPenawaranId) {
+      return notificationStore.showError("ID penawaran tidak ditemukan");
+    }
+    const penawaranUpdated = await penawaranStore.updatePenawaranStatusAct(
+      rootPenawaranId,
+      "INVOICE",
+    );
     if (!penawaranUpdated) return;
 
     emit("update:modelValue", false);

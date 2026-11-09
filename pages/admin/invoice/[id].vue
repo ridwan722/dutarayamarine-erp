@@ -455,7 +455,7 @@
       <div class="invoice-panel-heading">
         <div>
           <h2>Dokumen & Referensi</h2>
-          <p>Referensi transaksi dan lampiran yang terkait dengan invoice.</p>
+          <!-- <p>Referensi transaksi dan lampiran yang terkait dengan invoice.</p> -->
         </div>
       </div>
 
@@ -585,11 +585,11 @@
       </div>
     </section>
 
-    <section class="invoice-financial-panel" aria-label="Ringkasan keuangan">
+    <section class="invoice-financial-panel" aria-label="Financial Summary">
       <div class="invoice-panel-heading invoice-financial-heading">
         <div>
-          <h2>Ringkasan Keuangan</h2>
-          <p>Posisi nilai invoice dan pengeluaran project saat ini.</p>
+          <h2>Financial Summary</h2>
+          <!-- <p>Posisi nilai invoice dan pengeluaran project saat ini.</p> -->
         </div>
       </div>
 
@@ -802,7 +802,7 @@ const scheduleInvoicePreviewLayout = () => {
 };
 
 onMounted(async () => {
-  useloadingStore().setLoading(true);
+  // useloadingStore().setLoading(true);
   try {
     await invoiceStore.tarikDetailInvoiceAct(route.params.id as string);
 
@@ -816,7 +816,7 @@ onMounted(async () => {
       relatedInvoices.value = invoices as invoiceM[];
     }
   } finally {
-    useloadingStore().setLoading(false);
+    // useloadingStore().setLoading(false);
   }
 });
 
@@ -1739,6 +1739,7 @@ async function ubahStatusSelesai() {
 
 .invoice-panel-heading {
   display: flex;
+  justify-content: center;
   align-items: center;
   justify-content: space-between;
   gap: 18px;

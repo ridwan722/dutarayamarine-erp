@@ -148,7 +148,7 @@ onMounted(() => loadPurchaseOrders());
       />
       <div>
         <h3>Purchase Order</h3>
-        <p>Kelola daftar purchase order vendor dari seluruh quotation.</p>
+        <!-- <p>Kelola daftar purchase order vendor dari seluruh quotation.</p> -->
       </div>
     </div>
     <v-btn

@@ -213,7 +213,7 @@
           <div class="invoice-line-item-header">
             <span>Item {{ String(index + 1).padStart(2, "0") }}</span>
             <v-btn
-              icon="mdi-trash-can-outline"
+              icon="mdi-delete-outline"
               size="x-small"
               variant="text"
               color="error"
@@ -716,7 +716,7 @@
               <template v-if="item.status === 'Draft'">
                 <v-divider class="my-1" />
                 <v-list-item
-                  prepend-icon="mdi-trash-can-outline"
+                  prepend-icon="mdi-delete-outline"
                   title="Delete invoice"
                   class="invoice-menu-danger"
                   @click="hapusInvoice(item.id_penawaran!, item.id!)"

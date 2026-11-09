@@ -53,6 +53,8 @@ export interface invoiceM {
 
   id_penawaran?: string;
   no_penawaran?: string;
+  id_revisi_penawaran?: string;
+  nomor_revisi_penawaran?: number;
   tanggal_penawaran?: string;
 
   tanggal: string;

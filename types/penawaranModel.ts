@@ -19,6 +19,25 @@ export interface penawaranM {
 
   created_at: number;
   created_by: string;
+  updated_at?: number;
+  updated_by?: string;
+  createdAt?: number;
+  createdBy?: string;
+  updatedAt?: number;
+  updatedBy?: string;
+
+  revision_number?: number;
+  revision_count?: number;
+  active_revision_id?: string;
+  active_revision_number?: number;
+  materialized_revision_id?: string;
+  materialized_revision_number?: number;
+  id_revisi?: string;
+  no_revisi?: string;
+  root_penawaran_id?: string;
+  revision_of?: string;
+  revision_created_at?: number;
+  revision_created_by?: string;
 
   status: string;
 

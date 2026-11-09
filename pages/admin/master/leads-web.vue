@@ -179,7 +179,7 @@ async function hapusLeads(id?: string) {
 
     <header class="leads-hero">
       <div class="leads-hero-copy">
-        <span class="leads-eyebrow">Master Data</span>
+        <!-- <span class="leads-eyebrow">Master Data</span> -->
         <h1>Leads Website</h1>
         <p>
           Kelola prospek dan inquiry yang masuk melalui
