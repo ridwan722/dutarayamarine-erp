@@ -1,6 +1,6 @@
 <template>
   <div class="soa-canvas">
-    <div class="soa-preview-container">
+    <div class="soa-preview-container" :style="{ zoom: previewZoom }">
       <div ref="printArea" class="soa-paper-wrapper">
         <article class="soa-paper">
           <header class="letterhead">
@@ -256,7 +256,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from "vue";
 
 interface SoaInvoiceSnapshot {
   id: string;
@@ -284,12 +291,39 @@ const props = defineProps<{ soaDetail: SoaDetail }>();
 const printArea = ref<HTMLElement | null>(null);
 const isSavingPdf = ref(false);
 const showBankDetails = ref(false);
+const previewZoom = ref(1);
+let previewResizeObserver: ResizeObserver | null = null;
 const soaNoteDisplay = reactive({
   heading: "NOTE :",
   discrepancy:
     "** Unless notified in writing of any discrepancies in the invoice within fourteen (14) days of receipts by the Customer, the invoiced amount shall be deemed to be accurate and conclusive.",
   payment:
     "** Payment shall be made in immediately available funds and shall be in full, free, and clear of and without any deduction for or account of any bank charges, legal or equitable set-offs, counterclaims, imposts, taxes or withholdings of any nature whatsoever.",
+});
+
+function updatePreviewZoom() {
+  if (typeof window === "undefined") return;
+
+  const previewWidth =
+    printArea.value?.closest<HTMLElement>(".soa-canvas")?.clientWidth || 0;
+  const isMobile = window.matchMedia("(max-width: 700px)").matches;
+  previewZoom.value =
+    isMobile && previewWidth > 0 ? Math.min(1, previewWidth / 1123) : 1;
+}
+
+onMounted(() => {
+  updatePreviewZoom();
+  const canvasRoot = printArea.value?.closest<HTMLElement>(".soa-canvas");
+  if (canvasRoot) {
+    previewResizeObserver = new ResizeObserver(updatePreviewZoom);
+    previewResizeObserver.observe(canvasRoot);
+  }
+  window.addEventListener("resize", updatePreviewZoom);
+});
+
+onBeforeUnmount(() => {
+  previewResizeObserver?.disconnect();
+  window.removeEventListener("resize", updatePreviewZoom);
 });
 
 const outstandingTotal = computed(() =>
@@ -991,6 +1025,10 @@ function printSoa() {
   display: none !important;
 }
 
+.soa-preview-container:has(.soa-paper.soa-pdf-capture) {
+  zoom: 1 !important;
+}
+
 .soa-title {
   margin: 0 0 17px;
   font-size: 18px;
@@ -1269,7 +1307,11 @@ function printSoa() {
 
 @media (max-width: 700px) {
   .soa-preview-container {
-    justify-content: flex-start;
+    width: 1123px;
+    max-width: none;
+    margin-inline: auto;
+    justify-content: center;
+    overflow: visible;
   }
 
   .soa-paper-wrapper {

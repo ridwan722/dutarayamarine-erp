@@ -2,14 +2,14 @@
   <ConfirmationDialog ref="confirmationDialog" />
   <div class="invoice-page-topbar">
     <v-btn
-        icon="mdi-arrow-left"
-        variant="text"
-        color="grey-darken-3"
-        size="small"
-        class="invoice-back-btn"
-        aria-label="Kembali"
-        @click="$router.go(-1)"
-      />
+      icon="mdi-arrow-left"
+      variant="text"
+      color="grey-darken-3"
+      size="small"
+      class="invoice-back-btn"
+      aria-label="Kembali"
+      @click="$router.go(-1)"
+    />
 
     <div class="invoice-page-heading">
       <div>
@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <v-btn
+    <!-- <v-btn
       variant="outlined"
       size="small"
       class="invoice-page-refresh-btn text-none"
@@ -28,7 +28,7 @@
       @click="refreshData"
     >
       Refresh
-    </v-btn>
+    </v-btn> -->
   </div>
 
   <!-- /// DIALOG BUAT INVOICE \\\ -->
@@ -50,7 +50,13 @@
             <h2>
               {{ data.invoiceAddEdit === "add" ? "Create" : "Edit" }} Invoice
             </h2>
-            <p>{{ newInvoice.no_inv ? `Invoice ${newInvoice.no_inv}` : "Invoice details and billing information" }}</p>
+            <p>
+              {{
+                newInvoice.no_inv
+                  ? `Invoice ${newInvoice.no_inv}`
+                  : "Invoice details and billing information"
+              }}
+            </p>
           </div>
         </div>
         <div class="invoice-dialog-header-actions">
@@ -72,7 +78,10 @@
       <v-card-text class="invoice-dialog-body">
         <section class="invoice-form-section">
           <div class="invoice-section-header">
-            <div><span>01</span><h3>Client Information</h3></div>
+            <div>
+              <span>01</span>
+              <h3>Client Information</h3>
+            </div>
             <p>Detail client yang terhubung dengan invoice.</p>
           </div>
           <div class="invoice-client-picker">
@@ -87,18 +96,39 @@
             />
           </div>
           <dl class="invoice-client-details">
-            <div class="invoice-client-address"><dt>Address</dt><dd>{{ newInvoice.alamat_customer || "—" }}</dd></div>
-            <div><dt>PIC</dt><dd>{{ newInvoice.pic || "—" }}</dd></div>
-            <div><dt>Phone Number</dt><dd>{{ newInvoice.no_telp || "—" }}</dd></div>
-            <div><dt>Email</dt><dd>{{ newInvoice.email || "—" }}</dd></div>
-            <div><dt>Vessel</dt><dd>{{ newInvoice.vessel || "—" }}</dd></div>
+            <div class="invoice-client-address">
+              <dt>Address</dt>
+              <dd>{{ newInvoice.alamat_customer || "—" }}</dd>
+            </div>
+            <div>
+              <dt>PIC</dt>
+              <dd>{{ newInvoice.pic || "—" }}</dd>
+            </div>
+            <div>
+              <dt>Phone Number</dt>
+              <dd>{{ newInvoice.no_telp || "—" }}</dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd>{{ newInvoice.email || "—" }}</dd>
+            </div>
+            <div>
+              <dt>Vessel</dt>
+              <dd>{{ newInvoice.vessel || "—" }}</dd>
+            </div>
           </dl>
         </section>
 
         <section class="invoice-form-section">
           <div class="invoice-section-header">
-            <div><span>02</span><h3>Purchase Order &amp; Subject</h3></div>
-            <p>Informasi PO bersifat opsional dan dapat dilengkapi dengan dokumen.</p>
+            <div>
+              <span>02</span>
+              <h3>Purchase Order &amp; Subject</h3>
+            </div>
+            <p>
+              Informasi PO bersifat opsional dan dapat dilengkapi dengan
+              dokumen.
+            </p>
           </div>
           <div class="invoice-po-fields">
             <a-text-field-new
@@ -117,118 +147,123 @@
             />
           </div>
 
-        <div class="mt-3">
-          <div class="po-upload-row">
-            <!-- Upload -->
-            <div class="po-upload-wrapper">
-              <label for="invoice-po-files" class="po-upload-label">
-                Dokumen PO
-              </label>
+          <div class="mt-3">
+            <div class="po-upload-row">
+              <!-- Upload -->
+              <div class="po-upload-wrapper">
+                <label for="invoice-po-files" class="po-upload-label">
+                  Dokumen PO
+                </label>
 
-              <div class="po-upload-box">
-                <input
-                  id="invoice-po-files"
-                  type="file"
-                  multiple
-                  :disabled="readingPo || savingInvoice"
-                  @change="tambahDokumenPo"
-                  class="po-file-input"
-                />
+                <div class="po-upload-box">
+                  <input
+                    id="invoice-po-files"
+                    type="file"
+                    multiple
+                    :disabled="readingPo || savingInvoice"
+                    @change="tambahDokumenPo"
+                    class="po-file-input"
+                  />
 
-                <div class="po-upload-icon">↑</div>
+                  <div class="po-upload-icon">↑</div>
 
-                <div class="po-upload-text">
-                  <div class="po-upload-title">Pilih File</div>
-                  <div class="po-upload-info">Maks. 650 KB</div>
+                  <div class="po-upload-text">
+                    <div class="po-upload-title">Pilih File</div>
+                    <div class="po-upload-info">Maks. 650 KB</div>
+                  </div>
+                </div>
+
+                <div v-if="readingPo" class="po-reading">
+                  Membaca file PO...
                 </div>
               </div>
 
-              <div v-if="readingPo" class="po-reading">Membaca file PO...</div>
-            </div>
+              <!-- Hasil Upload -->
+              <div
+                v-if="newInvoice.doc_preorder?.length"
+                class="po-files-wrapper"
+              >
+                <div class="po-upload-label">File Terpilih</div>
 
-            <!-- Hasil Upload -->
-            <div
-              v-if="newInvoice.doc_preorder?.length"
-              class="po-files-wrapper"
-            >
-              <div class="po-upload-label">File Terpilih</div>
-
-              <div class="po-file-list">
-                <div
-                  v-for="(document, index) in newInvoice.doc_preorder"
-                  :key="index"
-                  class="po-file-item"
-                >
-                  <a
-                    :href="document.dataUrl"
-                    :download="document.name"
-                    class="po-file-name"
+                <div class="po-file-list">
+                  <div
+                    v-for="(document, index) in newInvoice.doc_preorder"
+                    :key="index"
+                    class="po-file-item"
                   >
-                    📄 {{ document.name }}
-                  </a>
+                    <a
+                      :href="document.dataUrl"
+                      :download="document.name"
+                      class="po-file-name"
+                    >
+                      📄 {{ document.name }}
+                    </a>
 
-                  <button
-                    type="button"
-                    class="po-file-remove"
-                    :disabled="readingPo || savingInvoice"
-                    :aria-label="`Hapus ${document.name}`"
-                    @click="newInvoice.doc_preorder?.splice(index, 1)"
-                  >
-                    ×
-                  </button>
+                    <button
+                      type="button"
+                      class="po-file-remove"
+                      :disabled="readingPo || savingInvoice"
+                      :aria-label="`Hapus ${document.name}`"
+                      @click="newInvoice.doc_preorder?.splice(index, 1)"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <a-textarea-new
-          v-model="newInvoice.perihal"
-          class="invoice-subject-field"
-          label="Subject"
-          placeholder="subject"
-        />
+          <a-textarea-new
+            v-model="newInvoice.perihal"
+            class="invoice-subject-field"
+            label="Subject"
+            placeholder="subject"
+          />
         </section>
 
         <section class="invoice-form-section invoice-items-section">
-        <div class="invoice-section-header invoice-items-header">
-          <div><span>03</span><h3>Invoice Items</h3></div>
-          <v-btn
-            size="small"
-            variant="outlined"
-            color="primary"
-            prepend-icon="mdi-plus"
-            class="invoice-add-row-btn text-none"
-            @click="tambahBarisInvoice"
-          >
-            Add Item
-          </v-btn>
-        </div>
-
-        <div
-          v-for="(item, index) in newInvoice.item_pekerjaan"
-          :key="index"
-          class="invoice-line-item"
-        >
-          <div class="invoice-line-item-header">
-            <span>Item {{ String(index + 1).padStart(2, "0") }}</span>
+          <div class="invoice-section-header invoice-items-header">
+            <div>
+              <span>03</span>
+              <h3>Invoice Items</h3>
+            </div>
             <v-btn
-              icon="mdi-delete-outline"
-              size="x-small"
-              variant="text"
-              color="error"
-              aria-label="Hapus item invoice"
-              @click="hapusBarisInvoice(index)"
-            />
+              size="small"
+              variant="outlined"
+              color="primary"
+              prepend-icon="mdi-plus"
+              class="invoice-add-row-btn text-none"
+              @click="tambahBarisInvoice"
+            >
+              Add Item
+            </v-btn>
           </div>
-          <div class="invoice-item-description">
+
+          <div
+            v-for="(item, index) in newInvoice.item_pekerjaan"
+            :key="index"
+            class="invoice-line-item"
+          >
+            <div class="invoice-line-item-header">
+              <span>Item {{ String(index + 1).padStart(2, "0") }}</span>
+              <v-btn
+                icon="mdi-delete-outline"
+                size="x-small"
+                variant="text"
+                color="error"
+                aria-label="Hapus item invoice"
+                @click="hapusBarisInvoice(index)"
+              />
+            </div>
+            <div class="invoice-item-description">
               <a-textarea-new
                 v-model="item.nama"
                 label="Description"
                 placeholder="Description"
               />
-          </div>
-          <div class="invoice-item-fields">
+            </div>
+            <div class="invoice-item-fields">
               <a-select-new
                 v-model="item.kategori_item"
                 label="Kategori"
@@ -276,69 +311,73 @@
                 placeholder="0"
                 disabled
               />
+            </div>
           </div>
-        </div>
 
-        <a-select-new
-          v-model="newInvoice.sign_by"
-          :items="[
-            'Seilla Maryana',
-            'Leo Adiatmaja Sembiring',
-            'Muhammad Ridwan',
-            'Lilis',
-          ]"
-          label="Sign By / Yang Bertanda Tangan ?"
-          class="invoice-sign-field"
-        />
+          <a-select-new
+            v-model="newInvoice.sign_by"
+            :items="[
+              'Seilla Maryana',
+              'Leo Adiatmaja Sembiring',
+              'Muhammad Ridwan',
+              'Lilis',
+            ]"
+            label="Sign By / Yang Bertanda Tangan ?"
+            class="invoice-sign-field"
+          />
         </section>
 
         <!-- Bagian Template: Update tabel Terms & Conditions -->
         <section class="invoice-form-section">
           <div class="invoice-section-header">
-            <div><span>04</span><h3>Terms &amp; Conditions</h3></div>
+            <div>
+              <span>04</span>
+              <h3>Terms &amp; Conditions</h3>
+            </div>
             <p>Pilih ketentuan yang akan dicantumkan pada invoice.</p>
           </div>
 
           <div class="invoice-term-table-wrap">
-          <table class="invoice-term-table">
-            <tbody>
-              <tr
-                v-for="(item, index) in sortedTermConditions"
-                :key="item?.id ?? index"
-              >
-                <td class="invoice-term-number">
-                  {{ index + 1 }}.
-                </td>
+            <table class="invoice-term-table">
+              <tbody>
+                <tr
+                  v-for="(item, index) in sortedTermConditions"
+                  :key="item?.id ?? index"
+                >
+                  <td class="invoice-term-number">{{ index + 1 }}.</td>
 
-                <td class="invoice-term-check">
-                  <v-checkbox
-                    v-model="newInvoice.termCondition"
-                    :value="{
-                      id: item?.id ?? '',
-                      nama_term: item?.nama_term ?? '',
-                      createdAt: item?.createdAt ?? 0,
-                      createdBy: item?.createdBy ?? '',
-                    }"
-                    :value-comparator="sameTermCondition"
-                    density="compact"
-                    hide-details
-                    color="primary"
-                    class="invoice-term-checkbox"
-                  />
-                </td>
+                  <td class="invoice-term-check">
+                    <v-checkbox
+                      v-model="newInvoice.termCondition"
+                      :value="{
+                        id: item?.id ?? '',
+                        nama_term: item?.nama_term ?? '',
+                        createdAt: item?.createdAt ?? 0,
+                        createdBy: item?.createdBy ?? '',
+                      }"
+                      :value-comparator="sameTermCondition"
+                      density="compact"
+                      hide-details
+                      color="primary"
+                      class="invoice-term-checkbox"
+                    />
+                  </td>
 
-                <td class="invoice-term-name">
-                  {{ item?.nama_term }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <td class="invoice-term-name">
+                    {{ item?.nama_term }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
         <section class="invoice-form-section invoice-summary-section">
           <div class="invoice-section-header">
-            <div><span>05</span><h3>Commercial Summary</h3></div>
+            <div>
+              <span>05</span>
+              <h3>Commercial Summary</h3>
+            </div>
             <p>Ringkasan pajak, termin, dan nilai akhir invoice.</p>
           </div>
           <v-row justify="end" align="center">
@@ -362,9 +401,12 @@
                 class="d-flex justify-space-between text-body-2 text-grey-darken-2 mb-1"
               >
                 <span>Subtotal</span>
-                <span class="font-weight-medium text-grey-darken-3"
-                  >{{ formatInvoiceCurrency(subtotal_invoice, newInvoice.currency_inv) }}</span
-                >
+                <span class="font-weight-medium text-grey-darken-3">{{
+                  formatInvoiceCurrency(
+                    subtotal_invoice,
+                    newInvoice.currency_inv,
+                  )
+                }}</span>
               </div>
               <div
                 v-if="discountInvoice > 0"
@@ -372,10 +414,18 @@
               >
                 <span>Discount</span>
                 <span class="font-weight-medium text-grey-darken-3"
-                  >- {{ formatInvoiceCurrency(discountInvoice, newInvoice.currency_inv) }}</span
+                  >-
+                  {{
+                    formatInvoiceCurrency(
+                      discountInvoice,
+                      newInvoice.currency_inv,
+                    )
+                  }}</span
                 >
               </div>
-              <div class="d-flex flex-wrap align-center justify-space-between ga-2 text-body-2 text-grey-darken-2 mb-1">
+              <div
+                class="d-flex flex-wrap align-center justify-space-between ga-2 text-body-2 text-grey-darken-2 mb-1"
+              >
                 <v-checkbox
                   v-model="newInvoice.down_payment"
                   label="Termin"
@@ -390,8 +440,13 @@
                   suffix="%"
                   style="max-width: 130px"
                 />
-                <span v-if="newInvoice.down_payment" class="font-weight-medium text-grey-darken-3">
-                  {{ formatInvoiceCurrency(dpNominal, newInvoice.currency_inv) }}
+                <span
+                  v-if="newInvoice.down_payment"
+                  class="font-weight-medium text-grey-darken-3"
+                >
+                  {{
+                    formatInvoiceCurrency(dpNominal, newInvoice.currency_inv)
+                  }}
                 </span>
               </div>
               <div
@@ -399,9 +454,9 @@
                 class="d-flex justify-space-between text-body-2 text-grey-darken-2 mb-2"
               >
                 <span>PPN 11%</span>
-                <span class="font-weight-medium text-grey-darken-3"
-                  >{{ formatInvoiceCurrency(ppnInvoice, newInvoice.currency_inv) }}</span
-                >
+                <span class="font-weight-medium text-grey-darken-3">{{
+                  formatInvoiceCurrency(ppnInvoice, newInvoice.currency_inv)
+                }}</span>
               </div>
               <v-divider class="my-2" />
               <div class="d-flex justify-space-between align-center">
@@ -409,9 +464,12 @@
                   class="text-subtitle-1 font-weight-bold text-grey-darken-4"
                   >Grand Total</span
                 >
-                <span class="text-h6 font-weight-black text-primary"
-                  >{{ formatInvoiceCurrency(grandtotal_invoice, newInvoice.currency_inv) }}</span
-                >
+                <span class="text-h6 font-weight-black text-primary">{{
+                  formatInvoiceCurrency(
+                    grandtotal_invoice,
+                    newInvoice.currency_inv,
+                  )
+                }}</span>
               </div>
             </v-col>
           </v-row>
@@ -419,34 +477,37 @@
       </v-card-text>
 
       <footer class="invoice-dialog-footer">
-        <p>Pastikan detail client, item, dan total invoice sudah sesuai sebelum disimpan.</p>
+        <p>
+          Pastikan detail client, item, dan total invoice sudah sesuai sebelum
+          disimpan.
+        </p>
         <div>
-        <v-btn
-          size="small"
-          variant="outlined"
-          color="grey-darken-1"
-          class="invoice-cancel-btn text-none"
-          :disabled="readingPo || savingInvoice"
-          @click="data.dialogTambahInvoice = false"
-        >
-          Batal
-        </v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          size="small"
-          prepend-icon="mdi-content-save-outline"
-          class="invoice-save-btn text-none"
-          :disabled="readingPo || savingInvoice"
-          :loading="savingInvoice"
-          @click="simpanInvoiceDialog"
-        >
-          {{
-            data.invoiceAddEdit === "add"
-              ? "Simpan Invoice"
-              : "Simpan Perubahan"
-          }}
-        </v-btn>
+          <v-btn
+            size="small"
+            variant="outlined"
+            color="grey-darken-1"
+            class="invoice-cancel-btn text-none"
+            :disabled="readingPo || savingInvoice"
+            @click="data.dialogTambahInvoice = false"
+          >
+            Batal
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            size="small"
+            prepend-icon="mdi-content-save-outline"
+            class="invoice-save-btn text-none"
+            :disabled="readingPo || savingInvoice"
+            :loading="savingInvoice"
+            @click="simpanInvoiceDialog"
+          >
+            {{
+              data.invoiceAddEdit === "add"
+                ? "Simpan Invoice"
+                : "Simpan Perubahan"
+            }}
+          </v-btn>
         </div>
       </footer>
     </v-card>
@@ -457,12 +518,12 @@
     max-width="840"
     scrollable
     :fullscreen="display.mdAndDown.value"
-    :persistent="savingSoa"
+    persistent
   >
     <v-card class="soa-dialog-card" elevation="0">
       <header class="soa-dialog-header">
         <div>
-          <h2>Buat Statement of Account</h2>
+          <h2>Create Statement of Account</h2>
           <p>Pilih perusahaan, invoice Draft, tanggal, dan penandatangan.</p>
         </div>
         <v-btn
@@ -488,7 +549,11 @@
             density="compact"
             hide-details
             class="soa-v-select"
-            :no-data-text="isLoading ? 'Memuat invoice...' : 'Tidak ada perusahaan dengan invoice Draft'"
+            :no-data-text="
+              isLoading
+                ? 'Memuat invoice...'
+                : 'Tidak ada perusahaan dengan invoice Draft'
+            "
           />
 
           <v-text-field
@@ -525,7 +590,12 @@
             </p>
           </div>
           <strong v-if="selectedSoaInvoices.length" class="soa-picker-total">
-            {{ formatInvoiceCurrency(selectedSoaOutstanding, soaSelectionGroup?.currency) }}
+            {{
+              formatInvoiceCurrency(
+                selectedSoaOutstanding,
+                soaSelectionGroup?.currency,
+              )
+            }}
           </strong>
         </div>
 
@@ -542,7 +612,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="invoice in soaSelectableInvoices" :key="invoiceDocumentId(invoice)">
+              <tr
+                v-for="invoice in soaSelectableInvoices"
+                :key="invoiceDocumentId(invoice)"
+              >
                 <td class="soa-invoice-check-cell">
                   <v-checkbox
                     :model-value="isSoaInvoiceSelected(invoice)"
@@ -553,8 +626,12 @@
                     @update:model-value="setSoaInvoiceSelected(invoice, $event)"
                   />
                 </td>
-                <td class="soa-invoice-reference">{{ invoiceReference(invoice) }}</td>
-                <td>{{ soaSelectedCompany?.nama || invoice.nama_customer || "—" }}</td>
+                <td class="soa-invoice-reference">
+                  {{ invoiceReference(invoice) }}
+                </td>
+                <td>
+                  {{ soaSelectedCompany?.nama || invoice.nama_customer || "—" }}
+                </td>
                 <td class="soa-invoice-date-cell">
                   {{ formatSoaInvoiceDate(invoice.tanggal) }}
                 </td>
@@ -562,8 +639,15 @@
                   {{ invoice.perihal || "—" }}
                 </td>
                 <td class="soa-invoice-amount-cell">
-                  {{ formatInvoiceCurrency(invoice.grandtotal_invoice, invoice.currency_inv) }}
-                  <small>{{ normalizeInvoiceCurrency(invoice.currency_inv) }}</small>
+                  {{
+                    formatInvoiceCurrency(
+                      invoice.grandtotal_invoice,
+                      invoice.currency_inv,
+                    )
+                  }}
+                  <small>{{
+                    normalizeInvoiceCurrency(invoice.currency_inv)
+                  }}</small>
                 </td>
               </tr>
               <tr v-if="!soaSelectableInvoices.length">
@@ -581,7 +665,10 @@
           <span>Pilih perusahaan untuk menampilkan invoice Draft.</span>
         </div>
 
-        <div v-if="soaForm.id_perusahaan && soaSelectableInvoices.length" class="soa-company-summary">
+        <div
+          v-if="soaForm.id_perusahaan && soaSelectableInvoices.length"
+          class="soa-company-summary"
+        >
           <v-icon icon="mdi-domain" size="16" />
           <span>Perusahaan dipilih</span>
           <strong>{{ soaSelectedCompany?.nama || "—" }}</strong>
@@ -605,7 +692,9 @@
             variant="flat"
             class="text-none"
             prepend-icon="mdi-content-save-outline"
-            :disabled="!selectedSoaInvoices.length || !soaForm.sign_by || savingSoa"
+            :disabled="
+              !selectedSoaInvoices.length || !soaForm.sign_by || savingSoa
+            "
             :loading="savingSoa"
             @click="createSoa"
           >
@@ -621,7 +710,9 @@
       <header class="soa-preview-dialog-header">
         <div>
           <h2>Statement of Account</h2>
-          <p v-if="activeSoa">{{ activeSoa.nama_customer }} · {{ activeSoa.currency }}</p>
+          <p v-if="activeSoa">
+            {{ activeSoa.nama_customer }} · {{ activeSoa.currency }}
+          </p>
         </div>
         <v-btn
           icon="mdi-close"
@@ -659,9 +750,21 @@
       </div>
 
       <div class="invoice-list-tools">
+        <v-btn
+          variant="outlined"
+          size="small"
+          class="invoice-page-refresh-btn text-none"
+          prepend-icon="mdi-refresh"
+          :loading="isRefreshing"
+          :disabled="isRefreshing"
+          @click="refreshData"
+        >
+          Refresh
+        </v-btn>
         <span class="invoice-result-count">
           {{ invoiceTampilTersaring.length }} invoice
         </span>
+
         <v-btn
           size="small"
           class="invoice-filter-toggle invoice-toolbar-btn text-none"
@@ -814,11 +917,16 @@
       </template>
 
       <template #item.tanggal="{ item }">
-        <span class="invoice-date-cell">{{ rubahtanggallengkap(item.tanggal) }}</span>
+        <span class="invoice-date-cell">{{
+          rubahtanggallengkap(item.tanggal)
+        }}</span>
       </template>
 
       <template #item.no_inv="{ item }">
-        <NuxtLink :to="`/admin/invoice/${item.no_inv}`" class="invoice-reference">
+        <NuxtLink
+          :to="`/admin/invoice/${item.no_inv}`"
+          class="invoice-reference"
+        >
           #INV/DRM/{{ invoiceYear(item.tanggal) }}/{{ item.no_inv }}
           <v-icon icon="mdi-arrow-top-right" size="12" />
         </NuxtLink>
@@ -828,9 +936,17 @@
         <div class="invoice-client-cell">
           <div class="invoice-client-name">{{ item.nama_customer || "—" }}</div>
           <div class="invoice-client-meta">
-            <span><v-icon icon="mdi-ferry" size="12" />{{ item.vessel || "—" }}</span>
+            <span
+              ><v-icon icon="mdi-ferry" size="12" />{{
+                item.vessel || "—"
+              }}</span
+            >
             <i aria-hidden="true"></i>
-            <span><v-icon icon="mdi-account-outline" size="12" />{{ item.pic || "—" }}</span>
+            <span
+              ><v-icon icon="mdi-account-outline" size="12" />{{
+                item.pic || "—"
+              }}</span
+            >
           </div>
         </div>
       </template>
@@ -847,7 +963,10 @@
       </template>
 
       <template #item.perihal="{ item }">
-        <NuxtLink :to="`/admin/invoice/${item.no_inv}`" class="invoice-reference">
+        <NuxtLink
+          :to="`/admin/invoice/${item.no_inv}`"
+          class="invoice-reference"
+        >
           {{ item.perihal || "—" }}
           <!-- <v-icon icon="mdi-arrow-top-right" size="12" /> -->
         </NuxtLink>
@@ -856,7 +975,9 @@
 
       <template #item.grandtotal_invoice="{ item }">
         <strong class="invoice-amount-cell">
-          {{ formatInvoiceCurrency(item.grandtotal_invoice, item.currency_inv) }}
+          {{
+            formatInvoiceCurrency(item.grandtotal_invoice, item.currency_inv)
+          }}
         </strong>
       </template>
 
@@ -871,18 +992,14 @@
             <v-icon start icon="mdi-circle" size="6" />
             {{ item.status || "Draft" }}
           </v-chip>
-          <v-tooltip
-            v-if="isInvoiceInSoa(item)"
-            text="SOA"
-            location="top"
-          >
+          <v-tooltip v-if="isInvoiceInSoa(item)" text="SOA" location="top">
             <template #activator="{ props: tooltipProps }">
               <v-icon
                 v-bind="tooltipProps"
                 icon="mdi-message-alert"
                 size="14"
-                color="grey-darken-1"
-                aria-label="Invoice sudah dibuatkan SOA"
+                color="primary"
+                aria-label="SOA"
               />
             </template>
           </v-tooltip>
@@ -903,7 +1020,11 @@
                 aria-label="Buka menu aksi invoice"
               />
             </template>
-            <v-list density="compact" min-width="195" class="invoice-action-menu">
+            <v-list
+              density="compact"
+              min-width="195"
+              class="invoice-action-menu"
+            >
               <v-list-item
                 :to="`/admin/invoice/${item.id}`"
                 prepend-icon="mdi-eye-outline"
@@ -931,7 +1052,11 @@
 
       <template #no-data>
         <div class="invoice-empty-state">
-          <v-icon size="34" color="grey-lighten-1" icon="mdi-receipt-text-outline" />
+          <v-icon
+            size="34"
+            color="grey-lighten-1"
+            icon="mdi-receipt-text-outline"
+          />
           <div>
             {{
               hasActiveInvoiceFilters
@@ -949,7 +1074,10 @@
           <span>Total Amount</span>
           <small>{{ invoiceTampilTersaring.length }} invoice</small>
         </div>
-        <div v-if="invoiceTableTotals.length" class="invoice-table-total-values">
+        <div
+          v-if="invoiceTableTotals.length"
+          class="invoice-table-total-values"
+        >
           <div
             v-for="total in invoiceTableTotals"
             :key="total.currency"
@@ -969,7 +1097,9 @@
   <v-card class="soa-list-card" flat>
     <header class="soa-list-header">
       <div class="soa-list-title">
-        <span class="soa-list-icon"><v-icon icon="mdi-message-alert" size="18" /></span>
+        <span class="soa-list-icon"
+          ><v-icon icon="mdi-message-alert" size="18" color="primary"
+        /></span>
         <div>
           <h2>Daftar SOA</h2>
           <p>{{ soaRecords.length }} Statement of Account tersimpan</p>
@@ -977,10 +1107,9 @@
       </div>
       <div class="soa-list-header-actions">
         <v-btn
-          color="primary"
-          variant="flat"
+          variant="outlined"
           size="small"
-          class="text-none invoice-page-soa-btn"
+          class="invoice-page-create-btn invoice-page-soa-btn text-none"
           prepend-icon="mdi-message-plus"
           :disabled="isLoading"
           @click="openSoaDialog"
@@ -990,13 +1119,13 @@
         <v-btn
           size="small"
           variant="outlined"
-          class="text-none"
+          class="invoice-page-refresh-btn text-none"
           prepend-icon="mdi-refresh"
           :loading="loadingSoa"
           :disabled="loadingSoa"
           @click="loadSoaRecords(true)"
         >
-          Refresh SOA
+          Refresh
         </v-btn>
       </div>
     </header>
@@ -1019,7 +1148,9 @@
       </template>
 
       <template #item.nama_customer="{ item }">
-        <strong class="soa-list-customer">{{ item.nama_customer || "—" }}</strong>
+        <strong class="soa-list-customer">{{
+          item.nama_customer || "—"
+        }}</strong>
       </template>
 
       <template #item.invoiceCount="{ item }">
@@ -1147,14 +1278,37 @@ const soaForm = reactive({
   sign_by: "",
 });
 const soaHeaders = [
-  { title: "No", value: "no", sortable: false, width: "56px", align: "center" as const },
-  { title: "Tanggal SOA", value: "tanggal_soa", sortable: true, width: "150px" },
+  {
+    title: "No",
+    value: "no",
+    sortable: false,
+    width: "56px",
+    align: "center" as const,
+  },
+  {
+    title: "Tanggal SOA",
+    value: "tanggal_soa",
+    sortable: true,
+    width: "150px",
+  },
   { title: "Customer", value: "nama_customer", sortable: true, width: "240px" },
   { title: "Mata Uang", value: "currency", sortable: true, width: "100px" },
   { title: "Invoice", value: "invoiceCount", sortable: false, width: "110px" },
-  { title: "Outstanding", value: "outstanding", sortable: false, width: "180px", align: "end" as const },
+  {
+    title: "Outstanding",
+    value: "outstanding",
+    sortable: false,
+    width: "180px",
+    align: "end" as const,
+  },
   { title: "Sign By", value: "sign_by", sortable: true, width: "190px" },
-  { title: "Aksi", value: "aksi", sortable: false, align: "center" as const, width: "70px" },
+  {
+    title: "Aksi",
+    value: "aksi",
+    sortable: false,
+    align: "center" as const,
+    width: "70px",
+  },
 ];
 
 const data = reactive({
@@ -1183,15 +1337,38 @@ const data = reactive({
   filterStatus: "",
   showAllInvoice: false,
   headInvoice: [
-    { title: "No", value: "no", width: "48px", align: "center" as const, sortable: false },
+    {
+      title: "No",
+      value: "no",
+      width: "48px",
+      align: "center" as const,
+      sortable: false,
+    },
     { title: "Date", value: "tanggal", sortable: true, width: "116px" },
-    { title: "Invoice Ref", value: "no_inv", sortable: true, width: "190px" },
-    { title: "Client", value: "nama_customer", sortable: true, width: "250px" },
-    { title: "Based On", value: "no_penawaran", sortable: true, width: "150px" },
+    { title: "Invoice Ref", value: "no_inv", sortable: true, width: "150px" },
+    { title: "Client", value: "nama_customer", sortable: true, width: "210px" },
+    {
+      title: "Based On",
+      value: "no_penawaran",
+      sortable: true,
+      width: "150px",
+    },
     { title: "Subject", value: "perihal", sortable: true, width: "220px" },
-    { title: "Total Amount", value: "grandtotal_invoice", sortable: true, width: "155px", align: "end" as const },
+    {
+      title: "Total Amount",
+      value: "grandtotal_invoice",
+      sortable: true,
+      width: "155px",
+      align: "end" as const,
+    },
     { title: "Status", value: "status", sortable: true, width: "120px" },
-    { title: "Action", align: "center" as const, value: "aksi", width: "58px", sortable: false },
+    {
+      title: "Action",
+      align: "center" as const,
+      value: "aksi",
+      width: "58px",
+      sortable: false,
+    },
   ],
 });
 
@@ -1209,9 +1386,7 @@ const invoiceFilterKeys = [
 ] as const;
 
 function invoiceFilterSnapshot() {
-  return Object.fromEntries(
-    invoiceFilterKeys.map((key) => [key, data[key]]),
-  );
+  return Object.fromEntries(invoiceFilterKeys.map((key) => [key, data[key]]));
 }
 
 function restoreInvoiceFilters() {
@@ -1338,13 +1513,16 @@ function formatInvoiceCurrency(value: number, currency?: string) {
 const soaDraftInvoices = computed(() =>
   invoiceStore.getDataInvoice.filter(
     (invoice) =>
-      String(invoice.status || "").trim().toLocaleLowerCase("id-ID") ===
-      "draft",
+      String(invoice.status || "")
+        .trim()
+        .toLocaleLowerCase("id-ID") === "draft",
   ),
 );
 
 function normalizeCompanyName(value?: string) {
-  return String(value || "").trim().toLocaleLowerCase("id-ID");
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("id-ID");
 }
 
 const soaCompanyOptions = computed<SoaCompanyOption[]>(() => {
@@ -1357,8 +1535,10 @@ const soaCompanyOptions = computed<SoaCompanyOption[]>(() => {
     const hasDraftInvoice = soaDraftInvoices.value.some((invoice) => {
       const invoiceCompanyId = invoice.id_customer?.trim();
       if (invoiceCompanyId) return invoiceCompanyId === id;
-      return normalizeCompanyName(invoice.nama_customer) ===
-        normalizeCompanyName(company.nama);
+      return (
+        normalizeCompanyName(invoice.nama_customer) ===
+        normalizeCompanyName(company.nama)
+      );
     });
 
     if (hasDraftInvoice) companies.set(id, { id, nama: company.nama });
@@ -1400,8 +1580,10 @@ const soaSelectableInvoices = computed(() => {
     .filter((invoice) => {
       const invoiceCompanyId = invoice.id_customer?.trim();
       if (invoiceCompanyId) return invoiceCompanyId === company.id;
-      return normalizeCompanyName(invoice.nama_customer) ===
-        normalizeCompanyName(company.nama);
+      return (
+        normalizeCompanyName(invoice.nama_customer) ===
+        normalizeCompanyName(company.nama)
+      );
     })
     .sort((first, second) =>
       String(second.tanggal || "").localeCompare(String(first.tanggal || "")),
@@ -1473,7 +1655,9 @@ function invoiceOutstanding(invoice: invoiceM) {
 
 function isInvoicePaid(invoice: invoiceM) {
   return ["selesai", "lunas"].includes(
-    String(invoice.status || "").trim().toLocaleLowerCase("id-ID"),
+    String(invoice.status || "")
+      .trim()
+      .toLocaleLowerCase("id-ID"),
   );
 }
 
@@ -1483,8 +1667,10 @@ function isSoaInvoiceSelected(invoice: invoiceM) {
 
 function canSelectSoaInvoice(invoice: invoiceM) {
   if (isSoaInvoiceSelected(invoice) || !soaSelectionGroup.value) return true;
-  return normalizeInvoiceCurrency(invoice.currency_inv) ===
-    soaSelectionGroup.value.currency;
+  return (
+    normalizeInvoiceCurrency(invoice.currency_inv) ===
+    soaSelectionGroup.value.currency
+  );
 }
 
 function setSoaInvoiceSelected(invoice: invoiceM, selected: unknown) {
@@ -1555,7 +1741,8 @@ async function loadSoaRecords(showSuccess = false) {
         id: document.id,
       }))
       .sort((first, second) => second.createdAt - first.createdAt);
-    if (showSuccess) notificationStore.showSuccess("Daftar SOA berhasil diperbarui");
+    if (showSuccess)
+      notificationStore.showSuccess("Daftar SOA berhasil diperbarui");
   } catch (error) {
     console.error("Gagal memuat daftar SOA:", error);
     notificationStore.showError("Daftar SOA gagal dimuat");
@@ -1591,8 +1778,9 @@ async function createSoa() {
 
   savingSoa.value = true;
   try {
-    const selectedInvoices = [...selectedSoaInvoices.value].sort((first, second) =>
-      String(second.tanggal || "").localeCompare(String(first.tanggal || "")),
+    const selectedInvoices = [...selectedSoaInvoices.value].sort(
+      (first, second) =>
+        String(second.tanggal || "").localeCompare(String(first.tanggal || "")),
     );
     const snapshots: SoaInvoiceSnapshot[] = selectedInvoices.map((invoice) => {
       const debit = Math.max(0, Number(invoice.grandtotal_invoice) || 0);
@@ -1708,7 +1896,8 @@ async function tambahDokumenPo(event: Event) {
 
 const subtotal_invoice = computed(() =>
   newInvoice.value.item_pekerjaan.reduce(
-    (total, item) => total + (Number(item.qty) || 0) * (Number(item.amount) || 0),
+    (total, item) =>
+      total + (Number(item.qty) || 0) * (Number(item.amount) || 0),
     0,
   ),
 );
@@ -1791,10 +1980,7 @@ const filteredInvoice = computed(() => {
 });
 
 const availableInvoiceStatuses = computed(() => {
-  const defaultStatuses = [
-    "Draft",
-    "Selesai",
-  ];
+  const defaultStatuses = ["Draft", "Selesai"];
   const storedStatuses = invoiceStore.getDataInvoice
     .map((invoice) => invoice.status || "Draft")
     .filter(Boolean);
@@ -1811,7 +1997,9 @@ const availableInvoiceClients = computed(() => {
 });
 
 function normalizeFilterValue(value: unknown) {
-  return String(value ?? "").trim().toLocaleLowerCase("id-ID");
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("id-ID");
 }
 
 function containsFilterValue(query: string, values: unknown[]) {
@@ -1833,11 +2021,10 @@ const activeInvoiceFilterCount = computed(
     ].filter((value) => String(value).trim() !== "").length,
 );
 
-const hasActiveInvoiceFilters = computed(
-  () =>
-    display.xs.value
-      ? Boolean(data.searchInvoice.trim())
-      : activeInvoiceFilterCount.value > 0,
+const hasActiveInvoiceFilters = computed(() =>
+  display.xs.value
+    ? Boolean(data.searchInvoice.trim())
+    : activeInvoiceFilterCount.value > 0,
 );
 
 const invoiceTampilTersaring = computed(() => {
@@ -1883,29 +2070,32 @@ const invoiceTampilTersaring = computed(() => {
 
     if (!containsFilterValue(globalQuery, searchableValues)) return false;
     if (display.xs.value) return true;
-    if (
-      !containsFilterValue(invoiceQuery, [invoice.no_inv, invoiceReference])
-    ) return false;
+    if (!containsFilterValue(invoiceQuery, [invoice.no_inv, invoiceReference]))
+      return false;
     if (
       selectedClient &&
       normalizeFilterValue(invoice.nama_customer) !== selectedClient
-    ) return false;
+    )
+      return false;
     if (
       !containsFilterValue(quotationQuery, [
         invoice.no_penawaran,
         invoice.id_penawaran,
       ])
-    ) return false;
+    )
+      return false;
     if (
       !containsFilterValue(subjectQuery, [invoice.perihal, ...itemDescriptions])
-    ) return false;
+    )
+      return false;
     if (data.filterDateFrom && invoiceDate < data.filterDateFrom) return false;
     if (data.filterDateTo && invoiceDate > data.filterDateTo) return false;
     if (data.filterStatus && invoiceStatus !== data.filterStatus) return false;
     if (
       amountQuery &&
       !String(invoiceAmount).replace(/\D/g, "").includes(amountQuery)
-    ) return false;
+    )
+      return false;
 
     return true;
   });
@@ -1918,8 +2108,7 @@ const invoiceTableTotals = computed(() => {
     const currency = normalizeInvoiceCurrency(invoice.currency_inv);
     totals.set(
       currency,
-      (totals.get(currency) || 0) +
-        (Number(invoice.grandtotal_invoice) || 0),
+      (totals.get(currency) || 0) + (Number(invoice.grandtotal_invoice) || 0),
     );
   });
 
@@ -2042,7 +2231,9 @@ async function simpanInvoiceDialog() {
       Number(newInvoice.value.dp_persen) <= 0 ||
       Number(newInvoice.value.dp_persen) > 100)
   ) {
-    return notificationStore.showError("Persentase termin harus antara 1 dan 100");
+    return notificationStore.showError(
+      "Persentase termin harus antara 1 dan 100",
+    );
   }
 
   newInvoice.value.item_pekerjaan.forEach((item) => {
@@ -2114,10 +2305,7 @@ async function refreshData() {
   isRefreshing.value = true;
   try {
     sessionStorage.removeItem("invoice");
-    await Promise.all([
-      invoiceStore.tarikDataInvoiceAct(),
-      loadSoaRecords(),
-    ]);
+    await Promise.all([invoiceStore.tarikDataInvoiceAct(), loadSoaRecords()]);
     notificationStore.showSuccess("Data berhasil diperbarui");
   } catch (error) {
     console.error("Gagal memperbarui data invoice:", error);
@@ -2129,7 +2317,9 @@ async function refreshData() {
 </script>
 
 <style scoped>
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 .invoice-page-topbar {
   display: flex;
@@ -2139,7 +2329,9 @@ async function refreshData() {
   gap: 14px;
 }
 
-.invoice-back-btn { flex: 0 0 auto; }
+.invoice-back-btn {
+  flex: 0 0 auto;
+}
 
 .invoice-page-heading {
   display: flex;
@@ -2218,7 +2410,10 @@ async function refreshData() {
 
 .soa-form-fields {
   display: grid;
-  grid-template-columns: minmax(220px, 1.35fr) minmax(155px, 0.8fr) minmax(190px, 1fr);
+  grid-template-columns: minmax(220px, 1.35fr) minmax(155px, 0.8fr) minmax(
+      190px,
+      1fr
+    );
   align-items: start;
   gap: 10px;
 }
@@ -2311,6 +2506,7 @@ async function refreshData() {
   color: #344b65 !important;
   font-weight: 700;
   white-space: nowrap;
+  min-width: fit-content;
 }
 
 .soa-invoice-id-cell {
@@ -2531,7 +2727,9 @@ async function refreshData() {
   background: #ffffff;
   border: 1px solid #d6dbe1;
   border-radius: 5px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .invoice-list-search:focus-within {
@@ -2539,9 +2737,14 @@ async function refreshData() {
   box-shadow: 0 0 0 2px rgba(49, 95, 140, 0.08);
 }
 
-.invoice-list-search-field { min-width: 0; flex: 1 1 auto; }
+.invoice-list-search-field {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .invoice-list-search :deep(.form-group),
-.invoice-list-search :deep(.input-wrapper) { height: 32px; }
+.invoice-list-search :deep(.input-wrapper) {
+  height: 32px;
+}
 .invoice-list-search :deep(.input-field) {
   height: 32px !important;
   min-height: 32px !important;
@@ -2555,7 +2758,12 @@ async function refreshData() {
   resize: none;
 }
 
-.invoice-list-tools { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
+.invoice-list-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
 .invoice-result-count {
   margin-right: 5px;
   color: #858f9b;
@@ -2578,6 +2786,18 @@ async function refreshData() {
   padding-inline: 12px !important;
   flex: 0 0 auto;
   color: #526171 !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-color: #d6dbe1 !important;
+  border-radius: 5px !important;
+}
+
+.invoice-page-create-btn {
+  height: 34px !important;
+  padding-inline: 12px !important;
+  flex: 0 0 auto;
+  color: #15579e !important;
   font-size: 10.5px !important;
   font-weight: 600 !important;
   letter-spacing: 0 !important;
@@ -2655,7 +2875,9 @@ async function refreshData() {
   background: #ffffff;
   border: 1px solid #d8dde3;
   border-radius: 4px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .invoice-filter-field select {
@@ -2664,7 +2886,9 @@ async function refreshData() {
   cursor: pointer;
 }
 
-.invoice-filter-select { position: relative; }
+.invoice-filter-select {
+  position: relative;
+}
 
 .invoice-filter-select-icon {
   position: absolute;
@@ -2675,15 +2899,22 @@ async function refreshData() {
   transform: translateY(-50%);
 }
 
-.invoice-filter-field input::placeholder { color: #a3abb4; }
+.invoice-filter-field input::placeholder {
+  color: #a3abb4;
+}
 .invoice-filter-field input:focus,
 .invoice-filter-field select:focus {
   border-color: #7da5cc;
   box-shadow: 0 0 0 2px rgba(49, 95, 140, 0.08);
 }
 
-.invoice-list-table { color: #344050; font-size: 11px; }
-.invoice-list-table :deep(table) { min-width: 1320px; }
+.invoice-list-table {
+  color: #344050;
+  font-size: 11px;
+}
+.invoice-list-table :deep(table) {
+  min-width: 1280px;
+}
 .invoice-list-table :deep(.v-data-table__th) {
   height: 37px !important;
   padding: 0 12px !important;
@@ -2695,7 +2926,9 @@ async function refreshData() {
   background: #f7f8fa !important;
   border-bottom: 1px solid #dfe3e8 !important;
 }
-.invoice-list-table :deep(.v-data-table-header__content) { gap: 3px; }
+.invoice-list-table :deep(.v-data-table-header__content) {
+  gap: 3px;
+}
 .invoice-list-table :deep(.v-data-table__td) {
   height: 56px !important;
   padding: 8px 12px !important;
@@ -2703,8 +2936,12 @@ async function refreshData() {
   vertical-align: middle;
   border-bottom-color: #edf0f2 !important;
 }
-.invoice-list-table :deep(tbody tr) { transition: background-color 0.12s ease; }
-.invoice-list-table :deep(tbody tr:hover > td) { background: #fafbfd !important; }
+.invoice-list-table :deep(tbody tr) {
+  transition: background-color 0.12s ease;
+}
+.invoice-list-table :deep(tbody tr:hover > td) {
+  background: #fafbfd !important;
+}
 
 .invoice-table-total-wrapper {
   display: flex;
@@ -2781,21 +3018,32 @@ async function refreshData() {
   padding-top: 6px;
 }
 
-.invoice-row-index { color: #9aa3ae; font-size: 10px; font-variant-numeric: tabular-nums; }
-.invoice-date-cell { color: #556170; font-size: 10.5px; white-space: nowrap; }
+.invoice-row-index {
+  color: #9aa3ae;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.invoice-date-cell {
+  color: #556170;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
 .invoice-reference {
   display: inline-flex;
-  align-items: center;
-  max-width: 250px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
   gap: 4px;
   color: #285f91;
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.035em;
   text-decoration: none;
-  white-space: nowrap;
-  white-space: normal;      
-  word-break: break-word;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.invoice-list-table :deep(.v-data-table__td:nth-child(3)) {
+  padding-right: 4px !important;
 }
 .invoice-reference:hover,
 .invoice-quotation-reference:hover {
@@ -2803,15 +3051,17 @@ async function refreshData() {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.invoice-client-cell { min-width: 210px; max-width: 260px; }
+.invoice-client-cell {
+  min-width: 0;
+  max-width: 100%;
+}
 .invoice-client-name {
-  overflow: hidden;
   color: #273444;
   font-size: 11px;
   font-weight: 700;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .invoice-client-meta {
   display: flex;
@@ -2867,7 +3117,9 @@ async function refreshData() {
   text-align: right;
   white-space: nowrap;
 }
-.invoice-empty-value { color: #9ba4ae; }
+.invoice-empty-value {
+  color: #9ba4ae;
+}
 .invoice-table-status {
   height: 22px !important;
   padding-inline: 8px !important;
@@ -2876,10 +3128,26 @@ async function refreshData() {
   letter-spacing: 0.015em !important;
   border-radius: 4px !important;
 }
-.invoice-status-cell { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.invoice-row-actions { display: flex; align-items: center; justify-content: center; }
-.invoice-action-trigger { width: 28px !important; height: 28px !important; border-radius: 4px !important; }
-.invoice-action-trigger:hover { color: #26384b !important; background: #eef1f4 !important; }
+.invoice-status-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.invoice-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.invoice-action-trigger {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+}
+.invoice-action-trigger:hover {
+  color: #26384b !important;
+  background: #eef1f4 !important;
+}
 .invoice-action-menu {
   padding: 4px !important;
   border: 1px solid #dfe3e8;
@@ -2891,12 +3159,27 @@ async function refreshData() {
   padding-inline: 9px !important;
   border-radius: 4px !important;
 }
-.invoice-action-menu :deep(.v-list-item-title) { font-size: 10.5px !important; font-weight: 500; }
-.invoice-action-menu :deep(.v-list-item__prepend > .v-icon) { margin-inline-end: 9px !important; font-size: 16px !important; }
-.invoice-menu-danger { color: #b44949 !important; }
-.invoice-empty-state { padding: 44px 16px; color: #8a949f; font-size: 11px; text-align: center; }
-.invoice-empty-state .v-icon { display: block; margin: 0 auto 8px; }
-
+.invoice-action-menu :deep(.v-list-item-title) {
+  font-size: 10.5px !important;
+  font-weight: 500;
+}
+.invoice-action-menu :deep(.v-list-item__prepend > .v-icon) {
+  margin-inline-end: 9px !important;
+  font-size: 16px !important;
+}
+.invoice-menu-danger {
+  color: #b44949 !important;
+}
+.invoice-empty-state {
+  padding: 44px 16px;
+  color: #8a949f;
+  font-size: 11px;
+  text-align: center;
+}
+.invoice-empty-state .v-icon {
+  display: block;
+  margin: 0 auto 8px;
+}
 
 .invoice-dialog-card {
   overflow: hidden;
@@ -2915,7 +3198,12 @@ async function refreshData() {
   background: #ffffff;
   border-bottom: 1px solid #dfe3e8;
 }
-.invoice-dialog-heading { display: flex; min-width: 0; align-items: center; gap: 11px; }
+.invoice-dialog-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
 .invoice-dialog-icon {
   display: grid;
   flex: 0 0 36px;
@@ -2927,9 +3215,22 @@ async function refreshData() {
   border: 1px solid #dce6ef;
   border-radius: 6px;
 }
-.invoice-dialog-heading h2 { margin: 0; color: #202833; font-size: 15px; font-weight: 700; }
-.invoice-dialog-heading p { margin: 2px 0 0; color: #7d8792; font-size: 10px; }
-.invoice-dialog-header-actions { display: flex; align-items: center; gap: 9px; }
+.invoice-dialog-heading h2 {
+  margin: 0;
+  color: #202833;
+  font-size: 15px;
+  font-weight: 700;
+}
+.invoice-dialog-heading p {
+  margin: 2px 0 0;
+  color: #7d8792;
+  font-size: 10px;
+}
+.invoice-dialog-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
 .invoice-dialog-status {
   display: inline-flex;
   height: 25px;
@@ -2943,7 +3244,12 @@ async function refreshData() {
   border: 1px solid #e1e5e8;
   border-radius: 12px;
 }
-.invoice-dialog-status > span { width: 6px; height: 6px; background: #3a83bd; border-radius: 50%; }
+.invoice-dialog-status > span {
+  width: 6px;
+  height: 6px;
+  background: #3a83bd;
+  border-radius: 50%;
+}
 .invoice-dialog-body {
   display: flex;
   padding: 14px !important;
@@ -2964,7 +3270,11 @@ async function refreshData() {
   justify-content: space-between;
   gap: 16px;
 }
-.invoice-section-header > div { display: flex; align-items: center; gap: 8px; }
+.invoice-section-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .invoice-section-header > div > span {
   display: inline-grid;
   width: 23px;
@@ -2977,10 +3287,25 @@ async function refreshData() {
   border: 1px solid #e0e4e8;
   border-radius: 4px;
 }
-.invoice-section-header h3 { margin: 0; color: #2c3743; font-size: 12px; font-weight: 700; line-height: 21px; }
-.invoice-section-header p { margin: 3px 0 0; color: #8a949f; font-size: 9px; text-align: right; }
+.invoice-section-header h3 {
+  margin: 0;
+  color: #2c3743;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 21px;
+}
+.invoice-section-header p {
+  margin: 3px 0 0;
+  color: #8a949f;
+  font-size: 9px;
+  text-align: right;
+}
 .invoice-client-picker,
-.invoice-po-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.invoice-po-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
 .invoice-client-details {
   display: grid;
   grid-template-columns: 1.8fr repeat(4, minmax(0, 1fr));
@@ -2991,7 +3316,11 @@ async function refreshData() {
   border: 1px solid #e2e6ea;
   border-radius: 5px;
 }
-.invoice-client-details > div { min-width: 0; padding: 8px 9px; background: #f8f9fa; }
+.invoice-client-details > div {
+  min-width: 0;
+  padding: 8px 9px;
+  background: #f8f9fa;
+}
 .invoice-client-details dt {
   margin-bottom: 3px;
   color: #7c8793;
@@ -3009,9 +3338,15 @@ async function refreshData() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.invoice-subject-field { display: block; margin-top: 12px; }
+.invoice-subject-field {
+  display: block;
+  margin-top: 12px;
+}
 
-.invoice-items-section { padding: 0 0 14px; overflow: hidden; }
+.invoice-items-section {
+  padding: 0 0 14px;
+  overflow: hidden;
+}
 .invoice-items-header {
   margin: 0;
   padding: 14px 16px;
@@ -3034,15 +3369,32 @@ async function refreshData() {
   border: 1px solid #dfe4e8;
   border-radius: 6px;
 }
-.invoice-line-item-header { display: flex; margin-bottom: 9px; align-items: center; justify-content: space-between; }
-.invoice-line-item-header > span { color: #74808c; font-size: 8px; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase; }
-.invoice-item-description { margin-bottom: 9px; }
+.invoice-line-item-header {
+  display: flex;
+  margin-bottom: 9px;
+  align-items: center;
+  justify-content: space-between;
+}
+.invoice-line-item-header > span {
+  color: #74808c;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.invoice-item-description {
+  margin-bottom: 9px;
+}
 .invoice-item-fields {
   display: grid;
   grid-template-columns: 1.05fr 0.65fr 0.8fr 1.1fr 1.1fr;
   gap: 9px;
 }
-.invoice-sign-field { display: block; max-width: 360px; margin: 12px 14px 0; }
+.invoice-sign-field {
+  display: block;
+  max-width: 360px;
+  margin: 12px 14px 0;
+}
 
 .invoice-term-table-wrap {
   max-height: 230px;
@@ -3050,14 +3402,42 @@ async function refreshData() {
   border: 1px solid #dfe4e8;
   border-radius: 5px;
 }
-.invoice-term-table { width: 100%; font-size: 9px; border-collapse: collapse; }
-.invoice-term-table td { border-bottom: 1px solid #e8ecef; }
-.invoice-term-table tr:last-child td { border-bottom: 0; }
-.invoice-term-number { width: 34px; padding: 6px; color: #87919c; text-align: center; vertical-align: top; }
-.invoice-term-check { width: 38px; vertical-align: middle; }
-.invoice-term-name { padding: 6px 8px; color: #53606e; line-height: 1.45; }
-.invoice-term-checkbox { margin: -6px 0; padding: 0; transform: scale(0.72); transform-origin: center; }
-.invoice-summary-section { background: #fbfcfd; }
+.invoice-term-table {
+  width: 100%;
+  font-size: 9px;
+  border-collapse: collapse;
+}
+.invoice-term-table td {
+  border-bottom: 1px solid #e8ecef;
+}
+.invoice-term-table tr:last-child td {
+  border-bottom: 0;
+}
+.invoice-term-number {
+  width: 34px;
+  padding: 6px;
+  color: #87919c;
+  text-align: center;
+  vertical-align: top;
+}
+.invoice-term-check {
+  width: 38px;
+  vertical-align: middle;
+}
+.invoice-term-name {
+  padding: 6px 8px;
+  color: #53606e;
+  line-height: 1.45;
+}
+.invoice-term-checkbox {
+  margin: -6px 0;
+  padding: 0;
+  transform: scale(0.72);
+  transform-origin: center;
+}
+.invoice-summary-section {
+  background: #fbfcfd;
+}
 
 .invoice-dialog-footer {
   display: flex;
@@ -3069,8 +3449,15 @@ async function refreshData() {
   background: #ffffff;
   border-top: 1px solid #dfe3e8;
 }
-.invoice-dialog-footer p { margin: 0; color: #7c8793; font-size: 9px; }
-.invoice-dialog-footer > div { display: flex; gap: 8px; }
+.invoice-dialog-footer p {
+  margin: 0;
+  color: #7c8793;
+  font-size: 9px;
+}
+.invoice-dialog-footer > div {
+  display: flex;
+  gap: 8px;
+}
 .invoice-cancel-btn,
 .invoice-save-btn {
   min-width: 104px;
@@ -3080,9 +3467,13 @@ async function refreshData() {
   letter-spacing: 0 !important;
   border-radius: 4px !important;
 }
-.invoice-save-btn { min-width: 148px; }
+.invoice-save-btn {
+  min-width: 148px;
+}
 .invoice-dialog-card :deep(.input-field),
-.invoice-dialog-card :deep(.date-input-wrapper) { border-radius: 4px; }
+.invoice-dialog-card :deep(.date-input-wrapper) {
+  border-radius: 4px;
+}
 
 .po-upload-row {
   display: flex;
@@ -3107,7 +3498,6 @@ async function refreshData() {
   font-weight: 600;
   color: #5f6c7a;
 }
-
 
 .po-upload-box {
   position: relative;
@@ -3168,7 +3558,6 @@ async function refreshData() {
   color: #718096;
   font-size: 8px;
 }
-
 
 .po-file-list {
   display: flex;
@@ -3279,7 +3668,13 @@ async function refreshData() {
     gap: 8px;
   }
 
-  .invoice-page-soa-btn,
+  .invoice-page-soa-btn {
+    min-width: 0;
+    color: red;
+    padding: 0 8px !important;
+    font-size: 10px !important;
+  }
+
   .invoice-page-refresh-btn {
     min-width: 0;
     padding: 0 8px !important;
@@ -3295,9 +3690,13 @@ async function refreshData() {
     font-size: 18px;
   }
 
-  .invoice-filter-heading p { display: none; }
+  .invoice-filter-heading p {
+    display: none;
+  }
 
-  .invoice-filter-grid { grid-template-columns: 1fr; }
+  .invoice-filter-grid {
+    grid-template-columns: 1fr;
+  }
 
   .invoice-dialog-header {
     min-height: 64px;
