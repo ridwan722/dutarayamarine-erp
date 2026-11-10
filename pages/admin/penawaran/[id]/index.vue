@@ -38,13 +38,18 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 );
 const dialogPenawaran = ref<InstanceType<typeof DialogPenawaran> | null>(null);
 const dialogSpk = ref(false);
+const serviceReportDialogOpen = ref(false);
 const spkFile = ref<File | null>(null);
+const spkPreviewUrl = ref("");
+const spkPreviewFailed = ref(false);
+const spkDragActive = ref(false);
 const spkSaving = ref(false);
 const spkUploadProgress = ref(0);
 
 const MAX_SPK_FILE_BYTES = 10 * 1024 * 1024;
 const SPK_CHUNK_BYTES = 700 * 1024;
 const SPK_FILES_COLLECTION = "penawaran_spk";
+const SPK_ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
 
 definePageMeta({ layout: "admin" });
 
@@ -130,6 +135,16 @@ const detailpenawaran = computed(() => {
     spk_by: base.spk_by,
   } as penawaranM;
 });
+const quotationServiceReport = computed(
+  () =>
+    detailpenawaran.value.service_report ||
+    invoiceLinks.value.find((invoice) => invoice.service_report)?.service_report ||
+    null,
+);
+const serviceReportQuotation = computed<penawaranM>(() => ({
+  ...detailpenawaran.value,
+  service_report: quotationServiceReport.value || undefined,
+}));
 
 // Saat masuk dari halaman daftar, dokumen lengkap sebenarnya sudah ada di
 // Pinia. Pakai data tersebut langsung agar halaman tidak menunggu Firestore.
@@ -343,6 +358,7 @@ watch(
 );
 
 function openRevisionDialog() {
+  if (detailpenawaran.value.status !== "Draft") return;
   void dialogPenawaran.value?.openRevision(detailpenawaran.value);
 }
 
@@ -512,33 +528,130 @@ const invoiceActionDisabled = computed(
     detailpenawaran.value?.status === "Cancel",
 );
 
+const spkFileExtension = computed(() => {
+  const fileName = spkFile.value?.name || "";
+  const extension = fileName.split(".").pop()?.toLowerCase() || "";
+  return extension === fileName.toLowerCase() ? "" : extension;
+});
+const spkFileKind = computed<"image" | "pdf" | "document" | null>(() => {
+  const file = spkFile.value;
+  if (!file) return null;
+  if (
+    file.type.startsWith("image/") ||
+    ["jpg", "jpeg", "png"].includes(spkFileExtension.value)
+  ) {
+    return "image";
+  }
+  if (file.type === "application/pdf" || spkFileExtension.value === "pdf") {
+    return "pdf";
+  }
+  return "document";
+});
+const spkFileTypeLabel = computed(() => {
+  if (spkFileExtension.value) return spkFileExtension.value.toUpperCase();
+  if (spkFileKind.value === "image") return "GAMBAR";
+  if (spkFileKind.value === "pdf") return "PDF";
+  return "DOKUMEN";
+});
+const spkFileIcon = computed(() => {
+  if (spkFileKind.value === "pdf") return "mdi-file-pdf-box";
+  if (spkFileKind.value === "image") return "mdi-file-image-outline";
+  return "mdi-file-word-outline";
+});
+
 function openSpkDialog() {
+  clearSpkPreview();
   spkFile.value = null;
+  spkDragActive.value = false;
   spkUploadProgress.value = 0;
   dialogSpk.value = true;
+}
+
+function clearSpkPreview() {
+  if (spkPreviewUrl.value) URL.revokeObjectURL(spkPreviewUrl.value);
+  spkPreviewUrl.value = "";
+  spkPreviewFailed.value = false;
+}
+
+function closeSpkDialog() {
+  if (spkSaving.value) return;
+  dialogSpk.value = false;
+  spkFile.value = null;
+  spkDragActive.value = false;
+  clearSpkPreview();
+}
+
+function getSpkFileExtension(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return extension === file.name.toLowerCase() ? "" : extension;
+}
+
+function isAllowedSpkFile(file: File) {
+  const extension = getSpkFileExtension(file);
+  return (
+    SPK_ALLOWED_EXTENSIONS.includes(extension) ||
+    file.type === "application/pdf" ||
+    ["image/jpeg", "image/png"].includes(file.type) ||
+    file.type === "application/msword" ||
+    file.type ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+}
+
+function setSpkFile(file: File) {
+  if (file.size <= 0) {
+    return useNotificationStore().showError(
+      "File kosong tidak dapat diunggah",
+    );
+  }
+  if (file.size > MAX_SPK_FILE_BYTES) {
+    return useNotificationStore().showError(
+      "Ukuran file SPK maksimal 10 MB",
+    );
+  }
+  if (!isAllowedSpkFile(file)) {
+    return useNotificationStore().showError(
+      "Format file tidak didukung. Gunakan PDF, JPG, PNG, DOC, atau DOCX.",
+    );
+  }
+
+  clearSpkPreview();
+  spkFile.value = file;
+  const extension = getSpkFileExtension(file);
+  if (
+    ["image/jpeg", "image/png"].includes(file.type) ||
+    ["jpg", "jpeg", "png", "pdf"].includes(extension) ||
+    file.type === "application/pdf"
+  ) {
+    spkPreviewUrl.value = URL.createObjectURL(file);
+  }
+  spkUploadProgress.value = 0;
 }
 
 function selectSpkFile(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0] || null;
   input.value = "";
+  if (file) setSpkFile(file);
+}
 
-  if (!file) return;
-  if (file.size <= 0) {
-    spkFile.value = null;
-    return useNotificationStore().showError(
-      "File kosong tidak dapat diunggah",
-    );
-  }
-  if (file.size > MAX_SPK_FILE_BYTES) {
-    spkFile.value = null;
-    return useNotificationStore().showError(
-      "Ukuran file SPK maksimal 10 MB",
-    );
-  }
+function dropSpkFile(event: DragEvent) {
+  spkDragActive.value = false;
+  if (spkSaving.value) return;
 
-  spkFile.value = file;
+  const files = event.dataTransfer?.files;
+  if (!files?.length) return;
+  if (files.length > 1) {
+    useNotificationStore().showInfo("Hanya satu file SPK yang dapat diunggah");
+  }
+  setSpkFile(files[0]);
+}
+
+function removeSpkFile() {
+  if (spkSaving.value) return;
+  spkFile.value = null;
   spkUploadProgress.value = 0;
+  clearSpkPreview();
 }
 
 function formatFileSize(bytes = 0) {
@@ -651,6 +764,7 @@ async function saveSpkDocument() {
       "SPK berhasil diunggah. Invoice sekarang dapat dibuat.",
     );
     spkFile.value = null;
+    clearSpkPreview();
     dialogSpk.value = false;
   } catch (error) {
     console.error("Gagal mengunggah dokumen SPK:", error);
@@ -819,6 +933,15 @@ async function opendialogaddpengeluaran() {
   data.dialogAddPengeluaran = true;
 }
 
+function handleServiceReportSaved(report: NonNullable<penawaranM["service_report"]>) {
+  penawaranstore.$patch({
+    detailPenawaran: {
+      ...basePenawaran.value,
+      service_report: report,
+    },
+  });
+}
+
 function handlePurchaseOrderSaved() {
   purchaseorderPreviewKey.value += 1;
   hasPurchaseOrder.value = true;
@@ -950,6 +1073,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  clearSpkPreview();
   spkObjectUrls.forEach((url) => URL.revokeObjectURL(url));
   spkObjectUrls.clear();
 
@@ -981,17 +1105,23 @@ onBeforeUnmount(() => {
     @saved="handlePurchaseOrderSaved"
   />
 
-  <v-dialog v-model="dialogSpk" max-width="520" persistent>
-    <v-card rounded="lg">
-      <v-card-title class="d-flex align-center justify-space-between px-5 py-4">
-        <div class="d-flex align-center ga-3">
-          <v-avatar color="primary" variant="tonal" size="36">
-            <v-icon icon="mdi-file-upload-outline" size="20" />
-          </v-avatar>
+  <admin-penawaran-dialog-service-report
+    v-model="serviceReportDialogOpen"
+    :penawaran="serviceReportQuotation"
+    @saved="handleServiceReportSaved"
+  />
+
+  <v-dialog v-model="dialogSpk" max-width="620" persistent>
+    <v-card class="spk-dialog-card" rounded="lg">
+      <v-card-title class="spk-dialog-header">
+        <div class="spk-dialog-heading">
+          <span class="spk-dialog-icon">
+            <v-icon icon="mdi-handshake" size="20" />
+          </span>
           <div>
             <div class="text-subtitle-1 font-weight-bold">Upload SPK</div>
-            <div class="text-caption text-medium-emphasis">
-              Dokumen ini wajib sebelum membuat invoice
+            <div class="spk-dialog-subtitle">
+              Lengkapi dokumen sebelum membuat invoice
             </div>
           </div>
         </div>
@@ -1001,67 +1131,169 @@ onBeforeUnmount(() => {
           size="small"
           :disabled="spkSaving"
           aria-label="Tutup dialog SPK"
-          @click="dialogSpk = false"
+          @click="closeSpkDialog"
         />
       </v-card-title>
 
       <v-divider />
 
-      <v-card-text class="px-5 py-5">
-        <label class="spk-upload-field">
+      <v-card-text class="spk-dialog-body">
+        <div
+          class="spk-upload-area"
+          :class="{
+            'spk-upload-area--active': spkDragActive,
+            'spk-upload-area--selected': spkFile,
+            'spk-upload-area--disabled': spkSaving,
+          }"
+          @dragenter.prevent="spkDragActive = true"
+          @dragover.prevent="spkDragActive = true"
+          @dragleave.self.prevent="spkDragActive = false"
+          @drop.prevent="dropSpkFile"
+        >
           <input
+            id="spk-file-input"
+            class="spk-file-input"
             type="file"
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             :disabled="spkSaving"
             @change="selectSpkFile"
           />
-          <v-icon icon="mdi-tray-arrow-up" size="28" color="primary" />
-          <strong>{{ spkFile ? spkFile.name : "Pilih file SPK" }}</strong>
-          <span>
-            {{
-              spkFile
-                ? formatFileSize(spkFile.size)
-                : "PDF, gambar, atau dokumen Word · maksimal 10 MB"
-            }}
-          </span>
-        </label>
 
-        <div v-if="spkSaving" class="spk-upload-progress">
+          <label
+            v-if="!spkFile"
+            for="spk-file-input"
+            class="spk-upload-empty"
+          >
+            <span class="spk-upload-empty-icon">
+              <v-icon icon="mdi-tray-arrow-up" size="24" />
+            </span>
+            <span class="spk-upload-copy">
+              <strong>Pilih atau tarik file SPK ke sini</strong>
+              <small>PDF, JPG, PNG, DOC, atau DOCX · maksimal 10 MB</small>
+            </span>
+            <span class="spk-browse-label">Pilih file</span>
+          </label>
+
+          <div v-else class="spk-selected-file">
+            <div
+              class="spk-preview-frame"
+              :class="{
+                'spk-preview-frame--document':
+                  spkFileKind === 'document' || spkPreviewFailed,
+              }"
+            >
+              <img
+                v-if="
+                  spkFileKind === 'image' &&
+                  spkPreviewUrl &&
+                  !spkPreviewFailed
+                "
+                :src="spkPreviewUrl"
+                :alt="`Preview ${spkFile.name}`"
+                @error="spkPreviewFailed = true"
+              />
+              <iframe
+                v-else-if="
+                  spkFileKind === 'pdf' &&
+                  spkPreviewUrl &&
+                  !spkPreviewFailed
+                "
+                :src="`${spkPreviewUrl}#toolbar=0&navpanes=0&view=FitH`"
+                :title="`Preview ${spkFile.name}`"
+                @error="spkPreviewFailed = true"
+              />
+              <div v-else class="spk-preview-placeholder">
+                <v-icon :icon="spkFileIcon" size="38" />
+                <span>{{ spkFileTypeLabel }}</span>
+              </div>
+              <span
+                v-if="spkFileKind !== 'document' && !spkPreviewFailed"
+                class="spk-preview-badge"
+              >
+                Preview
+              </span>
+            </div>
+
+            <div class="spk-selected-details">
+              <span class="spk-ready-label">
+                <v-icon icon="mdi-check-circle" size="14" />
+                Siap diunggah
+              </span>
+              <strong class="spk-selected-name" :title="spkFile.name">
+                {{ spkFile.name }}
+              </strong>
+              <div class="spk-selected-meta">
+                <span>{{ spkFileTypeLabel }}</span>
+                <span aria-hidden="true">•</span>
+                <span>{{ formatFileSize(spkFile.size) }}</span>
+              </div>
+              <small v-if="spkFileKind === 'document' || spkPreviewFailed">
+                Preview tidak tersedia, tetapi file tetap dapat diunggah.
+              </small>
+
+              <div class="spk-file-actions">
+                <label for="spk-file-input" class="spk-file-action">
+                  <v-icon icon="mdi-swap-horizontal" size="16" />
+                  Ganti
+                </label>
+                <button
+                  type="button"
+                  class="spk-file-action spk-file-action--remove"
+                  :disabled="spkSaving"
+                  @click="removeSpkFile"
+                >
+                  <v-icon icon="mdi-delete-outline" size="16" />
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="spkSaving" class="spk-upload-progress" aria-live="polite">
           <div class="spk-upload-progress-label">
             <span class="text-truncate">
-              Menyiapkan {{ spkFile?.name || "dokumen SPK" }}
+              Mengunggah {{ spkFile?.name || "dokumen SPK" }}
             </span>
             <span>{{ spkUploadProgress }}%</span>
           </div>
           <v-progress-linear
             :model-value="spkUploadProgress"
             color="primary"
-            height="4"
+            height="5"
             rounded
           />
         </div>
       </v-card-text>
 
-      <v-card-actions class="px-5 pb-5 pt-0 justify-end">
-        <v-btn
-          variant="text"
-          class="text-none"
-          :disabled="spkSaving"
-          @click="dialogSpk = false"
-        >
-          Batal
-        </v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          class="text-none"
-          prepend-icon="mdi-upload"
-          :loading="spkSaving"
-          :disabled="!spkFile"
-          @click="saveSpkDocument"
-        >
-          Upload & Lanjut ke SPK
-        </v-btn>
+      <v-divider />
+
+      <v-card-actions class="spk-dialog-actions">
+        <span class="spk-upload-note">
+          <v-icon icon="mdi-shield-check-outline" size="15" />
+          File tersimpan bersama data quotation
+        </span>
+        <div class="spk-dialog-buttons">
+          <v-btn
+            variant="text"
+            class="text-none"
+            :disabled="spkSaving"
+            @click="closeSpkDialog"
+          >
+            Batal
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            class="text-none px-5"
+            prepend-icon="mdi-handshake"
+            :loading="spkSaving"
+            :disabled="!spkFile"
+            @click="saveSpkDocument"
+          >
+            Upload SPK
+          </v-btn>
+        </div>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -1102,10 +1334,10 @@ onBeforeUnmount(() => {
               </div>
 
               <div>
-                <div class="info-card-title">Informasi Quotation</div>
-                <div class="info-card-description">
+                <div class="info-card-title">Detail Quotation</div>
+                <!-- <div class="info-card-description">
                   Detail dokumen penawaran
-                </div>
+                </div> -->
               </div>
             </div>
 
@@ -1148,8 +1380,8 @@ onBeforeUnmount(() => {
                   </span>
                 </div>
 
-                <div class="quotation-meta-row quotation-meta-client">
-                  <v-icon icon="mdi-domain" size="13" />
+                <div class="quotation-meta-row quotation-meta-client mt-2">
+                  <v-icon icon="mdi-domain" size="13" class="mb-1" />
                   <strong :title="detailpenawaran.nama_perusahaan || '-'">
                     {{ detailpenawaran.nama_perusahaan || "-" }}
                   </strong>
@@ -1198,6 +1430,33 @@ onBeforeUnmount(() => {
 
               <div class="action-buttons">
                 <div
+                  v-if="quotationServiceReport"
+                  class="service-report-status service-report-status--ready"
+                  role="status"
+                >
+                  <span class="service-report-status-icon">
+                    <v-icon
+                      icon="mdi-clipboard-check-outline"
+                      size="18"
+                    />
+                  </span>
+                  <div>
+                    <strong>Service Report sudah dibuat</strong>
+                    <span>{{ quotationServiceReport.reportNo }}</span>
+                  </div>
+                  <v-btn
+                    v-if="detailpenawaran.status !== 'Cancel'"
+                    size="x-small"
+                    variant="tonal"
+                    color="teal-darken-1"
+                    class="text-none"
+                    @click="serviceReportDialogOpen = true"
+                  >
+                    Lihat / Edit
+                  </v-btn>
+                </div>
+
+                <div
                   v-if="isFullyInvoiced"
                   class="invoice-fully-billed-notice"
                   role="status"
@@ -1212,7 +1471,7 @@ onBeforeUnmount(() => {
                   role="status"
                 >
                   <v-icon size="16">mdi-alert-circle-outline</v-icon>
-                  <span>Upload SPK untuk membuka pembuatan invoice.</span>
+                  <span>Upload SPK untuk membuka akses pembuatan invoice.</span>
                 </div>
 
                 <div class="action-card-grid">
@@ -1220,8 +1479,15 @@ onBeforeUnmount(() => {
                     v-if="detailpenawaran.status !== 'Cancel'"
                     variant="flat"
                     class="corporate-btn action-card--revision"
+                    :disabled="detailpenawaran.status !== 'Draft'"
                     @click="openRevisionDialog"
                   >
+                   <v-icon
+                      v-if="detailpenawaran.status != 'Draft'"
+                      class="action-card-lock"
+                      icon="mdi-lock-outline"
+                      aria-hidden="true"
+                    />
                     <span class="action-card-icon">
                       <v-icon icon="mdi-file-edit-outline" />
                     </span>
@@ -1240,7 +1506,7 @@ onBeforeUnmount(() => {
                     @click="openSpkDialog"
                   >
                     <span class="action-card-icon">
-                      <v-icon icon="mdi-file-upload-outline" />
+                      <v-icon icon="mdi-handshake" />
                     </span>
                     <span class="action-card-label">Upload SPK</span>
                   </v-btn>
@@ -1278,7 +1544,33 @@ onBeforeUnmount(() => {
                         "
                       />
                     </span>
-                    <span class="action-card-label">Buat / Edit PO</span>
+                    <span class="action-card-label">
+                      {{ hasPurchaseOrder ? "Edit PO" : "Buat PO" }}
+                    </span>
+                  </v-btn>
+
+                  <v-btn
+                    v-if="detailpenawaran.status !== 'Cancel'"
+                    variant="flat"
+                    class="corporate-btn action-card--service-report"
+                    @click="serviceReportDialogOpen = true"
+                  >
+                    <span class="action-card-icon">
+                      <v-icon
+                        :icon="
+                          quotationServiceReport
+                            ? 'mdi-hammer-screwdriver'
+                            : 'mdi-hammer-screwdriver'
+                        "
+                      />
+                    </span>
+                    <span class="action-card-label">
+                      {{
+                        quotationServiceReport
+                          ? "Edit Service Report"
+                          : "Buat Service Report"
+                      }}
+                    </span>
                   </v-btn>
 
                   <v-btn
@@ -1607,7 +1899,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 17px 18px;
+  padding: 10px 18px;
   border-bottom: 1px solid #edf0f4;
   background: #ffffff;
 }
@@ -1753,7 +2045,7 @@ onBeforeUnmount(() => {
   height: 3px;
   margin: 0 2px;
   flex: 0 0 auto;
-  background: #cbd5e1;
+
   border-radius: 50%;
 }
 
@@ -2118,6 +2410,54 @@ onBeforeUnmount(() => {
   gap: 9px;
 }
 
+.service-report-status {
+  display: flex;
+  min-height: 54px;
+  padding: 9px 10px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.service-report-status--ready {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+  color: #115e59;
+}
+
+.service-report-status-icon {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.service-report-status > div {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.service-report-status strong {
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.service-report-status span:not(.service-report-status-icon) {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .action-card-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2137,50 +2477,310 @@ onBeforeUnmount(() => {
   grid-column: span 3;
 }
 
-.spk-upload-field {
+.spk-dialog-card {
+  overflow: hidden;
+}
+
+.spk-dialog-header {
   display: flex;
-  min-height: 150px;
-  padding: 22px;
+  min-height: 66px;
+  padding: 12px 16px 12px 18px !important;
   align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 7px;
-  cursor: pointer;
-  color: #334155;
-  text-align: center;
-  background: #f8fafc;
-  border: 1px dashed #93c5fd;
-  border-radius: 10px;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.spk-upload-field:hover {
+.spk-dialog-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.spk-dialog-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  color: #2563eb;
+  border-radius: 9px;
   background: #eff6ff;
-  border-color: #2563eb;
 }
 
-.spk-upload-field input {
+.spk-dialog-subtitle {
+  margin-top: 1px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.spk-dialog-body {
+  padding: 16px 18px !important;
+}
+
+.spk-upload-area {
+  position: relative;
+  min-height: 108px;
+  overflow: hidden;
+  border: 1.5px dashed #93c5fd;
+  border-radius: 11px;
+  background: #f8fbff;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.spk-upload-area:not(.spk-upload-area--disabled):hover,
+.spk-upload-area--active {
+  /* border-color: #2563eb; */
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.spk-upload-area--selected {
+  min-height: 0;
+  padding: 10px;
+  border-style: solid;
+  border-color: #dbe5f1;
+  background: #ffffff;
+}
+
+.spk-upload-area--disabled {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+.spk-file-input {
   position: absolute;
   width: 1px;
   height: 1px;
-  opacity: 0;
-  pointer-events: none;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
-.spk-upload-field strong {
+.spk-upload-empty {
+  display: flex;
+  min-height: 108px;
+  padding: 14px 16px;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.spk-upload-empty-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  color: #2563eb;
+  border-radius: 10px;
+  background: #dbeafe;
+}
+
+.spk-upload-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.spk-upload-copy strong {
+  color: #1e293b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.spk-upload-copy small {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.spk-browse-label {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.spk-selected-file {
+  display: grid;
+  grid-template-columns: minmax(165px, 0.8fr) minmax(0, 1.2fr);
+  min-width: 0;
+  gap: 14px;
+}
+
+.spk-preview-frame {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 150px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background:
+    linear-gradient(45deg, #f8fafc 25%, transparent 25%) 0 0 / 14px 14px,
+    linear-gradient(-45deg, #f8fafc 25%, transparent 25%) 0 7px / 14px 14px,
+    #ffffff;
+}
+
+.spk-preview-frame img,
+.spk-preview-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.spk-preview-frame img {
+  object-fit: contain;
+}
+
+.spk-preview-frame iframe {
+  pointer-events: none;
+  background: #ffffff;
+}
+
+.spk-preview-frame--document {
+  color: #315f8d;
+  background: #f8fafc;
+}
+
+.spk-preview-placeholder {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spk-preview-placeholder span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.spk-preview-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 3px 6px;
+  color: #334155;
+  font-size: 8px;
+  font-weight: 700;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.spk-selected-details {
+  display: flex;
+  min-width: 0;
+  padding: 5px 4px 4px 0;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.spk-ready-label {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 7px;
+  padding: 3px 7px;
+  align-items: center;
+  gap: 4px;
+  color: #15803d;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #dcfce7;
+}
+
+.spk-selected-name {
+  display: block;
   max-width: 100%;
   overflow: hidden;
-  font-size: 13px;
+  color: #1e293b;
+  font-size: 12px;
+  line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.spk-upload-field span {
+.spk-selected-meta {
+  display: flex;
+  margin-top: 3px;
+  align-items: center;
+  gap: 5px;
   color: #64748b;
-  font-size: 11px;
+  font-size: 10px;
+}
+
+.spk-selected-details > small {
+  max-width: 260px;
+  margin-top: 7px;
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.spk-file-actions {
+  display: flex;
+  margin-top: 11px;
+  align-items: center;
+  gap: 7px;
+}
+
+.spk-file-action {
+  display: inline-flex;
+  margin: 0;
+  padding: 5px 8px;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #315f8d;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.spk-file-action:hover {
+  /* border-color: #93c5fd; */
+  background: #eff6ff;
+}
+
+.spk-file-action--remove {
+  color: #b91c1c;
+}
+
+.spk-file-action--remove:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.spk-file-action:focus-visible,
+.spk-file-input:focus-visible + .spk-upload-empty {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .spk-upload-progress {
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .spk-upload-progress-label {
@@ -2192,6 +2792,85 @@ onBeforeUnmount(() => {
   color: #64748b;
   font-size: 10px;
   font-weight: 600;
+}
+
+.spk-dialog-actions {
+  min-height: 58px;
+  padding: 9px 14px 9px 18px !important;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spk-upload-note {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.spk-dialog-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 600px) {
+  .spk-dialog-header {
+    padding-left: 14px !important;
+  }
+
+  .spk-dialog-body {
+    padding: 14px !important;
+  }
+
+  .spk-upload-empty {
+    padding: 13px;
+  }
+
+  .spk-selected-file {
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 11px;
+  }
+
+  .spk-preview-frame {
+    height: 136px;
+  }
+
+  .spk-upload-note {
+    display: none;
+  }
+
+  .spk-dialog-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 420px) {
+  .spk-upload-empty-icon {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .spk-browse-label {
+    display: none;
+  }
+
+  .spk-selected-file {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .spk-preview-frame {
+    height: 126px;
+  }
+
+  .spk-selected-details {
+    padding-right: 0;
+  }
 }
 
 .spk-document-link {
@@ -2241,7 +2920,7 @@ onBeforeUnmount(() => {
   gap: 7px;
   color: #92400e;
   font-size: 11px;
-  font-weight: 600;
+
   line-height: 1.4;
   text-align: left;
   background: #fffbeb;
@@ -2401,6 +3080,12 @@ onBeforeUnmount(() => {
   --action-color: #059669;
   --action-soft: #ecfdf5;
   --action-border: #6ee7b7;
+}
+
+.action-card--service-report {
+  --action-color: #0f766e;
+  --action-soft: #f0fdfa;
+  --action-border: #5eead4;
 }
 
 .action-card--expense {

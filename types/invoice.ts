@@ -34,6 +34,79 @@ export interface invoiceDoWrM {
   chunkCount?: number;
 }
 
+export interface serviceReportSectionM {
+  id: string;
+  point: string;
+  sub: string;
+  items: string[];
+}
+
+export interface serviceReportImageM {
+  id: string;
+  name: string;
+  dataUrl: string;
+  size: number;
+  contentType: string;
+  storagePath?: string;
+}
+
+export interface serviceReportSectionBlockM {
+  id: string;
+  type: "section";
+  sectionId: string;
+}
+
+export interface serviceReportImageRowBlockM {
+  id: string;
+  type: "image-row";
+  imageIds: string[];
+  height?: number;
+}
+
+export type serviceReportContentBlockM =
+  | serviceReportSectionBlockM
+  | serviceReportImageRowBlockM;
+
+export type serviceReportRenderBlockM =
+  | {
+      key: string;
+      type: "section";
+      section: serviceReportSectionM;
+      sectionId: string;
+      pointNumber: number;
+      itemOffset: number;
+      showHeader: boolean;
+      continuation: boolean;
+    }
+  | {
+      key: string;
+      type: "image-row";
+      blockId: string;
+      images: serviceReportImageM[];
+      height: number;
+    }
+  | {
+      key: "signatures";
+      type: "signatures";
+    };
+
+export interface serviceReportM {
+  vesselProject: string;
+  attention: string;
+  location: string;
+  servicePeriodStart: string;
+  servicePeriodEnd: string;
+  scopeOfWork: string;
+  reportNo: string;
+  sections: serviceReportSectionM[];
+  images: serviceReportImageM[];
+  contentBlocks?: serviceReportContentBlockM[];
+  createdAt: number;
+  createdBy: string;
+  updatedAt?: number;
+  updatedBy?: string;
+}
+
 export type invoiceCurrencyM = "IDR" | "USD" | "SGD";
 
 export interface invoiceM {
@@ -85,6 +158,7 @@ sign_by: string,
   tanggal_bayar: string,
   doc_bukti_bayar: invoiceBuktiBayarM[]
   doc_do_wr: invoiceDoWrM[]
+  service_report?: serviceReportM;
   down_payment: boolean;
   dp_persen: number;
   pengeluaran?: pengeluaranM[];

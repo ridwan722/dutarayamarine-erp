@@ -2,6 +2,13 @@
   <div>
     <ConfirmationDialog ref="confirmationDialog" />
 
+    <admin-penawaran-dialog-service-report
+      v-if="serviceReportQuotation"
+      v-model="serviceReportDialogOpen"
+      :penawaran="serviceReportQuotation"
+      @saved="handleServiceReportSaved"
+    />
+
     <div class="invoice-page-nav">
       <v-btn
         variant="text"
@@ -30,9 +37,9 @@
 
             <div>
               <div class="finish-header-title">Selesaikan Invoice</div>
-              <div class="finish-header-subtitle">
+              <!-- <div class="finish-header-subtitle">
                 Catat pembayaran dan lampirkan bukti transaksi.
-              </div>
+              </div> -->
             </div>
           </div>
 
@@ -70,9 +77,9 @@
             <div class="finish-section-heading">
               <div>
                 <div class="finish-section-title">Bukti pembayaran</div>
-                <div class="finish-section-description">
+                <!-- <div class="finish-section-description">
                   Wajib lampirkan dokumen bukti bayar.
-                </div>
+                </div> -->
               </div>
               <span class="finish-required-label">Wajib</span>
             </div>
@@ -91,11 +98,11 @@
                 />
 
                 <div class="upload-icon-wrapper">
-                  <v-icon icon="mdi-tray-arrow-up" size="20" />
+                  <v-icon icon="mdi-upload" size="20" />
                 </div>
 
                 <div class="upload-content">
-                  <div class="upload-title">Pilih bukti pembayaran</div>
+                  <div class="upload-title">Upload bukti pembayaran</div>
                   <div class="upload-description">
                     Klik untuk memilih satu atau beberapa file
                   </div>
@@ -203,10 +210,7 @@
             </div>
 
             <div>
-              <div class="do-wr-dialog-title">Tambah Dokumen DO/WR</div>
-              <div class="do-wr-dialog-subtitle">
-                Lampirkan delivery order atau work completion report.
-              </div>
+              <div class="do-wr-dialog-title">Upload Dokumen DO / WR / Service Report</div>
             </div>
           </div>
 
@@ -238,7 +242,7 @@
               @change="addDoWrFiles"
             />
 
-            <v-icon icon="mdi-tray-arrow-up" size="22" />
+            <v-icon icon="mdi-upload" size="22" />
 
             <div class="do-wr-upload-copy">
               <div class="do-wr-upload-title">Pilih dokumen</div>
@@ -402,6 +406,18 @@
 
         <div class="invoice-overview-actions">
           <v-btn
+            v-if="serviceReportQuotation && !effectiveServiceReport"
+            color="teal-darken-1"
+            variant="tonal"
+            size="small"
+            prepend-icon="mdi-hammer-screwdriver"
+            class="invoice-service-report-action text-none"
+            @click="serviceReportDialogOpen = true"
+          >
+            Buat Service Report
+          </v-btn>
+
+          <v-btn
             v-if="invoiceDetail.status == 'Draft'"
             color="primary"
             variant="flat"
@@ -420,7 +436,12 @@
         </div>
       </header>
 
-      <div class="invoice-overview-links">
+      <div
+        class="invoice-overview-links"
+        :class="{
+          'invoice-overview-links--has-service-report': effectiveServiceReport,
+        }"
+      >
         <NuxtLink
           :to="'/admin/penawaran/' + invoiceDetail.id_penawaran"
           class="invoice-context-link"
@@ -447,6 +468,24 @@
             <strong>Pengeluaran Project</strong>
           </span>
           <v-icon icon="mdi-arrow-right" size="16" />
+        </NuxtLink>
+
+        <NuxtLink
+          v-if="effectiveServiceReport"
+          to="/admin/service-report"
+          class="invoice-context-link invoice-context-link--service-report invoice-context-link--service-report-ready"
+        >
+          <span class="invoice-context-icon">
+            <v-icon
+              icon="mdi-clipboard-check-outline"
+              size="16"
+            />
+          </span>
+          <span>
+            <small>Service Report</small>
+            <strong>{{ effectiveServiceReport.reportNo }}</strong>
+          </span>
+          <v-icon icon="mdi-eye-outline" size="16" />
         </NuxtLink>
       </div>
     </section>
@@ -540,23 +579,23 @@
 
         <article class="invoice-information-column">
           <div class="invoice-information-title">
-            <span>Delivery Order / WCR</span>
-            <v-icon icon="mdi-truck-check-outline" size="17" />
+            <span>Delivery Order / WCR / Service Report</span>
+            <!-- <v-icon icon="mdi-truck-check-outline" size="17" /> -->
           </div>
 
           <p class="invoice-information-description">
-            Delivery Order atau Work Completion Report.
+            Upload Dokumen yang sudah di TTD
           </p>
 
           <v-btn
             variant="outlined"
             color="blue-grey-darken-2"
             size="small"
-            prepend-icon="mdi-plus"
+            prepend-icon="mdi-upload"
             class="invoice-do-action"
             @click="openDialogDoWr"
           >
-            Add / Edit Dokumen
+            Upload Dokumen
           </v-btn>
 
           <div class="invoice-file-group invoice-file-group--do">
@@ -695,6 +734,7 @@ import type {
   invoiceBuktiBayarM,
   invoiceDoWrM,
 } from "~/types/invoice";
+import type { penawaranM } from "~/types/penawaranModel";
 import { uploadStore } from "~/stores/uploadStore";
 import { queryambilid } from "~/composables/useFirestoreQuery";
 import { tarikdetaildatabase2 } from "~/composables/useFirestore";
@@ -716,6 +756,7 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 );
 
 const dialogDikirim = ref(false);
+const serviceReportDialogOpen = ref(false);
 const readingBuktiBayar = ref(false);
 const readingDoWr = ref(false);
 const savingInvoice = ref(false);
@@ -726,6 +767,7 @@ const MAX_DO_WR_FILE_BYTES = 10 * 1024 * 1024;
 const DO_WR_CHUNK_BYTES = 700 * 1024;
 const DO_WR_FILES_COLLECTION = "invoice_do_wr";
 const quotationGrandTotal = ref(0);
+const relatedQuotation = ref<penawaranM | null>(null);
 const relatedInvoices = ref<invoiceM[]>([]);
 const invoiceWrapper = ref<HTMLElement | null>(null);
 const invoiceContent = ref<HTMLElement | null>(null);
@@ -812,6 +854,7 @@ onMounted(async () => {
         tarikdetaildatabase2("penawaran", penawaranId),
         queryambilid(`penawaran/${penawaranId}/invoice`),
       ]);
+      relatedQuotation.value = penawaran as penawaranM;
       quotationGrandTotal.value = Number(penawaran?.grand_total_penawaran || 0);
       relatedInvoices.value = invoices as invoiceM[];
     }
@@ -861,6 +904,33 @@ function tutupDialogDoWr() {
 }
 
 const invoiceDetail = computed(() => invoiceStore.getDetailInvoice);
+const effectiveServiceReport = computed(
+  () =>
+    invoiceDetail.value.service_report ||
+    relatedQuotation.value?.service_report ||
+    null,
+);
+const serviceReportQuotation = computed<penawaranM | null>(() => {
+  if (!relatedQuotation.value) return null;
+  return {
+    ...relatedQuotation.value,
+    id: invoiceDetail.value.id_penawaran || relatedQuotation.value.id,
+    id_penawaran:
+      invoiceDetail.value.id_penawaran || relatedQuotation.value.id_penawaran,
+    service_report: effectiveServiceReport.value || undefined,
+  };
+});
+
+function handleServiceReportSaved(
+  report: NonNullable<penawaranM["service_report"]>,
+) {
+  if (relatedQuotation.value) {
+    relatedQuotation.value = {
+      ...relatedQuotation.value,
+      service_report: report,
+    };
+  }
+}
 const invoiceYear = computed(() => invoiceDetail.value.tanggal?.slice(0, 4));
 const invoiceCurrency = computed<invoiceCurrencyM>(() => {
   const currency = invoiceDetail.value.currency_inv;
@@ -1652,7 +1722,8 @@ async function ubahStatusSelesai() {
   gap: 13px;
 }
 
-.invoice-payment-action {
+.invoice-payment-action,
+.invoice-service-report-action {
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0 !important;
@@ -1679,6 +1750,32 @@ async function ubahStatusSelesai() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border-top: 1px solid #e5e9ee;
   background: #fafbfc;
+}
+
+.invoice-overview-links--has-service-report {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.invoice-context-link--service-report {
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.invoice-context-link--service-report .invoice-context-icon {
+  color: #b45309;
+  border-color: #fde68a;
+  background: #fffdf5;
+}
+
+.invoice-context-link--service-report-ready {
+  color: #115e59;
+  background: #f0fdfa;
+}
+
+.invoice-context-link--service-report-ready .invoice-context-icon {
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f8fffd;
 }
 
 .invoice-context-link {
@@ -2213,7 +2310,8 @@ async function ubahStatusSelesai() {
     gap: 10px;
   }
 
-  .invoice-payment-action {
+  .invoice-payment-action,
+  .invoice-service-report-action {
     width: 100%;
   }
 
@@ -2308,16 +2406,16 @@ async function ubahStatusSelesai() {
 
 .do-wr-dialog-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px 16px;
+  padding: 8px 10px 6px;
   background: #ffffff;
 }
 
 .do-wr-dialog-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 11px;
   min-width: 0;
 }
@@ -2357,8 +2455,8 @@ async function ubahStatusSelesai() {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 78px;
-  padding: 15px 16px;
+  min-height: 68px;
+  padding: 0px 16px;
   border: 1px dashed #b8c4d2;
   border-radius: 9px;
   background: #f8fafc;
@@ -2508,7 +2606,7 @@ async function ubahStatusSelesai() {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 18px;
+  padding: 11px 14px;
 }
 
 .finish-dialog-heading {
@@ -2587,12 +2685,12 @@ async function ubahStatusSelesai() {
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1.2;
-  text-transform: uppercase;
+
 }
 
 .finish-required-label {
   background: #eaf2fb;
-  color: #326892;
+  color: #d51212;
 }
 
 .finish-optional-label {

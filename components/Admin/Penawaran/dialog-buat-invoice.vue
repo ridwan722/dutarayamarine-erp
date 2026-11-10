@@ -1093,6 +1093,11 @@ async function save() {
     createdAt: moment().unix(),
     createdBy: userStore.getEmail,
   };
+  if (props.penawaran.service_report) {
+    payload.service_report = JSON.parse(
+      JSON.stringify(props.penawaran.service_report),
+    );
+  }
 
   saving.value = true;
   useloadingStore().setLoading(true);

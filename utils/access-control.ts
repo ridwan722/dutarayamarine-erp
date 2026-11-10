@@ -2,6 +2,7 @@ export const ACCESS_OPTIONS = [
   { key: "dashboard", label: "Dashboard", path: "/admin" },
   { key: "quotation", label: "Quotation", path: "/admin/penawaran" },
   { key: "invoice", label: "Invoice", path: "/admin/invoice" },
+  { key: "service_report", label: "Service Report", path: "/admin/service-report" },
   { key: "purchase_order", label: "Purchase Order", path: "/admin/purchase-order" },
   { key: "master_client", label: "Master Client", path: "/admin/master/client" },
   { key: "master_vendor", label: "Master Vendor", path: "/admin/master/vendor" },

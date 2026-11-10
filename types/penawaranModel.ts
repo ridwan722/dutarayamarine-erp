@@ -1,3 +1,5 @@
+import type { serviceReportM } from "./invoice";
+
 export interface penawaranM {
   id?: string;
   id_penawaran?: string;
@@ -61,6 +63,7 @@ export interface penawaranM {
   spk_by?: string;
   tanggal_spk?: string;
   dokumen_spk?: dokumenSpkM;
+  service_report?: serviceReportM;
 
   termCondition?: { id: string; nama_term: string }[];
 }

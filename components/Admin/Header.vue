@@ -270,6 +270,13 @@ const allMenuItems = [
     exact: true,
   },
   {
+    title: "Service Report",
+    subtitle: "Laporan pekerjaan proyek",
+    to: "/admin/service-report",
+    icon: "mdi-hammer-screwdriver",
+    exact: true,
+  },
+  {
     title: "Purchase Order",
     subtitle: "Pesanan untuk vendor",
     to: "/admin/purchase-order",

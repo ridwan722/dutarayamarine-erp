@@ -335,6 +335,7 @@
               /> -->
               <v-list-item
                 v-if="item.status !== 'Cancel'"
+                :disabled="item.status !== 'Draft'"
                 prepend-icon="mdi-file-document-plus-outline"
                 title="Revisi"
                 @click="openDialogRevisiPenawaran(item)"
@@ -873,6 +874,7 @@ function openDialogEditPenawaran(item: penawaranM) {
 }
 
 function openDialogRevisiPenawaran(item: penawaranM) {
+  if (item.status !== "Draft") return;
   void dialogPenawaran.value?.openRevision(item);
 }
 

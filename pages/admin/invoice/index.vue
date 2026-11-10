@@ -14,7 +14,7 @@
     <div class="invoice-page-heading">
       <div>
         <h1>Invoice</h1>
-        <!-- <p>Manage invoice, client, payment status, and transaction value.</p> -->
+        <!-- <p>Kelola invoice, status pembayaran, dan nilai transaksi client.</p> -->
       </div>
     </div>
 
@@ -728,6 +728,204 @@
     </v-card>
   </v-dialog>
 
+  <v-dialog
+    v-if="false"
+    v-model="serviceReportDialogOpen"
+    max-width="1680"
+    :fullscreen="display.mdAndDown.value"
+    persistent
+  >
+    <v-card class="service-report-dialog" elevation="0">
+      <header class="service-report-dialog-header">
+        <div class="service-report-dialog-heading">
+          <span class="service-report-dialog-icon">
+            <v-icon icon="mdi-clipboard-text-outline" size="21" />
+          </span>
+          <div>
+            <h2>{{ activeServiceReportInvoice?.service_report ? "Edit" : "Buat" }} Service Report</h2>
+            <p>
+              {{ activeServiceReportInvoice?.nama_customer || "Client" }}
+              <span v-if="activeServiceReportInvoice?.no_inv">· INV/{{ activeServiceReportInvoice.no_inv }}</span>
+            </p>
+          </div>
+        </div>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          aria-label="Tutup editor Service Report"
+          :disabled="savingServiceReport"
+          @click="closeServiceReportDialog"
+        />
+      </header>
+
+      <div class="service-report-dialog-content">
+        <aside class="service-report-editor">
+          <section class="service-report-form-section">
+            <div class="service-report-form-title">
+              <span><v-icon icon="mdi-table-edit" size="17" /></span>
+              <div>
+                <h3>Informasi Report</h3>
+                <p>Data utama yang tampil pada tabel dokumen.</p>
+              </div>
+            </div>
+            <div class="service-report-field-grid">
+              <v-text-field v-model="serviceReportForm.vesselProject" label="Vessel / Project" variant="outlined" density="compact" hide-details />
+              <v-text-field v-model="serviceReportForm.attention" label="Attention" variant="outlined" density="compact" hide-details />
+              <v-text-field v-model="serviceReportForm.location" label="Location" variant="outlined" density="compact" hide-details />
+              <v-text-field
+                v-model="serviceReportForm.reportNo"
+                label="Report No"
+                variant="outlined"
+                density="compact"
+                hide-details
+                readonly
+                prepend-inner-icon="mdi-lock-outline"
+                :loading="loadingServiceReportNumber"
+                class="service-report-number-field"
+              />
+              <v-text-field v-model="serviceReportForm.servicePeriodStart" label="Mulai Service" type="date" variant="outlined" density="compact" hide-details />
+              <v-text-field v-model="serviceReportForm.servicePeriodEnd" label="Selesai Service" type="date" variant="outlined" density="compact" hide-details />
+              <v-textarea v-model="serviceReportForm.scopeOfWork" label="Scope of Work" rows="2" auto-grow variant="outlined" density="compact" hide-details class="service-report-field-full" />
+            </div>
+          </section>
+
+          <section class="service-report-form-section">
+            <div class="service-report-form-title service-report-form-title--action">
+              <span><v-icon icon="mdi-format-list-numbered" size="17" /></span>
+              <div>
+                <h3>Point Report</h3>
+                <p>Setiap point berisi subjudul dan beberapa item.</p>
+              </div>
+              <v-btn size="small" color="primary" variant="tonal" prepend-icon="mdi-plus" class="text-none" @click="addServiceReportSection">
+                Tambah Point
+              </v-btn>
+            </div>
+
+            <div class="service-report-section-list">
+              <article
+                v-for="(section, sectionIndex) in serviceReportForm.sections"
+                :key="section.id"
+                class="service-report-section-card"
+              >
+                <div class="service-report-section-head">
+                  <span>{{ String(sectionIndex + 1).padStart(2, "0") }}</span>
+                  <strong>Kelompok Point</strong>
+                  <v-btn
+                    icon="mdi-trash-can-outline"
+                    size="x-small"
+                    color="red-darken-1"
+                    variant="text"
+                    :disabled="serviceReportForm.sections.length === 1"
+                    :aria-label="`Hapus point ${sectionIndex + 1}`"
+                    @click="removeServiceReportSection(sectionIndex)"
+                  />
+                </div>
+                <div class="service-report-section-fields">
+                  <v-text-field v-model="section.point" label="Point" placeholder="Contoh: Scope of Work" variant="outlined" density="compact" hide-details />
+                  <v-text-field v-model="section.sub" label="Sub" placeholder="Contoh: Description of Work Performed" variant="outlined" density="compact" hide-details />
+                </div>
+                <div class="service-report-items-label">
+                  <span>Item</span>
+                  <small>{{ section.items.length }} item</small>
+                </div>
+                <div class="service-report-items">
+                  <div v-for="(_, itemIndex) in section.items" :key="`${section.id}-${itemIndex}`" class="service-report-item-row">
+                    <span>{{ String.fromCharCode(97 + (itemIndex % 26)) }}.</span>
+                    <v-textarea v-model="section.items[itemIndex]" :placeholder="`Isi item ${itemIndex + 1}`" rows="1" auto-grow variant="outlined" density="compact" hide-details />
+                    <v-btn icon="mdi-close" size="x-small" variant="text" color="grey-darken-1" :disabled="section.items.length === 1" :aria-label="`Hapus item ${itemIndex + 1}`" @click="removeServiceReportItem(sectionIndex, itemIndex)" />
+                  </div>
+                </div>
+                <v-btn size="small" variant="text" color="primary" prepend-icon="mdi-plus" class="text-none service-report-add-item" @click="addServiceReportItem(sectionIndex)">
+                  Tambah Item
+                </v-btn>
+              </article>
+            </div>
+          </section>
+
+          <section class="service-report-form-section">
+            <div class="service-report-form-title">
+              <span><v-icon icon="mdi-image-multiple-outline" size="17" /></span>
+              <div>
+                <h3>Dokumentasi Foto</h3>
+                <p>Foto otomatis tersusun maksimal 3 kolom per baris.</p>
+              </div>
+            </div>
+            <label class="service-report-upload" :class="{ 'service-report-upload--busy': readingServiceReportImages }">
+              <input type="file" accept="image/*" multiple :disabled="readingServiceReportImages" @change="addServiceReportImages" />
+              <v-progress-circular v-if="readingServiceReportImages" indeterminate size="27" width="3" color="primary" />
+              <v-icon v-else icon="mdi-cloud-upload-outline" size="27" color="primary" />
+              <strong>{{ readingServiceReportImages ? "Memproses foto..." : "Pilih foto dokumentasi" }}</strong>
+              <small>JPG, PNG, atau WEBP · foto akan dikompres otomatis</small>
+            </label>
+            <div v-if="serviceReportForm.images.length" class="service-report-image-list">
+              <figure v-for="(image, imageIndex) in serviceReportForm.images" :key="image.id">
+                <img :src="image.dataUrl" :alt="image.name" />
+                <figcaption><span>{{ imageIndex + 1 }}. {{ image.name }}</span></figcaption>
+                <v-btn icon="mdi-close" size="x-small" color="red-darken-1" variant="flat" :aria-label="`Hapus ${image.name}`" @click="removeServiceReportImage(imageIndex)" />
+              </figure>
+            </div>
+          </section>
+        </aside>
+
+        <main class="service-report-preview-pane">
+          <div class="service-report-preview-toolbar">
+            <div>
+              <v-icon icon="mdi-eye-outline" size="18" />
+              <strong>Live Preview</strong>
+            </div>
+            <v-chip size="x-small" variant="tonal" color="primary">A4 · Portrait</v-chip>
+          </div>
+          <div class="service-report-preview-scroll">
+            <canvas-service-report
+              :service-report="serviceReportForm"
+              :invoice="activeServiceReportInvoice"
+              :show-actions="true"
+            />
+          </div>
+        </main>
+      </div>
+
+      <footer class="service-report-dialog-footer">
+        <span>Perubahan tersimpan di invoice ini.</span>
+        <div>
+          <v-btn variant="outlined" color="grey-darken-1" class="text-none" :disabled="savingServiceReport" @click="closeServiceReportDialog">Batal</v-btn>
+          <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save-outline" class="text-none" :loading="savingServiceReport" :disabled="readingServiceReportImages || savingServiceReport" @click="saveServiceReport">
+            Simpan Service Report
+          </v-btn>
+        </div>
+      </footer>
+    </v-card>
+  </v-dialog>
+
+  <!-- <section class="invoice-overview" aria-label="Ringkasan status invoice">
+    <button
+      v-for="item in invoiceStatusOverview"
+      :key="item.status || 'all'"
+      type="button"
+      class="invoice-overview-card"
+      :class="[
+        `invoice-overview-card--${item.tone}`,
+        { 'invoice-overview-card--active': data.filterStatus === item.status },
+      ]"
+      :aria-pressed="data.filterStatus === item.status"
+      @click="applyInvoiceStatusShortcut(item.status)"
+    >
+      <span class="invoice-overview-icon">
+        <v-icon :icon="item.icon" size="16" />
+      </span>
+      <span class="invoice-overview-copy">
+        <small>{{ item.label }}</small>
+        <strong>{{ item.count }}</strong>
+      </span>
+      <span
+        v-if="data.filterStatus === item.status"
+        class="invoice-overview-active-dot"
+        aria-hidden="true"
+      ></span>
+    </button>
+  </section> -->
+
   <v-card class="invoice-list-card" flat>
     <div class="invoice-list-toolbar">
       <div class="invoice-list-search">
@@ -750,6 +948,16 @@
       </div>
 
       <div class="invoice-list-tools">
+        <v-btn
+          variant="outlined"
+          size="small"
+          class="invoice-export-btn text-none"
+          prepend-icon="mdi-download-outline"
+          :disabled="!invoiceTampilTersaring.length"
+          @click="exportInvoiceCsv"
+        >
+          Export CSV
+        </v-btn>
         <v-btn
           variant="outlined"
           size="small"
@@ -1205,8 +1413,10 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
+  runTransaction,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -1217,6 +1427,9 @@ import type {
   invoiceCurrencyM,
   invoiceM,
   invoicePoDocumentM,
+  serviceReportImageM,
+  serviceReportM,
+  serviceReportSectionM,
 } from "~/types/invoice";
 import { useinvoiceStore } from "~/stores/invoiceStore";
 
@@ -1274,6 +1487,7 @@ const customerStore = usecustomerStore();
 const invoiceStore = useinvoiceStore();
 const userStore = useUserStore();
 const notificationStore = useNotificationStore();
+const loadingStore = useloadingStore();
 const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
   null,
 );
@@ -1300,6 +1514,46 @@ const soaLinkedInvoiceIds = computed(
     ),
 );
 const activeSoa = ref<SoaRecord | null>(null);
+const serviceReportDialogOpen = ref(false);
+const savingServiceReport = ref(false);
+const readingServiceReportImages = ref(false);
+const loadingServiceReportNumber = ref(false);
+const activeServiceReportInvoice = ref<invoiceM | null>(null);
+
+function serviceReportId(prefix: string) {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emptyServiceReportSection(
+  overrides: Partial<serviceReportSectionM> = {},
+): serviceReportSectionM {
+  return {
+    id: serviceReportId("section"),
+    point: "",
+    sub: "",
+    items: [""],
+    ...overrides,
+  };
+}
+
+function emptyServiceReport(): serviceReportM {
+  return {
+    vesselProject: "",
+    attention: "",
+    location: "",
+    servicePeriodStart: moment().format("YYYY-MM-DD"),
+    servicePeriodEnd: moment().format("YYYY-MM-DD"),
+    scopeOfWork: "",
+    reportNo: "",
+    sections: [emptyServiceReportSection()],
+    images: [],
+    createdAt: 0,
+    createdBy: "",
+  };
+}
+
+const serviceReportForm = ref<serviceReportM>(emptyServiceReport());
 const soaInvoiceIds = ref<string[]>([]);
 const soaForm = reactive({
   id_perusahaan: "",
@@ -1827,6 +2081,320 @@ function openSoaPreview(soa: SoaRecord) {
   soaPreviewOpen.value = true;
 }
 
+function formatServiceReportNumber(invoice: invoiceM, sequence: number) {
+  const year = invoiceYear(invoice.tanggal || moment().format("YYYY-MM-DD"));
+  return `SR/DRM/${year}/${String(sequence).padStart(5, "0")}`;
+}
+
+function highestSavedServiceReportSequence() {
+  return invoiceStore.getDataInvoice.reduce((highest, item) => {
+    const match = item.service_report?.reportNo?.trim().match(/\/(\d+)$/);
+    return Math.max(highest, Number(match?.[1]) || 0);
+  }, 0);
+}
+
+async function loadNextServiceReportNumber(invoice: invoiceM) {
+  if (invoice.service_report?.reportNo) return;
+  loadingServiceReportNumber.value = true;
+  try {
+    const snapshot = await getDoc(doc(db, "penomoran", "nomor"));
+    const currentSequence = Math.max(
+      snapshot.exists() ? Number(snapshot.data().no_service_report) || 0 : 0,
+      highestSavedServiceReportSequence(),
+    );
+    if (
+      activeServiceReportInvoice.value === invoice &&
+      serviceReportDialogOpen.value
+    ) {
+      serviceReportForm.value.reportNo = formatServiceReportNumber(
+        invoice,
+        currentSequence + 1,
+      );
+    }
+  } catch (error) {
+    console.error("Gagal membaca penomoran Service Report:", error);
+    notificationStore.showError("Nomor Service Report belum dapat dimuat");
+  } finally {
+    loadingServiceReportNumber.value = false;
+  }
+}
+
+function cloneServiceReport(report: serviceReportM): serviceReportM {
+  return JSON.parse(JSON.stringify(report)) as serviceReportM;
+}
+
+function defaultServiceReportForInvoice(invoice: invoiceM): serviceReportM {
+  const existingReport = invoice.service_report;
+  if (existingReport) {
+    const cloned = cloneServiceReport(existingReport);
+    cloned.sections = (cloned.sections || []).map((section) => ({
+      ...section,
+      id: section.id || serviceReportId("section"),
+      items: section.items?.length ? section.items : [""],
+    }));
+    if (!cloned.sections.length) cloned.sections = [emptyServiceReportSection()];
+    cloned.images = cloned.images || [];
+    return cloned;
+  }
+
+  const invoiceItems = (invoice.item_pekerjaan || [])
+    .map((item) => item.nama?.trim())
+    .filter(Boolean) as string[];
+  return {
+    ...emptyServiceReport(),
+    vesselProject: invoice.vessel || "",
+    attention: invoice.nama_customer || invoice.pic || "",
+    location: invoice.location || "",
+    servicePeriodStart: invoice.tanggal || moment().format("YYYY-MM-DD"),
+    servicePeriodEnd: invoice.tanggal || moment().format("YYYY-MM-DD"),
+    scopeOfWork: invoice.perihal || "",
+    reportNo: "",
+    sections: [
+      emptyServiceReportSection({
+        point: "Scope of Work",
+        sub: "Description of Work Performed:",
+        items: invoiceItems.length ? invoiceItems : [""],
+      }),
+    ],
+  };
+}
+
+function openServiceReportDialog(invoice: invoiceM) {
+  activeServiceReportInvoice.value = invoice;
+  serviceReportForm.value = defaultServiceReportForInvoice(invoice);
+  serviceReportDialogOpen.value = true;
+  void loadNextServiceReportNumber(invoice);
+}
+
+function closeServiceReportDialog() {
+  if (savingServiceReport.value || readingServiceReportImages.value) return;
+  serviceReportDialogOpen.value = false;
+  activeServiceReportInvoice.value = null;
+  serviceReportForm.value = emptyServiceReport();
+}
+
+function addServiceReportSection() {
+  serviceReportForm.value.sections.push(emptyServiceReportSection());
+}
+
+function removeServiceReportSection(index: number) {
+  if (serviceReportForm.value.sections.length <= 1) return;
+  serviceReportForm.value.sections.splice(index, 1);
+}
+
+function addServiceReportItem(sectionIndex: number) {
+  serviceReportForm.value.sections[sectionIndex]?.items.push("");
+}
+
+function removeServiceReportItem(sectionIndex: number, itemIndex: number) {
+  const items = serviceReportForm.value.sections[sectionIndex]?.items;
+  if (!items || items.length <= 1) return;
+  items.splice(itemIndex, 1);
+}
+
+function removeServiceReportImage(index: number) {
+  serviceReportForm.value.images.splice(index, 1);
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      typeof reader.result === "string"
+        ? resolve(reader.result)
+        : reject(new Error("Foto tidak dapat dibaca"));
+    reader.onerror = () => reject(reader.error || new Error("Foto tidak dapat dibaca"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function compressServiceReportImage(file: File): Promise<serviceReportImageM> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error(`Foto ${file.name} tidak dapat dibuka`));
+      element.src = objectUrl;
+    });
+    const maxEdge = 1000;
+    const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Browser tidak mendukung kompresi foto");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const toBlob = (quality: number) =>
+      new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("Foto gagal dikompres"))),
+          "image/jpeg",
+          quality,
+        ),
+      );
+    let quality = 0.78;
+    let blob = await toBlob(quality);
+    while (blob.size > 105_000 && quality > 0.3) {
+      quality -= 0.09;
+      blob = await toBlob(quality);
+    }
+    return {
+      id: serviceReportId("photo"),
+      name: file.name.replace(/\.[^.]+$/, "") + ".jpg",
+      dataUrl: await blobToDataUrl(blob),
+      size: blob.size,
+      contentType: "image/jpeg",
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function addServiceReportImages(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  input.value = "";
+  if (!files.length || readingServiceReportImages.value) return;
+  if (files.some((file) => !file.type.startsWith("image/"))) {
+    notificationStore.showError("Semua file dokumentasi harus berupa gambar");
+    return;
+  }
+  readingServiceReportImages.value = true;
+  try {
+    const images: serviceReportImageM[] = [];
+    for (const file of files) images.push(await compressServiceReportImage(file));
+    const nextImages = [...serviceReportForm.value.images, ...images];
+    const candidate = { ...serviceReportForm.value, images: nextImages };
+    const invoiceCandidate = {
+      ...activeServiceReportInvoice.value,
+      service_report: candidate,
+    };
+    if (new TextEncoder().encode(JSON.stringify(invoiceCandidate)).byteLength > MAX_INVOICE_BYTES) {
+      notificationStore.showError("Total foto terlalu besar untuk invoice ini. Kurangi jumlah foto.");
+      return;
+    }
+    serviceReportForm.value.images = nextImages;
+  } catch (error) {
+    console.error("Gagal memproses foto Service Report:", error);
+    notificationStore.showError("Sebagian foto tidak dapat diproses. Silakan coba lagi.");
+  } finally {
+    readingServiceReportImages.value = false;
+  }
+}
+
+async function saveServiceReport() {
+  if (savingServiceReport.value || readingServiceReportImages.value) return;
+  const invoice = activeServiceReportInvoice.value;
+  const invoiceId = invoice && invoiceDocumentId(invoice);
+  if (!invoice || !invoiceId) {
+    notificationStore.showError("Invoice untuk Service Report tidak ditemukan");
+    return;
+  }
+  if (!serviceReportForm.value.vesselProject.trim()) {
+    notificationStore.showError("Vessel / Project wajib diisi");
+    return;
+  }
+
+  const sections = serviceReportForm.value.sections.map((section) => ({
+    ...section,
+    point: section.point.trim(),
+    sub: section.sub.trim(),
+    items: section.items.map((item) => item.trim()).filter(Boolean),
+  }));
+  if (sections.some((section) => !section.point || !section.items.length)) {
+    notificationStore.showError("Setiap point wajib memiliki nama dan minimal satu item");
+    return;
+  }
+
+  const existing = invoice.service_report;
+  const baseServiceReport: serviceReportM = {
+    ...cloneServiceReport(serviceReportForm.value),
+    sections,
+    createdAt: existing?.createdAt || Date.now(),
+    createdBy: existing?.createdBy || userStore.getEmail,
+    updatedAt: Date.now(),
+    updatedBy: userStore.getEmail,
+  };
+  const updatedInvoice: invoiceM = {
+    ...invoice,
+    service_report: baseServiceReport,
+  };
+  if (new TextEncoder().encode(JSON.stringify(updatedInvoice)).byteLength > MAX_INVOICE_BYTES) {
+    notificationStore.showError("Service Report terlalu besar. Kurangi jumlah foto.");
+    return;
+  }
+
+  savingServiceReport.value = true;
+  loadingStore.setLoading(true);
+  try {
+    let savedReport = baseServiceReport;
+    await runTransaction(db, async (transaction) => {
+      let reportNo = existing?.reportNo?.trim() || "";
+      if (!reportNo) {
+        const numberingRef = doc(db, "penomoran", "nomor");
+        const numberingSnapshot = await transaction.get(numberingRef);
+        const currentSequence = Math.max(
+          numberingSnapshot.exists()
+            ? Number(numberingSnapshot.data().no_service_report) || 0
+            : 0,
+          highestSavedServiceReportSequence(),
+        );
+        const nextSequence = currentSequence + 1;
+        reportNo = formatServiceReportNumber(invoice, nextSequence);
+        transaction.set(
+          numberingRef,
+          { no_service_report: nextSequence },
+          { merge: true },
+        );
+      }
+
+      savedReport = { ...baseServiceReport, reportNo };
+      const plainInvoice = JSON.parse(
+        JSON.stringify({ ...updatedInvoice, service_report: savedReport }),
+      ) as invoiceM;
+      const { id: _documentId, ...invoiceUpdate } = plainInvoice;
+      transaction.update(doc(db, "invoice", invoiceId), invoiceUpdate);
+
+      if (invoiceUpdate.id_penawaran && invoiceUpdate.id_penawaran !== "-") {
+        transaction.set(
+          doc(
+            db,
+            "penawaran",
+            invoiceUpdate.id_penawaran,
+            "invoice",
+            invoiceId,
+          ),
+          invoiceUpdate,
+          { merge: true },
+        );
+      }
+    });
+
+    serviceReportForm.value.reportNo = savedReport.reportNo;
+    sessionStorage.removeItem("invoice");
+    if (invoice.id_penawaran && invoice.id_penawaran !== "-") {
+      sessionStorage.removeItem(`penawaran/${invoice.id_penawaran}/invoice`);
+    }
+    await invoiceStore.tarikDataInvoiceAct();
+    notificationStore.showSuccess(
+      existing ? "Service Report berhasil diperbarui" : "Service Report berhasil dibuat",
+    );
+    serviceReportDialogOpen.value = false;
+    activeServiceReportInvoice.value = null;
+    serviceReportForm.value = emptyServiceReport();
+  } catch (error) {
+    console.error("Gagal menyimpan Service Report:", error);
+    notificationStore.showError("Service Report gagal disimpan");
+  } finally {
+    savingServiceReport.value = false;
+    loadingStore.setLoading(false);
+  }
+}
+
 async function loadSoaRecords(showSuccess = false) {
   if (loadingSoa.value) return;
   loadingSoa.value = true;
@@ -2116,13 +2684,80 @@ const filteredInvoice = computed(() => {
 });
 
 const availableInvoiceStatuses = computed(() => {
-  const defaultStatuses = ["Draft", "Selesai"];
+  const defaultStatuses = ["Draft", "Dikirim", "Selesai"];
   const storedStatuses = invoiceStore.getDataInvoice
     .map((invoice) => invoice.status || "Draft")
     .filter(Boolean);
 
   return [...new Set([...defaultStatuses, ...storedStatuses])];
 });
+
+function invoiceOverviewIcon(status: string) {
+  const normalizedStatus = normalizeFilterValue(status);
+  if (!normalizedStatus) return "mdi-receipt-text-outline";
+  if (normalizedStatus === "draft") return "mdi-file-edit-outline";
+  if (["dikirim", "invoice"].includes(normalizedStatus)) {
+    return "mdi-send-check-outline";
+  }
+  if (["selesai", "lunas"].includes(normalizedStatus)) {
+    return "mdi-check-decagram-outline";
+  }
+  if (normalizedStatus === "cancel") return "mdi-file-cancel-outline";
+  return "mdi-file-document-outline";
+}
+
+function invoiceOverviewTone(status: string) {
+  const normalizedStatus = normalizeFilterValue(status);
+  if (!normalizedStatus) return "all";
+  if (normalizedStatus === "draft") return "draft";
+  if (["dikirim", "invoice"].includes(normalizedStatus)) return "sent";
+  if (["selesai", "lunas"].includes(normalizedStatus)) return "paid";
+  if (normalizedStatus === "cancel") return "cancel";
+  return "neutral";
+}
+
+const invoiceStatusOverview = computed(() => {
+  const statusCounts = new Map<string, number>();
+  invoiceStore.getDataInvoice.forEach((invoice) => {
+    const status = String(invoice.status || "Draft").trim() || "Draft";
+    statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
+  });
+
+  const workflowOrder = ["Draft", "Dikirim", "Selesai"];
+  const statuses = [...new Set([...workflowOrder, ...statusCounts.keys()])]
+    .filter((status) => workflowOrder.includes(status) || statusCounts.has(status))
+    .sort((first, second) => {
+      const firstIndex = workflowOrder.indexOf(first);
+      const secondIndex = workflowOrder.indexOf(second);
+      if (firstIndex !== -1 || secondIndex !== -1) {
+        if (firstIndex === -1) return 1;
+        if (secondIndex === -1) return -1;
+        return firstIndex - secondIndex;
+      }
+      return first.localeCompare(second, "id-ID");
+    });
+
+  return [
+    {
+      status: "",
+      label: "Semua Invoice",
+      count: invoiceStore.getDataInvoice.length,
+      icon: invoiceOverviewIcon(""),
+      tone: invoiceOverviewTone(""),
+    },
+    ...statuses.map((status) => ({
+      status,
+      label: status,
+      count: statusCounts.get(status) || 0,
+      icon: invoiceOverviewIcon(status),
+      tone: invoiceOverviewTone(status),
+    })),
+  ];
+});
+
+function applyInvoiceStatusShortcut(status: string) {
+  data.filterStatus = status;
+}
 
 const availableInvoiceClients = computed(() => {
   const clients = invoiceStore.getDataInvoice
@@ -2159,7 +2794,7 @@ const activeInvoiceFilterCount = computed(
 
 const hasActiveInvoiceFilters = computed(() =>
   display.xs.value
-    ? Boolean(data.searchInvoice.trim())
+    ? Boolean(data.searchInvoice.trim() || data.filterStatus)
     : activeInvoiceFilterCount.value > 0,
 );
 
@@ -2205,6 +2840,7 @@ const invoiceTampilTersaring = computed(() => {
     ];
 
     if (!containsFilterValue(globalQuery, searchableValues)) return false;
+    if (data.filterStatus && invoiceStatus !== data.filterStatus) return false;
     if (display.xs.value) return true;
     if (!containsFilterValue(invoiceQuery, [invoice.no_inv, invoiceReference]))
       return false;
@@ -2226,7 +2862,6 @@ const invoiceTampilTersaring = computed(() => {
       return false;
     if (data.filterDateFrom && invoiceDate < data.filterDateFrom) return false;
     if (data.filterDateTo && invoiceDate > data.filterDateTo) return false;
-    if (data.filterStatus && invoiceStatus !== data.filterStatus) return false;
     if (
       amountQuery &&
       !String(invoiceAmount).replace(/\D/g, "").includes(amountQuery)
@@ -2268,6 +2903,58 @@ function resetInvoiceFilters() {
     data[key] = "";
   });
   sessionStorage.removeItem(INVOICE_FILTER_STORAGE_KEY);
+}
+
+function escapeInvoiceCsvCell(value: unknown) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function exportInvoiceCsv() {
+  if (!invoiceTampilTersaring.value.length) {
+    return notificationStore.showInfo("Tidak ada data invoice untuk diekspor");
+  }
+
+  const headers = [
+    "Tanggal",
+    "No. Invoice",
+    "Client",
+    "PIC",
+    "Vessel",
+    "No. Quotation",
+    "Subject",
+    "Currency",
+    "Total Amount",
+    "Status",
+  ];
+  const rows = invoiceTampilTersaring.value.map((invoice) => [
+    invoice.tanggal,
+    invoiceReference(invoice),
+    invoice.nama_customer,
+    invoice.pic,
+    invoice.vessel,
+    invoice.no_penawaran,
+    invoice.perihal,
+    normalizeInvoiceCurrency(invoice.currency_inv),
+    Number(invoice.grandtotal_invoice) || 0,
+    invoice.status || "Draft",
+  ]);
+  const csv = [headers, ...rows]
+    .map((row) => row.map(escapeInvoiceCsvCell).join(","))
+    .join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}`], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const downloadUrl = URL.createObjectURL(blob);
+  const downloadLink = document.createElement("a");
+  downloadLink.href = downloadUrl;
+  downloadLink.download = `invoice-${moment().format("YYYY-MM-DD")}.csv`;
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  downloadLink.remove();
+  URL.revokeObjectURL(downloadUrl);
+  notificationStore.showSuccess(
+    `${invoiceTampilTersaring.value.length} invoice berhasil diekspor`,
+  );
 }
 
 function invoiceYear(date: string) {
@@ -2460,7 +3147,8 @@ async function refreshData() {
 .invoice-page-topbar {
   display: flex;
   width: 100%;
-  margin-bottom: 1px;
+  margin-bottom: 12px;
+  padding-top: 2px;
   align-items: center;
   gap: 14px;
 }
@@ -2492,6 +3180,119 @@ async function refreshData() {
   color: #7b8490;
   font-size: 11px;
   line-height: 1.4;
+}
+
+.invoice-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 150px));
+  gap: 7px;
+  margin-bottom: 10px;
+  justify-content: start;
+}
+
+.invoice-overview-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 52px;
+  padding: 7px 9px;
+  align-items: center;
+  gap: 8px;
+  color: #4a5969;
+  font: inherit;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid #dfe4e9;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.025);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.invoice-overview-card:hover {
+  border-color: #b9c7d4;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.055);
+  transform: translateY(-1px);
+}
+
+.invoice-overview-card--active {
+  border-color: #8cabc7;
+  box-shadow: 0 0 0 2px rgba(49, 95, 140, 0.08);
+}
+
+.invoice-overview-icon {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: #4b667f;
+  background: #eef3f7;
+  border-radius: 5px;
+}
+
+.invoice-overview-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.invoice-overview-copy small {
+  overflow: hidden;
+  color: #7a8592;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.invoice-overview-copy strong {
+  margin-top: 1px;
+  color: #263647;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoice-overview-active-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  background: #3f78a8;
+  border-radius: 50%;
+}
+
+.invoice-overview-card--draft .invoice-overview-icon {
+  color: #2f6796;
+  background: #eaf2f9;
+}
+
+.invoice-overview-card--sent .invoice-overview-icon {
+  color: #9b671a;
+  background: #fff5df;
+}
+
+.invoice-overview-card--paid .invoice-overview-icon {
+  color: #2d7857;
+  background: #e8f5ee;
+}
+
+.invoice-overview-card--cancel .invoice-overview-icon {
+  color: #ae4c59;
+  background: #fceff1;
+}
+
+.invoice-overview-card--neutral .invoice-overview-icon {
+  color: #667382;
+  background: #f0f2f4;
 }
 
 .invoice-list-card {
@@ -2926,6 +3727,19 @@ async function refreshData() {
   font-weight: 600 !important;
   letter-spacing: 0 !important;
   border-color: #d6dbe1 !important;
+  border-radius: 5px !important;
+}
+
+.invoice-export-btn {
+  height: 34px !important;
+  padding-inline: 11px !important;
+  flex: 0 0 auto;
+  color: #2f6b55 !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  background: #fbfdfc !important;
+  border-color: #cfe0d8 !important;
   border-radius: 5px !important;
 }
 
@@ -3736,6 +4550,372 @@ async function refreshData() {
   color: #dc2626;
 }
 
+.service-report-dialog {
+  height: min(94vh, 960px);
+  overflow: hidden;
+  border: 1px solid #dfe5ec !important;
+  border-radius: 14px !important;
+  background: #f7f9fc !important;
+}
+
+.service-report-dialog-header {
+  display: flex;
+  min-height: 68px;
+  padding: 12px 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e3e8ef;
+  background: #fff;
+}
+
+.service-report-dialog-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.service-report-dialog-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 9px;
+  background: #eaf1fb;
+  color: #214f82;
+}
+
+.service-report-dialog-heading h2 {
+  margin: 0;
+  color: #18283a;
+  font-size: 16px;
+  font-weight: 780;
+}
+
+.service-report-dialog-heading p {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #7b8797;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-report-dialog-content {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(440px, 0.82fr) minmax(620px, 1.18fr);
+  overflow: hidden;
+}
+
+.service-report-editor {
+  min-height: 0;
+  padding: 14px;
+  overflow-y: auto;
+  border-right: 1px solid #e1e7ee;
+  background: #f7f9fc;
+}
+
+.service-report-form-section {
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid #e1e7ee;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
+}
+
+.service-report-form-title {
+  display: flex;
+  margin-bottom: 13px;
+  align-items: center;
+  gap: 9px;
+}
+
+.service-report-form-title > span {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  flex: 0 0 29px;
+  place-items: center;
+  border-radius: 7px;
+  background: #eef3f8;
+  color: #315878;
+}
+
+.service-report-form-title > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.service-report-form-title h3 {
+  margin: 0;
+  color: #27374a;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.service-report-form-title p {
+  margin: 2px 0 0;
+  color: #8792a1;
+  font-size: 9px;
+}
+
+.service-report-form-title--action {
+  align-items: flex-start;
+}
+
+.service-report-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.service-report-field-full {
+  grid-column: 1 / -1;
+}
+
+.service-report-field-grid :deep(.v-field),
+.service-report-section-card :deep(.v-field) {
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.service-report-field-grid :deep(.v-label),
+.service-report-section-card :deep(.v-label) {
+  font-size: 10px;
+}
+
+.service-report-section-list {
+  display: grid;
+  gap: 10px;
+}
+
+.service-report-section-card {
+  padding: 11px;
+  border: 1px solid #e1e7ed;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.service-report-section-head {
+  display: flex;
+  margin-bottom: 10px;
+  align-items: center;
+  gap: 7px;
+}
+
+.service-report-section-head > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 6px;
+  background: #234f7d;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.service-report-section-head strong {
+  flex: 1;
+  color: #536275;
+  font-size: 10px;
+}
+
+.service-report-section-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 8px;
+}
+
+.service-report-items-label {
+  display: flex;
+  margin: 11px 0 6px;
+  align-items: center;
+  justify-content: space-between;
+  color: #536275;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.service-report-items-label small {
+  color: #9aa3af;
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.service-report-items {
+  display: grid;
+  gap: 6px;
+}
+
+.service-report-item-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 26px;
+  align-items: start;
+  gap: 4px;
+}
+
+.service-report-item-row > span {
+  padding-top: 9px;
+  color: #7c8795;
+  font-size: 10px;
+  text-align: center;
+}
+
+.service-report-add-item {
+  margin: 5px 0 -4px 18px;
+  font-size: 9px !important;
+}
+
+.service-report-upload {
+  display: flex;
+  min-height: 92px;
+  padding: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px dashed #aebdce;
+  border-radius: 8px;
+  background: #f8fbff;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.service-report-upload:hover {
+  border-color: #4d78a4;
+  background: #f2f7fd;
+}
+
+.service-report-upload--busy {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.service-report-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.service-report-upload strong {
+  color: #41566e;
+  font-size: 10px;
+}
+
+.service-report-upload small {
+  color: #8b96a5;
+  font-size: 8px;
+}
+
+.service-report-image-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.service-report-image-list figure {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dfe5ec;
+  border-radius: 7px;
+  background: #eef1f5;
+}
+
+.service-report-image-list img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.service-report-image-list figcaption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 14px 5px 4px;
+  background: linear-gradient(transparent, rgba(15, 23, 42, 0.8));
+  color: #fff;
+  font-size: 7px;
+}
+
+.service-report-image-list figcaption span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-report-image-list .v-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+.service-report-preview-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: #e9edf2;
+}
+
+.service-report-preview-toolbar {
+  display: flex;
+  min-height: 43px;
+  padding: 8px 14px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #d9e0e8;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.service-report-preview-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #526174;
+  font-size: 10px;
+}
+
+.service-report-preview-scroll {
+  min-height: 0;
+  padding: 18px;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.service-report-dialog-footer {
+  display: flex;
+  min-height: 62px;
+  padding: 10px 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #e1e7ee;
+  background: #fff;
+}
+
+.service-report-dialog-footer > span {
+  color: #8390a0;
+  font-size: 9px;
+}
+
+.service-report-dialog-footer > div {
+  display: flex;
+  gap: 8px;
+}
+
 @media (max-width: 1199px) {
   .invoice-filter-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3751,6 +4931,16 @@ async function refreshData() {
     height: 100%;
     border: 0;
     border-radius: 0 !important;
+  }
+
+  .service-report-dialog {
+    height: 100%;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .service-report-dialog-content {
+    grid-template-columns: minmax(390px, 0.9fr) minmax(500px, 1.1fr);
   }
 
   .invoice-dialog-body {
@@ -3771,6 +4961,21 @@ async function refreshData() {
 }
 
 @media (max-width: 700px) {
+  .service-report-dialog-content {
+    display: block;
+    overflow-y: auto;
+  }
+
+  .service-report-editor {
+    overflow: visible;
+    border-right: 0;
+  }
+
+  .service-report-preview-pane {
+    min-height: 680px;
+    border-top: 1px solid #d9e0e8;
+  }
+
   .invoice-list-toolbar {
     align-items: stretch;
     flex-direction: column;
@@ -3799,9 +5004,78 @@ async function refreshData() {
     display: none !important;
   }
 
+  .service-report-dialog-header {
+    min-height: 61px;
+    padding: 10px 12px;
+  }
+
+  .service-report-dialog-heading p {
+    display: none;
+  }
+
+  .service-report-editor {
+    padding: 9px;
+  }
+
+  .service-report-form-section {
+    padding: 11px;
+  }
+
+  .service-report-field-grid,
+  .service-report-section-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .service-report-field-full {
+    grid-column: auto;
+  }
+
+  .service-report-form-title--action {
+    flex-wrap: wrap;
+  }
+
+  .service-report-form-title--action .v-btn {
+    width: 100%;
+    margin-top: 3px;
+  }
+
+  .service-report-dialog-footer {
+    padding: 9px 10px;
+  }
+
+  .service-report-dialog-footer > span {
+    display: none;
+  }
+
+  .service-report-dialog-footer > div {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 0.8fr 1.4fr;
+  }
+
   .invoice-page-topbar {
     margin-bottom: 12px;
     gap: 8px;
+  }
+
+  .invoice-overview {
+    display: flex;
+    margin-right: -8px;
+    padding-right: 8px;
+    padding-bottom: 3px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .invoice-overview::-webkit-scrollbar {
+    display: none;
+  }
+
+  .invoice-overview-card {
+    flex: 0 0 132px;
+    min-height: 52px;
+    scroll-snap-align: start;
   }
 
   .invoice-page-soa-btn {
@@ -3812,6 +5086,12 @@ async function refreshData() {
   }
 
   .invoice-page-refresh-btn {
+    min-width: 0;
+    padding: 0 8px !important;
+    font-size: 10px !important;
+  }
+
+  .invoice-export-btn {
     min-width: 0;
     padding: 0 8px !important;
     font-size: 10px !important;
