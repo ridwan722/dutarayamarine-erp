@@ -2383,8 +2383,7 @@ const logout = async () => {
   }
 
   .account-trigger-name {
-    max-width: 76px;
-    font-size: 10px;
+    display: none;
   }
 
   .header-notification-button {

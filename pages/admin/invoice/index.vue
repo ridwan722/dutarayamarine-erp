@@ -452,6 +452,191 @@
     </v-card>
   </v-dialog>
 
+  <v-dialog
+    v-model="soaDialogOpen"
+    max-width="840"
+    scrollable
+    :fullscreen="display.mdAndDown.value"
+    :persistent="savingSoa"
+  >
+    <v-card class="soa-dialog-card" elevation="0">
+      <header class="soa-dialog-header">
+        <div>
+          <h2>Buat Statement of Account</h2>
+          <p>Pilih perusahaan, invoice Draft, tanggal, dan penandatangan.</p>
+        </div>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          aria-label="Tutup form SOA"
+          :disabled="savingSoa"
+          @click="soaDialogOpen = false"
+        />
+      </header>
+
+      <v-card-text class="soa-dialog-body">
+        <div class="soa-form-fields">
+          <v-select
+            v-model="soaForm.id_perusahaan"
+            :items="soaCompanyOptions"
+            item-title="nama"
+            item-value="id"
+            label="Perusahaan"
+            placeholder="Pilih perusahaan"
+            variant="outlined"
+            density="compact"
+            hide-details
+            class="soa-v-select"
+            :no-data-text="isLoading ? 'Memuat invoice...' : 'Tidak ada perusahaan dengan invoice Draft'"
+          />
+
+          <v-text-field
+            v-model="soaForm.tanggal_soa"
+            label="Tanggal SOA"
+            type="date"
+            :min="minimumSoaDate || undefined"
+            variant="outlined"
+            density="compact"
+            hide-details
+            class="soa-v-select"
+          />
+
+          <v-select
+            v-model="soaForm.sign_by"
+            :items="soaSigners"
+            label="Sign By"
+            placeholder="Pilih penandatangan"
+            variant="outlined"
+            density="compact"
+            hide-details
+            class="soa-v-select"
+          />
+        </div>
+
+        <div class="soa-invoice-picker-heading">
+          <div>
+            <h3>Invoice</h3>
+            <p>
+              {{ selectedSoaInvoices.length }} invoice dipilih
+              <template v-if="soaSelectionGroup">
+                · {{ soaSelectionGroup.currency }}
+              </template>
+            </p>
+          </div>
+          <strong v-if="selectedSoaInvoices.length" class="soa-picker-total">
+            {{ formatInvoiceCurrency(selectedSoaOutstanding, soaSelectionGroup?.currency) }}
+          </strong>
+        </div>
+
+        <div v-if="soaForm.id_perusahaan" class="soa-invoice-table-wrap">
+          <table class="soa-invoice-table">
+            <thead>
+              <tr>
+                <th class="soa-invoice-check-cell"></th>
+                <th class="soa-invoice-id-cell">Invoice</th>
+                <th>Perusahaan</th>
+                <th class="soa-invoice-date-cell">Tanggal</th>
+                <th>Subject</th>
+                <th class="soa-invoice-amount-cell">Jumlah</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="invoice in soaSelectableInvoices" :key="invoiceDocumentId(invoice)">
+                <td class="soa-invoice-check-cell">
+                  <v-checkbox
+                    :model-value="isSoaInvoiceSelected(invoice)"
+                    :disabled="!canSelectSoaInvoice(invoice)"
+                    density="compact"
+                    hide-details
+                    color="primary"
+                    @update:model-value="setSoaInvoiceSelected(invoice, $event)"
+                  />
+                </td>
+                <td class="soa-invoice-reference">{{ invoiceReference(invoice) }}</td>
+                <td>{{ soaSelectedCompany?.nama || invoice.nama_customer || "—" }}</td>
+                <td class="soa-invoice-date-cell">
+                  {{ formatSoaInvoiceDate(invoice.tanggal) }}
+                </td>
+                <td class="soa-invoice-perihal">
+                  {{ invoice.perihal || "—" }}
+                </td>
+                <td class="soa-invoice-amount-cell">
+                  {{ formatInvoiceCurrency(invoice.grandtotal_invoice, invoice.currency_inv) }}
+                  <small>{{ normalizeInvoiceCurrency(invoice.currency_inv) }}</small>
+                </td>
+              </tr>
+              <tr v-if="!soaSelectableInvoices.length">
+                <td colspan="6" class="soa-invoice-empty-row">
+                  <v-icon icon="mdi-receipt-text-remove-outline" size="20" />
+                  Tidak ada invoice Draft untuk perusahaan ini.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="soa-invoice-empty soa-invoice-empty--prompt">
+          <v-icon icon="mdi-domain-search" size="22" />
+          <span>Pilih perusahaan untuk menampilkan invoice Draft.</span>
+        </div>
+
+        <div v-if="soaForm.id_perusahaan && soaSelectableInvoices.length" class="soa-company-summary">
+          <v-icon icon="mdi-domain" size="16" />
+          <span>Perusahaan dipilih</span>
+          <strong>{{ soaSelectedCompany?.nama || "—" }}</strong>
+          <small>Pilih invoice dengan mata uang yang sama.</small>
+        </div>
+      </v-card-text>
+
+      <footer class="soa-dialog-footer">
+        <span>Hanya invoice berstatus Draft yang ditampilkan.</span>
+        <div>
+          <v-btn
+            variant="outlined"
+            class="text-none"
+            :disabled="savingSoa"
+            @click="soaDialogOpen = false"
+          >
+            Batal
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            class="text-none"
+            prepend-icon="mdi-content-save-outline"
+            :disabled="!selectedSoaInvoices.length || !soaForm.sign_by || savingSoa"
+            :loading="savingSoa"
+            @click="createSoa"
+          >
+            Simpan SOA
+          </v-btn>
+        </div>
+      </footer>
+    </v-card>
+  </v-dialog>
+
+  <v-dialog v-model="soaPreviewOpen" max-width="1240" scrollable>
+    <v-card class="soa-preview-dialog-card" elevation="0">
+      <header class="soa-preview-dialog-header">
+        <div>
+          <h2>Statement of Account</h2>
+          <p v-if="activeSoa">{{ activeSoa.nama_customer }} · {{ activeSoa.currency }}</p>
+        </div>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          aria-label="Tutup preview SOA"
+          @click="soaPreviewOpen = false"
+        />
+      </header>
+      <v-card-text class="soa-preview-dialog-body">
+        <canvas-soa v-if="activeSoa" :soa-detail="activeSoa" />
+      </v-card-text>
+    </v-card>
+  </v-dialog>
+
   <v-card class="invoice-list-card" flat>
     <div class="invoice-list-toolbar">
       <div class="invoice-list-search">
@@ -676,15 +861,32 @@
       </template>
 
       <template #item.status="{ item }">
-        <v-chip
-          size="x-small"
-          :color="statusColor(item.status)"
-          variant="tonal"
-          class="invoice-table-status"
-        >
-          <v-icon start icon="mdi-circle" size="6" />
-          {{ item.status || "Draft" }}
-        </v-chip>
+        <div class="invoice-status-cell">
+          <v-chip
+            size="x-small"
+            :color="statusColor(item.status)"
+            variant="tonal"
+            class="invoice-table-status"
+          >
+            <v-icon start icon="mdi-circle" size="6" />
+            {{ item.status || "Draft" }}
+          </v-chip>
+          <v-tooltip
+            v-if="isInvoiceInSoa(item)"
+            text="SOA"
+            location="top"
+          >
+            <template #activator="{ props: tooltipProps }">
+              <v-icon
+                v-bind="tooltipProps"
+                icon="mdi-message-alert"
+                size="14"
+                color="grey-darken-1"
+                aria-label="Invoice sudah dibuatkan SOA"
+              />
+            </template>
+          </v-tooltip>
+        </div>
       </template>
 
       <template #item.aksi="{ item }">
@@ -763,6 +965,96 @@
       </div>
     </div>
   </v-card>
+
+  <v-card class="soa-list-card" flat>
+    <header class="soa-list-header">
+      <div class="soa-list-title">
+        <span class="soa-list-icon"><v-icon icon="mdi-message-alert" size="18" /></span>
+        <div>
+          <h2>Daftar SOA</h2>
+          <p>{{ soaRecords.length }} Statement of Account tersimpan</p>
+        </div>
+      </div>
+      <div class="soa-list-header-actions">
+        <v-btn
+          color="primary"
+          variant="flat"
+          size="small"
+          class="text-none invoice-page-soa-btn"
+          prepend-icon="mdi-message-plus"
+          :disabled="isLoading"
+          @click="openSoaDialog"
+        >
+          Create SOA
+        </v-btn>
+        <v-btn
+          size="small"
+          variant="outlined"
+          class="text-none"
+          prepend-icon="mdi-refresh"
+          :loading="loadingSoa"
+          :disabled="loadingSoa"
+          @click="loadSoaRecords(true)"
+        >
+          Refresh SOA
+        </v-btn>
+      </div>
+    </header>
+
+    <v-data-table
+      :headers="soaHeaders"
+      :items="soaRecords"
+      :loading="loadingSoa"
+      :items-per-page="-1"
+      density="compact"
+      hide-default-footer
+      class="soa-list-table"
+    >
+      <template #item.no="{ index }">
+        <span class="invoice-row-index">{{ index + 1 }}</span>
+      </template>
+
+      <template #item.tanggal_soa="{ item }">
+        {{ formatSoaLongDate(item.tanggal_soa) }}
+      </template>
+
+      <template #item.nama_customer="{ item }">
+        <strong class="soa-list-customer">{{ item.nama_customer || "—" }}</strong>
+      </template>
+
+      <template #item.invoiceCount="{ item }">
+        {{ item.invoices?.length || 0 }} invoice
+      </template>
+
+      <template #item.outstanding="{ item }">
+        <strong class="soa-list-amount">
+          {{ formatInvoiceCurrency(soaOutstanding(item), item.currency) }}
+        </strong>
+      </template>
+
+      <template #item.sign_by="{ item }">
+        <span class="soa-list-signer">{{ item.sign_by || "—" }}</span>
+      </template>
+
+      <template #item.aksi="{ item }">
+        <v-btn
+          icon="mdi-eye-outline"
+          size="small"
+          variant="text"
+          color="primary"
+          aria-label="Lihat Statement of Account"
+          @click="openSoaPreview(item)"
+        />
+      </template>
+
+      <template #no-data>
+        <div class="soa-list-empty">
+          <v-icon icon="mdi-file-document-outline" size="30" />
+          <span>Belum ada SOA yang dibuat.</span>
+        </div>
+      </template>
+    </v-data-table>
+  </v-card>
 </template>
 
 <script setup lang="ts">
@@ -770,6 +1062,8 @@ import { reactive, ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import moment from "moment";
+import { addDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { useFirestore } from "vuefire";
 import type { ConfirmationDialog } from "#components";
 import type { customerM } from "~/types/customerModel";
 import type {
@@ -779,12 +1073,44 @@ import type {
 } from "~/types/invoice";
 import { useinvoiceStore } from "~/stores/invoiceStore";
 
+interface SoaInvoiceSnapshot {
+  id: string;
+  no_inv: string;
+  tanggal: string;
+  perihal: string;
+  projectName: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  remark?: string;
+}
+
+interface SoaRecord {
+  id: string;
+  tanggal_soa: string;
+  id_perusahaan: string;
+  nama_customer: string;
+  attn: string;
+  currency: invoiceCurrencyM;
+  sign_by: string;
+  invoiceIds: string[];
+  invoices: SoaInvoiceSnapshot[];
+  createdAt: number;
+  createdBy: string;
+}
+
+interface SoaCompanyOption {
+  id: string;
+  nama: string;
+}
+
 definePageMeta({
   layout: "admin",
 });
 
 const router = useRouter();
 const display = useDisplay();
+const db = useFirestore();
 const customerStore = usecustomerStore();
 const invoiceStore = useinvoiceStore();
 const userStore = useUserStore();
@@ -793,6 +1119,43 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
   null,
 );
 const termconditionStore = usetermconditionStore();
+const soaSigners = [
+  "Seilla Maryana",
+  "Leo Adiatmaja Sembiring",
+  "Muhammad Ridwan",
+  "Lilis",
+];
+const soaDialogOpen = ref(false);
+const soaPreviewOpen = ref(false);
+const savingSoa = ref(false);
+const loadingSoa = ref(false);
+const soaRecords = ref<SoaRecord[]>([]);
+const soaLinkedInvoiceIds = computed(
+  () =>
+    new Set(
+      soaRecords.value.flatMap((soa) => [
+        ...(soa.invoiceIds || []),
+        ...(soa.invoices || []).map((invoice) => invoice.id),
+      ]),
+    ),
+);
+const activeSoa = ref<SoaRecord | null>(null);
+const soaInvoiceIds = ref<string[]>([]);
+const soaForm = reactive({
+  id_perusahaan: "",
+  tanggal_soa: moment().format("YYYY-MM-DD"),
+  sign_by: "",
+});
+const soaHeaders = [
+  { title: "No", value: "no", sortable: false, width: "56px", align: "center" as const },
+  { title: "Tanggal SOA", value: "tanggal_soa", sortable: true, width: "150px" },
+  { title: "Customer", value: "nama_customer", sortable: true, width: "240px" },
+  { title: "Mata Uang", value: "currency", sortable: true, width: "100px" },
+  { title: "Invoice", value: "invoiceCount", sortable: false, width: "110px" },
+  { title: "Outstanding", value: "outstanding", sortable: false, width: "180px", align: "end" as const },
+  { title: "Sign By", value: "sign_by", sortable: true, width: "190px" },
+  { title: "Aksi", value: "aksi", sortable: false, align: "center" as const, width: "70px" },
+];
 
 const data = reactive({
   tab: "invoice",
@@ -827,7 +1190,7 @@ const data = reactive({
     { title: "Based On", value: "no_penawaran", sortable: true, width: "150px" },
     { title: "Subject", value: "perihal", sortable: true, width: "220px" },
     { title: "Total Amount", value: "grandtotal_invoice", sortable: true, width: "155px", align: "end" as const },
-    { title: "Status", value: "status", sortable: true, width: "104px" },
+    { title: "Status", value: "status", sortable: true, width: "120px" },
     { title: "Action", align: "center" as const, value: "aksi", width: "58px", sortable: false },
   ],
 });
@@ -972,6 +1335,308 @@ function formatInvoiceCurrency(value: number, currency?: string) {
   }).format(Number(value) || 0);
 }
 
+const soaDraftInvoices = computed(() =>
+  invoiceStore.getDataInvoice.filter(
+    (invoice) =>
+      String(invoice.status || "").trim().toLocaleLowerCase("id-ID") ===
+      "draft",
+  ),
+);
+
+function normalizeCompanyName(value?: string) {
+  return String(value || "").trim().toLocaleLowerCase("id-ID");
+}
+
+const soaCompanyOptions = computed<SoaCompanyOption[]>(() => {
+  const companies = new Map<string, SoaCompanyOption>();
+
+  customerStore.getDataCustomer.forEach((company: customerM) => {
+    const id = (company.id_customer || company.id || "").trim();
+    if (!id) return;
+
+    const hasDraftInvoice = soaDraftInvoices.value.some((invoice) => {
+      const invoiceCompanyId = invoice.id_customer?.trim();
+      if (invoiceCompanyId) return invoiceCompanyId === id;
+      return normalizeCompanyName(invoice.nama_customer) ===
+        normalizeCompanyName(company.nama);
+    });
+
+    if (hasDraftInvoice) companies.set(id, { id, nama: company.nama });
+  });
+
+  soaDraftInvoices.value.forEach((invoice) => {
+    const id = invoice.id_customer?.trim();
+    if (!id || companies.has(id)) return;
+    companies.set(id, {
+      id,
+      nama: invoice.nama_customer?.trim() || "Perusahaan tanpa nama",
+    });
+  });
+
+  return [...companies.values()].sort((first, second) =>
+    first.nama.localeCompare(second.nama, "id-ID"),
+  );
+});
+
+const soaSelectedCompany = computed(
+  () =>
+    soaCompanyOptions.value.find(
+      (company) => company.id === soaForm.id_perusahaan,
+    ) || null,
+);
+
+watch(
+  () => soaForm.id_perusahaan,
+  () => {
+    soaInvoiceIds.value = [];
+  },
+);
+
+const soaSelectableInvoices = computed(() => {
+  const company = soaSelectedCompany.value;
+  if (!company) return [];
+
+  return soaDraftInvoices.value
+    .filter((invoice) => {
+      const invoiceCompanyId = invoice.id_customer?.trim();
+      if (invoiceCompanyId) return invoiceCompanyId === company.id;
+      return normalizeCompanyName(invoice.nama_customer) ===
+        normalizeCompanyName(company.nama);
+    })
+    .sort((first, second) =>
+      String(second.tanggal || "").localeCompare(String(first.tanggal || "")),
+    );
+});
+
+const selectedSoaInvoices = computed(() =>
+  soaInvoiceIds.value
+    .map((id) =>
+      soaSelectableInvoices.value.find(
+        (invoice) => invoiceDocumentId(invoice) === id,
+      ),
+    )
+    .filter((invoice): invoice is invoiceM => Boolean(invoice)),
+);
+
+const minimumSoaDate = computed(() =>
+  selectedSoaInvoices.value.reduce((latestDate, invoice) => {
+    const invoiceDate = String(invoice.tanggal || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate)) return latestDate;
+    return invoiceDate > latestDate ? invoiceDate : latestDate;
+  }, ""),
+);
+
+watch(minimumSoaDate, (minimumDate) => {
+  if (minimumDate && soaForm.tanggal_soa < minimumDate) {
+    soaForm.tanggal_soa = minimumDate;
+  }
+});
+
+const soaSelectionGroup = computed(() => {
+  const first = selectedSoaInvoices.value[0];
+  const company = soaSelectedCompany.value;
+  if (!first || !company) return null;
+
+  return {
+    id_customer: company.id,
+    nama_customer: company.nama,
+    currency: normalizeInvoiceCurrency(first.currency_inv),
+    attn: "Account / Finance Dept",
+  };
+});
+
+const selectedSoaOutstanding = computed(() =>
+  selectedSoaInvoices.value.reduce(
+    (total, invoice) => total + invoiceOutstanding(invoice),
+    0,
+  ),
+);
+
+function invoiceDocumentId(invoice: invoiceM) {
+  return invoice.id || invoice.id_invoice || invoice.no_inv;
+}
+
+function isInvoiceInSoa(invoice: invoiceM) {
+  return soaLinkedInvoiceIds.value.has(invoiceDocumentId(invoice));
+}
+
+function invoiceReference(invoice: invoiceM) {
+  return `#INV/DRM/${invoiceYear(invoice.tanggal)}/${invoice.no_inv || invoiceDocumentId(invoice)}`;
+}
+
+function invoiceOutstanding(invoice: invoiceM) {
+  if (isInvoicePaid(invoice)) {
+    return 0;
+  }
+  return Math.max(0, Number(invoice.grandtotal_invoice) || 0);
+}
+
+function isInvoicePaid(invoice: invoiceM) {
+  return ["selesai", "lunas"].includes(
+    String(invoice.status || "").trim().toLocaleLowerCase("id-ID"),
+  );
+}
+
+function isSoaInvoiceSelected(invoice: invoiceM) {
+  return soaInvoiceIds.value.includes(invoiceDocumentId(invoice));
+}
+
+function canSelectSoaInvoice(invoice: invoiceM) {
+  if (isSoaInvoiceSelected(invoice) || !soaSelectionGroup.value) return true;
+  return normalizeInvoiceCurrency(invoice.currency_inv) ===
+    soaSelectionGroup.value.currency;
+}
+
+function setSoaInvoiceSelected(invoice: invoiceM, selected: unknown) {
+  const id = invoiceDocumentId(invoice);
+  if (selected) {
+    if (!canSelectSoaInvoice(invoice)) return;
+    if (!soaInvoiceIds.value.includes(id)) soaInvoiceIds.value.push(id);
+    return;
+  }
+  soaInvoiceIds.value = soaInvoiceIds.value.filter((itemId) => itemId !== id);
+}
+
+function formatSoaInvoiceDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  }).format(date);
+}
+
+function formatSoaLongDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function soaOutstanding(soa: SoaRecord) {
+  return (soa.invoices || []).reduce(
+    (total, invoice) => total + (Number(invoice.balance) || 0),
+    0,
+  );
+}
+
+function openSoaDialog() {
+  soaForm.id_perusahaan = "";
+  soaForm.tanggal_soa = moment().format("YYYY-MM-DD");
+  soaForm.sign_by = "";
+  soaInvoiceIds.value = [];
+  soaDialogOpen.value = true;
+}
+
+function openSoaPreview(soa: SoaRecord) {
+  activeSoa.value = soa;
+  soaPreviewOpen.value = true;
+}
+
+async function loadSoaRecords(showSuccess = false) {
+  if (loadingSoa.value) return;
+  loadingSoa.value = true;
+  try {
+    const companyId = userStore.getIdPerusahaan.trim();
+    const soaCollection = collection(db, "soa");
+    const soaQuery = companyId
+      ? query(soaCollection, where("id_perusahaan", "==", companyId))
+      : soaCollection;
+    const snapshot = await getDocs(soaQuery);
+    soaRecords.value = snapshot.docs
+      .map((document) => ({
+        ...(document.data() as Omit<SoaRecord, "id">),
+        id: document.id,
+      }))
+      .sort((first, second) => second.createdAt - first.createdAt);
+    if (showSuccess) notificationStore.showSuccess("Daftar SOA berhasil diperbarui");
+  } catch (error) {
+    console.error("Gagal memuat daftar SOA:", error);
+    notificationStore.showError("Daftar SOA gagal dimuat");
+  } finally {
+    loadingSoa.value = false;
+  }
+}
+
+async function createSoa() {
+  if (savingSoa.value) return;
+  const selectedCompany = soaSelectedCompany.value;
+  if (!selectedCompany) {
+    notificationStore.showError("Pilih perusahaan terlebih dahulu");
+    return;
+  }
+  if (!soaForm.tanggal_soa) {
+    notificationStore.showError("Tanggal SOA belum dipilih");
+    return;
+  }
+  if (!soaSelectedCompany.value) {
+    notificationStore.showError("Pilih perusahaan terlebih dahulu");
+    return;
+  }
+  if (!soaForm.sign_by) {
+    notificationStore.showError("Sign By belum dipilih");
+    return;
+  }
+  const selectionGroup = soaSelectionGroup.value;
+  if (!selectedSoaInvoices.value.length || !selectionGroup) {
+    notificationStore.showError("Pilih minimal satu invoice untuk SOA");
+    return;
+  }
+
+  savingSoa.value = true;
+  try {
+    const selectedInvoices = [...selectedSoaInvoices.value].sort((first, second) =>
+      String(second.tanggal || "").localeCompare(String(first.tanggal || "")),
+    );
+    const snapshots: SoaInvoiceSnapshot[] = selectedInvoices.map((invoice) => {
+      const debit = Math.max(0, Number(invoice.grandtotal_invoice) || 0);
+      const isPaid = isInvoicePaid(invoice);
+      const credit = isPaid ? debit : 0;
+
+      return {
+        id: invoiceDocumentId(invoice),
+        no_inv: `INV/DRM/${invoiceYear(invoice.tanggal)}/${invoice.no_inv || invoiceDocumentId(invoice)}`,
+        tanggal: invoice.tanggal || "",
+        perihal: invoice.perihal || "",
+        projectName: invoice.vessel || invoice.perihal || "",
+        debit,
+        credit,
+        balance: Math.max(0, debit - credit),
+        remark: isPaid ? "Paid" : "",
+      };
+    });
+    const payload: Omit<SoaRecord, "id"> = {
+      tanggal_soa: soaForm.tanggal_soa,
+      id_perusahaan: selectedCompany.id,
+      nama_customer: selectedCompany.nama,
+      attn: selectionGroup.attn,
+      currency: selectionGroup.currency,
+      sign_by: soaForm.sign_by,
+      invoiceIds: selectedInvoices.map(invoiceDocumentId),
+      invoices: snapshots,
+      createdAt: Date.now(),
+      createdBy: userStore.getEmail,
+    };
+    const documentRef = await addDoc(collection(db, "soa"), payload);
+    const savedSoa = { ...payload, id: documentRef.id };
+    soaRecords.value = [savedSoa, ...soaRecords.value];
+    soaDialogOpen.value = false;
+    openSoaPreview(savedSoa);
+    notificationStore.showSuccess("SOA berhasil dibuat");
+  } catch (error) {
+    console.error("Gagal membuat SOA:", error);
+    notificationStore.showError("SOA gagal dibuat");
+  } finally {
+    savingSoa.value = false;
+  }
+}
+
 const readingPo = ref(false);
 const savingInvoice = ref(false);
 const isLoading = ref(!invoiceStore.hasCachedData());
@@ -1105,6 +1770,7 @@ onMounted(async () => {
     if (needsInvoiceData) {
       initialRequests.push(invoiceStore.tarikDataInvoiceAct());
     }
+    initialRequests.push(loadSoaRecords());
     await Promise.all(initialRequests);
   } finally {
     isLoading.value = false;
@@ -1448,7 +2114,10 @@ async function refreshData() {
   isRefreshing.value = true;
   try {
     sessionStorage.removeItem("invoice");
-    await invoiceStore.tarikDataInvoiceAct();
+    await Promise.all([
+      invoiceStore.tarikDataInvoiceAct(),
+      loadSoaRecords(),
+    ]);
     notificationStore.showSuccess("Data berhasil diperbarui");
   } catch (error) {
     console.error("Gagal memperbarui data invoice:", error);
@@ -1503,6 +2172,342 @@ async function refreshData() {
   border: 1px solid #dfe3e8;
   border-radius: 8px !important;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025) !important;
+}
+
+.soa-dialog-card,
+.soa-preview-dialog-card {
+  overflow: hidden;
+  border: 1px solid #dfe3e8 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+}
+
+.soa-dialog-header,
+.soa-preview-dialog-header {
+  display: flex;
+  min-height: 62px;
+  padding: 13px 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #e9edf1;
+}
+
+.soa-dialog-header h2,
+.soa-preview-dialog-header h2 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.soa-dialog-header p,
+.soa-preview-dialog-header p {
+  margin: 3px 0 0;
+  color: #7c8795;
+  font-size: 10px;
+}
+
+.soa-dialog-body {
+  display: flex;
+  padding: 14px 18px !important;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.soa-form-fields {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.35fr) minmax(155px, 0.8fr) minmax(190px, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.soa-v-select :deep(.v-field) {
+  border-radius: 6px;
+}
+
+.soa-v-select :deep(.v-field__input),
+.soa-v-select :deep(.v-label) {
+  font-size: 11px;
+}
+
+.soa-invoice-picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 1px;
+}
+
+.soa-invoice-picker-heading h3 {
+  margin: 0;
+  color: #273548;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.soa-invoice-picker-heading p {
+  margin: 2px 0 0;
+  color: #818b98;
+  font-size: 9px;
+}
+
+.soa-picker-total {
+  color: #253b55;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.soa-invoice-table-wrap {
+  max-height: min(44vh, 370px);
+  overflow: auto;
+  border: 1px solid #e1e6eb;
+  border-radius: 7px;
+}
+
+.soa-invoice-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.soa-invoice-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 33px;
+  padding: 0 8px;
+  background: #f7f8fa;
+  color: #7a8797;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.soa-invoice-table td {
+  height: 42px;
+  padding: 5px 8px;
+  border-top: 1px solid #edf0f3;
+  color: #526174;
+  font-size: 9px;
+}
+
+.soa-invoice-table tbody tr:hover {
+  background: #fafbfd;
+}
+
+.soa-invoice-table .soa-invoice-check-cell {
+  width: 42px;
+  padding-right: 2px;
+  padding-left: 5px;
+  text-align: center;
+}
+
+.soa-invoice-reference {
+  color: #344b65 !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.soa-invoice-id-cell {
+  width: 130px;
+  white-space: nowrap;
+}
+
+.soa-invoice-date-cell {
+  width: 90px;
+  white-space: nowrap;
+}
+
+.soa-invoice-perihal {
+  overflow-wrap: anywhere;
+  vertical-align: top;
+  white-space: normal;
+}
+
+.soa-invoice-amount-cell {
+  width: 145px;
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.soa-invoice-amount-cell small {
+  display: block;
+  margin-top: 1px;
+  color: #99a2ad;
+  font-size: 8px;
+}
+
+.soa-invoice-empty-row {
+  height: 82px !important;
+  color: #8792a0 !important;
+  text-align: center;
+}
+
+.soa-invoice-empty-row :deep(.v-icon) {
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.soa-invoice-empty,
+.soa-list-empty {
+  display: flex;
+  min-height: 94px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #8893a0;
+  font-size: 10px;
+}
+
+.soa-invoice-empty--prompt {
+  border: 1px dashed #d8dee6;
+  border-radius: 7px;
+  background: #fafbfd;
+}
+
+.soa-company-summary {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  color: #758294;
+  font-size: 9px;
+}
+
+.soa-company-summary strong {
+  color: #43556a;
+  font-weight: 700;
+}
+
+.soa-company-summary small {
+  margin-left: auto;
+  color: #929ba7;
+  font-size: 8px;
+}
+
+.soa-dialog-footer {
+  display: flex;
+  min-height: 54px;
+  padding: 9px 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid #e9edf1;
+  background: #fcfcfd;
+}
+
+.soa-dialog-footer > span {
+  color: #7c8795;
+  font-size: 9px;
+}
+
+.soa-dialog-footer > div {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.soa-preview-dialog-header {
+  min-height: 56px;
+}
+
+.soa-preview-dialog-body {
+  padding: 16px !important;
+  background: #f4f6f8;
+}
+
+.soa-list-card {
+  overflow: hidden;
+  margin-top: 14px;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px !important;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025) !important;
+}
+
+.soa-list-header {
+  display: flex;
+  min-height: 66px;
+  padding: 12px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.soa-list-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.soa-list-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.soa-list-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  background: #eff3f7;
+  color: #526579;
+}
+
+.soa-list-title h2 {
+  margin: 0;
+  color: #29384b;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.soa-list-title p {
+  margin: 3px 0 0;
+  color: #8a94a1;
+  font-size: 10px;
+}
+
+.soa-list-customer {
+  color: #2c3c50;
+  font-size: 11px;
+}
+
+.soa-list-amount {
+  color: #34465a;
+  white-space: nowrap;
+}
+
+.soa-list-signer {
+  color: #697688;
+  font-size: 10px;
+}
+
+.soa-list-table :deep(.v-table__wrapper) {
+  border-top: 1px solid #edf0f3;
+}
+
+.soa-list-table :deep(th) {
+  height: 37px !important;
+  color: #7d8998 !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.soa-list-table :deep(td) {
+  height: 48px !important;
+  color: #536174;
+  font-size: 10px;
 }
 
 .invoice-list-toolbar {
@@ -1871,6 +2876,7 @@ async function refreshData() {
   letter-spacing: 0.015em !important;
   border-radius: 4px !important;
 }
+.invoice-status-cell { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .invoice-row-actions { display: flex; align-items: center; justify-content: center; }
 .invoice-action-trigger { width: 28px !important; height: 28px !important; border-radius: 4px !important; }
 .invoice-action-trigger:hover { color: #26384b !important; background: #eef1f4 !important; }
@@ -2273,6 +3279,13 @@ async function refreshData() {
     gap: 8px;
   }
 
+  .invoice-page-soa-btn,
+  .invoice-page-refresh-btn {
+    min-width: 0;
+    padding: 0 8px !important;
+    font-size: 10px !important;
+  }
+
   .invoice-page-heading {
     justify-content: flex-start;
     text-align: left;
@@ -2394,6 +3407,51 @@ async function refreshData() {
 
   .invoice-result-count {
     margin-right: auto;
+  }
+
+  .soa-form-fields {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .soa-dialog-header,
+  .soa-dialog-body,
+  .soa-dialog-footer {
+    padding-right: 14px !important;
+    padding-left: 14px !important;
+  }
+
+  .soa-dialog-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .soa-dialog-footer > span {
+    display: none;
+  }
+
+  .soa-dialog-footer > div {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+  }
+
+  .soa-invoice-table-wrap {
+    max-height: 48vh;
+  }
+
+  .soa-company-summary {
+    flex-wrap: wrap;
+  }
+
+  .soa-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .soa-list-header-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
   }
 }
 </style>
