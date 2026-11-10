@@ -523,8 +523,8 @@
     <v-card class="soa-dialog-card" elevation="0">
       <header class="soa-dialog-header">
         <div>
-          <h2>Create Statement of Account</h2>
-          <p>Pilih perusahaan, invoice Draft, tanggal, dan penandatangan.</p>
+          <h2>{{ editingSoa ? "Edit" : "Create" }} Statement of Account</h2>
+          <p>Pilih perusahaan, invoice, tanggal, dan penandatangan.</p>
         </div>
         <v-btn
           icon="mdi-close"
@@ -583,13 +583,13 @@
           <div>
             <h3>Invoice</h3>
             <p>
-              {{ selectedSoaInvoices.length }} invoice dipilih
+              {{ soaInvoiceIds.length }} invoice dipilih
               <template v-if="soaSelectionGroup">
                 · {{ soaSelectionGroup.currency }}
               </template>
             </p>
           </div>
-          <strong v-if="selectedSoaInvoices.length" class="soa-picker-total">
+          <strong v-if="soaInvoiceIds.length" class="soa-picker-total">
             {{
               formatInvoiceCurrency(
                 selectedSoaOutstanding,
@@ -614,7 +614,7 @@
             <tbody>
               <tr
                 v-for="invoice in soaSelectableInvoices"
-                :key="invoiceDocumentId(invoice)"
+                :key="invoice.id"
               >
                 <td class="soa-invoice-check-cell">
                   <v-checkbox
@@ -627,7 +627,7 @@
                   />
                 </td>
                 <td class="soa-invoice-reference">
-                  {{ invoiceReference(invoice) }}
+                  {{ invoice.reference }}
                 </td>
                 <td>
                   {{ soaSelectedCompany?.nama || invoice.nama_customer || "—" }}
@@ -641,19 +641,17 @@
                 <td class="soa-invoice-amount-cell">
                   {{
                     formatInvoiceCurrency(
-                      invoice.grandtotal_invoice,
-                      invoice.currency_inv,
+                      invoice.amount,
+                      invoice.currency,
                     )
                   }}
-                  <small>{{
-                    normalizeInvoiceCurrency(invoice.currency_inv)
-                  }}</small>
+                  <small>{{ invoice.currency }}</small>
                 </td>
               </tr>
               <tr v-if="!soaSelectableInvoices.length">
                 <td colspan="6" class="soa-invoice-empty-row">
                   <v-icon icon="mdi-receipt-text-remove-outline" size="20" />
-                  Tidak ada invoice Draft untuk perusahaan ini.
+                  Tidak ada invoice yang tersedia untuk perusahaan ini.
                 </td>
               </tr>
             </tbody>
@@ -662,7 +660,9 @@
 
         <div v-else class="soa-invoice-empty soa-invoice-empty--prompt">
           <v-icon icon="mdi-domain-search" size="22" />
-          <span>Pilih perusahaan untuk menampilkan invoice Draft.</span>
+          <span>
+            Pilih perusahaan untuk menampilkan invoice yang dapat dipilih.
+          </span>
         </div>
 
         <div
@@ -677,7 +677,7 @@
       </v-card-text>
 
       <footer class="soa-dialog-footer">
-        <span>Hanya invoice berstatus Draft yang ditampilkan.</span>
+        <span>Invoice baru harus berstatus Draft.</span>
         <div>
           <v-btn
             variant="outlined"
@@ -693,12 +693,12 @@
             class="text-none"
             prepend-icon="mdi-content-save-outline"
             :disabled="
-              !selectedSoaInvoices.length || !soaForm.sign_by || savingSoa
+              !soaInvoiceIds.length || !soaForm.sign_by || savingSoa
             "
             :loading="savingSoa"
-            @click="createSoa"
+            @click="saveSoa"
           >
-            Simpan SOA
+            {{ editingSoa ? "Simpan Perubahan" : "Simpan SOA" }}
           </v-btn>
         </div>
       </footer>
@@ -1154,7 +1154,7 @@
       </template>
 
       <template #item.invoiceCount="{ item }">
-        {{ item.invoices?.length || 0 }} invoice
+        {{ item.invoiceIds?.length || item.invoices?.length || 0 }} invoice
       </template>
 
       <template #item.outstanding="{ item }">
@@ -1168,6 +1168,14 @@
       </template>
 
       <template #item.aksi="{ item }">
+        <v-btn
+          icon="mdi-pencil-outline"
+          size="small"
+          variant="text"
+          color="primary"
+          aria-label="Edit Statement of Account"
+          @click="openSoaDialog(item)"
+        />
         <v-btn
           icon="mdi-eye-outline"
           size="small"
@@ -1193,7 +1201,15 @@ import { reactive, ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import moment from "moment";
-import { addDoc, collection, getDocs, query, where } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { useFirestore } from "vuefire";
 import type { ConfirmationDialog } from "#components";
 import type { customerM } from "~/types/customerModel";
@@ -1235,6 +1251,18 @@ interface SoaCompanyOption {
   nama: string;
 }
 
+interface SoaInvoiceOption {
+  id: string;
+  reference: string;
+  tanggal: string;
+  nama_customer: string;
+  perihal: string;
+  amount: number;
+  currency: invoiceCurrencyM;
+  invoice?: invoiceM;
+  snapshot?: SoaInvoiceSnapshot;
+}
+
 definePageMeta({
   layout: "admin",
 });
@@ -1261,6 +1289,7 @@ const soaPreviewOpen = ref(false);
 const savingSoa = ref(false);
 const loadingSoa = ref(false);
 const soaRecords = ref<SoaRecord[]>([]);
+const editingSoa = ref<SoaRecord | null>(null);
 const soaLinkedInvoiceIds = computed(
   () =>
     new Set(
@@ -1307,7 +1336,7 @@ const soaHeaders = [
     value: "aksi",
     sortable: false,
     align: "center" as const,
-    width: "70px",
+    width: "96px",
   },
 ];
 
@@ -1553,6 +1582,14 @@ const soaCompanyOptions = computed<SoaCompanyOption[]>(() => {
     });
   });
 
+  const currentCompany = editingSoa.value;
+  if (currentCompany?.id_perusahaan && currentCompany.nama_customer) {
+    companies.set(currentCompany.id_perusahaan, {
+      id: currentCompany.id_perusahaan,
+      nama: currentCompany.nama_customer,
+    });
+  }
+
   return [...companies.values()].sort((first, second) =>
     first.nama.localeCompare(second.nama, "id-ID"),
   );
@@ -1570,34 +1607,74 @@ watch(
   () => {
     soaInvoiceIds.value = [];
   },
+  { flush: "sync" },
 );
 
-const soaSelectableInvoices = computed(() => {
+const soaSelectableInvoices = computed<SoaInvoiceOption[]>(() => {
   const company = soaSelectedCompany.value;
   if (!company) return [];
 
-  return soaDraftInvoices.value
+  const editingInvoiceIds = new Set([
+    ...(editingSoa.value?.invoiceIds || []),
+    ...(editingSoa.value?.invoices || []).map((invoice) => invoice.id),
+  ]);
+  const companyInvoices = invoiceStore.getDataInvoice
     .filter((invoice) => {
+      const id = invoiceDocumentId(invoice);
       const invoiceCompanyId = invoice.id_customer?.trim();
-      if (invoiceCompanyId) return invoiceCompanyId === company.id;
+      const belongsToCompany = invoiceCompanyId
+        ? invoiceCompanyId === company.id
+        : normalizeCompanyName(invoice.nama_customer) ===
+          normalizeCompanyName(company.nama);
+      const isDraft =
+        String(invoice.status || "")
+          .trim()
+          .toLocaleLowerCase("id-ID") === "draft";
       return (
-        normalizeCompanyName(invoice.nama_customer) ===
-        normalizeCompanyName(company.nama)
+        belongsToCompany &&
+        (isDraft || editingInvoiceIds.has(id))
       );
     })
-    .sort((first, second) =>
-      String(second.tanggal || "").localeCompare(String(first.tanggal || "")),
-    );
+    .map((invoice): SoaInvoiceOption => ({
+      id: invoiceDocumentId(invoice),
+      reference: invoiceReference(invoice),
+      tanggal: invoice.tanggal || "",
+      nama_customer: invoice.nama_customer || company.nama,
+      perihal: invoice.perihal || "",
+      amount: Math.max(0, Number(invoice.grandtotal_invoice) || 0),
+      currency: normalizeInvoiceCurrency(invoice.currency_inv),
+      invoice,
+    }));
+
+  const availableInvoiceIds = new Set(
+    companyInvoices.map((invoice) => invoice.id),
+  );
+  const retainedSnapshots = (editingSoa.value?.invoices || [])
+    .filter(
+      (snapshot) =>
+        soaInvoiceIds.value.includes(snapshot.id) &&
+        !availableInvoiceIds.has(snapshot.id),
+    )
+    .map((snapshot): SoaInvoiceOption => ({
+      id: snapshot.id,
+      reference: snapshot.no_inv || snapshot.id,
+      tanggal: snapshot.tanggal || "",
+      nama_customer: company.nama,
+      perihal: snapshot.perihal || "",
+      amount: Math.max(0, Number(snapshot.debit) || 0),
+      currency: normalizeInvoiceCurrency(editingSoa.value?.currency),
+      snapshot,
+    }));
+
+  return [...companyInvoices, ...retainedSnapshots].sort((first, second) =>
+    String(second.tanggal || "").localeCompare(String(first.tanggal || "")),
+  );
 });
 
 const selectedSoaInvoices = computed(() =>
-  soaInvoiceIds.value
-    .map((id) =>
-      soaSelectableInvoices.value.find(
-        (invoice) => invoiceDocumentId(invoice) === id,
-      ),
-    )
-    .filter((invoice): invoice is invoiceM => Boolean(invoice)),
+  soaSelectableInvoices.value.filter((invoice) =>
+    soaInvoiceIds.value.includes(invoice.id),
+  ),
 );
 
 const minimumSoaDate = computed(() =>
@@ -1617,19 +1694,27 @@ watch(minimumSoaDate, (minimumDate) => {
 const soaSelectionGroup = computed(() => {
   const first = selectedSoaInvoices.value[0];
   const company = soaSelectedCompany.value;
-  if (!first || !company) return null;
+  if (!company) return null;
 
   return {
     id_customer: company.id,
     nama_customer: company.nama,
-    currency: normalizeInvoiceCurrency(first.currency_inv),
-    attn: "Account / Finance Dept",
+    currency:
+      first?.currency ||
+      (editingSoa.value && editingSoa.value.id_perusahaan === company.id
+        ? normalizeInvoiceCurrency(editingSoa.value.currency)
+        : null),
+    attn: editingSoa.value?.attn || "Account / Finance Dept",
   };
 });
 
 const selectedSoaOutstanding = computed(() =>
   selectedSoaInvoices.value.reduce(
-    (total, invoice) => total + invoiceOutstanding(invoice),
+    (total, item) =>
+      total +
+      (item.invoice
+        ? invoiceOutstanding(item.invoice)
+        : Number(item.snapshot?.balance) || 0),
     0,
   ),
 );
@@ -1661,20 +1746,29 @@ function isInvoicePaid(invoice: invoiceM) {
   );
 }
 
-function isSoaInvoiceSelected(invoice: invoiceM) {
-  return soaInvoiceIds.value.includes(invoiceDocumentId(invoice));
+function isSoaInvoiceSelected(invoice: SoaInvoiceOption) {
+  return soaInvoiceIds.value.includes(invoice.id);
 }
 
-function canSelectSoaInvoice(invoice: invoiceM) {
-  if (isSoaInvoiceSelected(invoice) || !soaSelectionGroup.value) return true;
+function canSelectSoaInvoice(invoice: SoaInvoiceOption) {
+  if (isSoaInvoiceSelected(invoice)) return true;
+
+  const linkedToCurrentSoa = [
+    ...(editingSoa.value?.invoiceIds || []),
+    ...(editingSoa.value?.invoices || []).map((item) => item.id),
+  ].includes(invoice.id);
+  if (soaLinkedInvoiceIds.value.has(invoice.id) && !linkedToCurrentSoa) {
+    return false;
+  }
+
   return (
-    normalizeInvoiceCurrency(invoice.currency_inv) ===
-    soaSelectionGroup.value.currency
+    !soaSelectionGroup.value?.currency ||
+    invoice.currency === soaSelectionGroup.value.currency
   );
 }
 
-function setSoaInvoiceSelected(invoice: invoiceM, selected: unknown) {
-  const id = invoiceDocumentId(invoice);
+function setSoaInvoiceSelected(invoice: SoaInvoiceOption, selected: unknown) {
+  const id = invoice.id;
   if (selected) {
     if (!canSelectSoaInvoice(invoice)) return;
     if (!soaInvoiceIds.value.includes(id)) soaInvoiceIds.value.push(id);
@@ -1712,11 +1806,19 @@ function soaOutstanding(soa: SoaRecord) {
   );
 }
 
-function openSoaDialog() {
-  soaForm.id_perusahaan = "";
-  soaForm.tanggal_soa = moment().format("YYYY-MM-DD");
-  soaForm.sign_by = "";
-  soaInvoiceIds.value = [];
+function openSoaDialog(soa?: SoaRecord) {
+  editingSoa.value = soa || null;
+  soaForm.id_perusahaan = soa?.id_perusahaan || "";
+  soaForm.tanggal_soa = soa?.tanggal_soa || moment().format("YYYY-MM-DD");
+  soaForm.sign_by = soa?.sign_by || "";
+  soaInvoiceIds.value = soa
+    ? [
+        ...new Set([
+          ...(soa.invoiceIds || []),
+          ...(soa.invoices || []).map((invoice) => invoice.id),
+        ]),
+      ]
+    : [];
   soaDialogOpen.value = true;
 }
 
@@ -1751,7 +1853,25 @@ async function loadSoaRecords(showSuccess = false) {
   }
 }
 
-async function createSoa() {
+function createSoaSnapshot(invoice: invoiceM): SoaInvoiceSnapshot {
+  const debit = Math.max(0, Number(invoice.grandtotal_invoice) || 0);
+  const isPaid = isInvoicePaid(invoice);
+  const credit = isPaid ? debit : 0;
+
+  return {
+    id: invoiceDocumentId(invoice),
+    no_inv: `INV/DRM/${invoiceYear(invoice.tanggal)}/${invoice.no_inv || invoiceDocumentId(invoice)}`,
+    tanggal: invoice.tanggal || "",
+    perihal: invoice.perihal || "",
+    projectName: invoice.vessel || invoice.perihal || "",
+    debit,
+    credit,
+    balance: Math.max(0, debit - credit),
+    remark: isPaid ? "Paid" : "",
+  };
+}
+
+async function saveSoa() {
   if (savingSoa.value) return;
   const selectedCompany = soaSelectedCompany.value;
   if (!selectedCompany) {
@@ -1762,43 +1882,44 @@ async function createSoa() {
     notificationStore.showError("Tanggal SOA belum dipilih");
     return;
   }
-  if (!soaSelectedCompany.value) {
-    notificationStore.showError("Pilih perusahaan terlebih dahulu");
-    return;
-  }
   if (!soaForm.sign_by) {
     notificationStore.showError("Sign By belum dipilih");
     return;
   }
   const selectionGroup = soaSelectionGroup.value;
-  if (!selectedSoaInvoices.value.length || !selectionGroup) {
+  if (!soaInvoiceIds.value.length || !selectionGroup?.currency) {
     notificationStore.showError("Pilih minimal satu invoice untuk SOA");
     return;
   }
 
   savingSoa.value = true;
   try {
-    const selectedInvoices = [...selectedSoaInvoices.value].sort(
-      (first, second) =>
-        String(second.tanggal || "").localeCompare(String(first.tanggal || "")),
+    const selectedOptions = selectedSoaInvoices.value;
+    const snapshotsById = new Map<string, SoaInvoiceSnapshot>();
+    const existingSnapshotsById = new Map<string, SoaInvoiceSnapshot>(
+      (editingSoa.value?.invoices || []).map((snapshot) => [
+        snapshot.id,
+        snapshot,
+      ] as const),
     );
-    const snapshots: SoaInvoiceSnapshot[] = selectedInvoices.map((invoice) => {
-      const debit = Math.max(0, Number(invoice.grandtotal_invoice) || 0);
-      const isPaid = isInvoicePaid(invoice);
-      const credit = isPaid ? debit : 0;
-
-      return {
-        id: invoiceDocumentId(invoice),
-        no_inv: `INV/DRM/${invoiceYear(invoice.tanggal)}/${invoice.no_inv || invoiceDocumentId(invoice)}`,
-        tanggal: invoice.tanggal || "",
-        perihal: invoice.perihal || "",
-        projectName: invoice.vessel || invoice.perihal || "",
-        debit,
-        credit,
-        balance: Math.max(0, debit - credit),
-        remark: isPaid ? "Paid" : "",
-      };
+    selectedOptions.forEach((option) => {
+      snapshotsById.set(
+        option.id,
+        option.invoice
+          ? (existingSnapshotsById.get(option.id) ||
+            createSoaSnapshot(option.invoice))
+          : option.snapshot!,
+      );
     });
+    (editingSoa.value?.invoices || []).forEach((snapshot) => {
+      if (
+        soaInvoiceIds.value.includes(snapshot.id) &&
+        !snapshotsById.has(snapshot.id)
+      ) {
+        snapshotsById.set(snapshot.id, snapshot);
+      }
+    });
+
     const payload: Omit<SoaRecord, "id"> = {
       tanggal_soa: soaForm.tanggal_soa,
       id_perusahaan: selectedCompany.id,
@@ -1806,20 +1927,35 @@ async function createSoa() {
       attn: selectionGroup.attn,
       currency: selectionGroup.currency,
       sign_by: soaForm.sign_by,
-      invoiceIds: selectedInvoices.map(invoiceDocumentId),
-      invoices: snapshots,
-      createdAt: Date.now(),
-      createdBy: userStore.getEmail,
+      invoiceIds: [...soaInvoiceIds.value],
+      invoices: [...snapshotsById.values()],
+      createdAt: editingSoa.value?.createdAt || Date.now(),
+      createdBy: editingSoa.value?.createdBy || userStore.getEmail,
     };
-    const documentRef = await addDoc(collection(db, "soa"), payload);
-    const savedSoa = { ...payload, id: documentRef.id };
-    soaRecords.value = [savedSoa, ...soaRecords.value];
+
+    let savedSoa: SoaRecord;
+    if (editingSoa.value) {
+      await updateDoc(doc(db, "soa", editingSoa.value.id), payload);
+      savedSoa = { ...payload, id: editingSoa.value.id };
+      soaRecords.value = soaRecords.value.map((soa) =>
+        soa.id === savedSoa.id ? savedSoa : soa,
+      );
+      notificationStore.showSuccess("SOA berhasil diperbarui");
+    } else {
+      const documentRef = await addDoc(collection(db, "soa"), payload);
+      savedSoa = { ...payload, id: documentRef.id };
+      soaRecords.value = [savedSoa, ...soaRecords.value];
+      notificationStore.showSuccess("SOA berhasil dibuat");
+    }
+
     soaDialogOpen.value = false;
+    editingSoa.value = null;
     openSoaPreview(savedSoa);
-    notificationStore.showSuccess("SOA berhasil dibuat");
   } catch (error) {
-    console.error("Gagal membuat SOA:", error);
-    notificationStore.showError("SOA gagal dibuat");
+    console.error("Gagal menyimpan SOA:", error);
+    notificationStore.showError(
+      editingSoa.value ? "SOA gagal diperbarui" : "SOA gagal dibuat",
+    );
   } finally {
     savingSoa.value = false;
   }
