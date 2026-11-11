@@ -542,6 +542,7 @@ import type {
   invoiceItemM,
   invoiceM,
   invoicePoDocumentM,
+  serviceReportM,
 } from "~/types/invoice";
 import type { penawaranM } from "~/types/penawaranModel";
 import type { termconditionM } from "~/types/termconditionModel";
@@ -1094,9 +1095,13 @@ async function save() {
     createdBy: userStore.getEmail,
   };
   if (props.penawaran.service_report) {
-    payload.service_report = JSON.parse(
+    const serviceReport = JSON.parse(
       JSON.stringify(props.penawaran.service_report),
+    ) as serviceReportM;
+    serviceReport.images = (serviceReport.images || []).map((image) =>
+      image.firestoreImageId ? { ...image, dataUrl: "" } : image,
     );
+    payload.service_report = serviceReport;
   }
 
   saving.value = true;

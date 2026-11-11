@@ -13,7 +13,10 @@
           {{ invoiceLanguage === "en" ? "English" : "Indonesia" }}
         </v-btn>
 
-        <v-card width="850" class="pa-10 invoice-paper elevation-2">
+        <v-card
+          width="850"
+          class="px-10 pb-10 pt-6 invoice-paper elevation-2"
+        >
           <img
             v-if="isInvoicePaid"
             class="paid-mark-overlay"
@@ -690,6 +693,156 @@ const usesStampedSignature = computed(() =>
   ["Seilla Maryana", "Lilis"].includes(props.invoiceDetail.sign_by || ""),
 );
 
+type PdfTextFragment = {
+  text: string;
+  left: number;
+  top: number;
+  height: number;
+  baseline: number;
+  fontSizePx: number;
+  fontWeight: number;
+  isItalic: boolean;
+  color: [number, number, number];
+  alignment: "left" | "center" | "right";
+};
+
+function parseCssColor(value: string): [number, number, number] {
+  const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  return channels?.length === 3
+    ? [channels[0], channels[1], channels[2]]
+    : [0, 0, 0];
+}
+
+function applyTextTransform(text: string, transform: string) {
+  if (transform === "uppercase") return text.toUpperCase();
+  if (transform === "lowercase") return text.toLowerCase();
+  if (transform === "capitalize") {
+    return text.replace(/(^|\s)\S/g, (character) => character.toUpperCase());
+  }
+  return text;
+}
+
+// Latar, tabel, dan gambar tetap diambil dari canvas. Teks ditambahkan kembali
+// sebagai teks native PDF supaya tajam pada setiap tingkat zoom dan selectable.
+function extractPdfTextFragments(root: HTMLElement): PdfTextFragment[] {
+  const rootRect = root.getBoundingClientRect();
+  const fragments: PdfTextFragment[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let textNode = walker.nextNode() as Text | null;
+
+  while (textNode) {
+    const parent = textNode.parentElement;
+    const sourceText = textNode.data;
+    if (
+      parent &&
+      sourceText.trim() &&
+      !parent.closest(".no-print") &&
+      !parent.closest(".main-table, .terbilang-strip")
+    ) {
+      const style = window.getComputedStyle(parent);
+      const fontSizePx = Number.parseFloat(style.fontSize);
+      if (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity) !== 0 &&
+        fontSizePx > 0 &&
+        parent.getClientRects().length
+      ) {
+        type CharacterRect = { character: string; rect: DOMRect };
+        let currentLine: CharacterRect[] = [];
+        let currentTop: number | null = null;
+        const range = document.createRange();
+
+        const flushLine = () => {
+          const firstVisible = currentLine.findIndex(
+            ({ character }) => !/\s/.test(character),
+          );
+          let lastVisible = currentLine.length - 1;
+          while (
+            lastVisible >= firstVisible &&
+            /\s/.test(currentLine[lastVisible]?.character || "")
+          ) {
+            lastVisible -= 1;
+          }
+
+          if (firstVisible >= 0 && lastVisible >= firstVisible) {
+            const visibleCharacters = currentLine.slice(
+              firstVisible,
+              lastVisible + 1,
+            );
+            const lineTop = Math.min(
+              ...visibleCharacters.map(({ rect }) => rect.top),
+            );
+            const lineBottom = Math.max(
+              ...visibleCharacters.map(({ rect }) => rect.bottom),
+            );
+            const firstRect = visibleCharacters[0].rect;
+            const lastRect = visibleCharacters[visibleCharacters.length - 1].rect;
+            const alignment =
+              style.textAlign === "right" || style.textAlign === "end"
+                ? "right"
+                : style.textAlign === "center"
+                  ? "center"
+                  : "left";
+            const left =
+              alignment === "right"
+                ? lastRect.right - rootRect.left
+                : alignment === "center"
+                  ? (firstRect.left + lastRect.right) / 2 - rootRect.left
+                  : firstRect.left - rootRect.left;
+
+            fragments.push({
+              text: applyTextTransform(
+                visibleCharacters
+                  .map(({ character }) => character)
+                  .join("")
+                  .replace(/\s+/g, " "),
+                style.textTransform,
+              ),
+              left,
+              top: lineTop - rootRect.top,
+              height: lineBottom - lineTop,
+              baseline:
+                lineTop -
+                rootRect.top +
+                (lineBottom - lineTop) * 0.8,
+              fontSizePx,
+              fontWeight: Number.parseInt(style.fontWeight, 10) || 400,
+              isItalic: style.fontStyle === "italic",
+              color: parseCssColor(style.color),
+              alignment,
+            });
+          }
+
+          currentLine = [];
+          currentTop = null;
+        };
+
+        for (let index = 0; index < sourceText.length; index += 1) {
+          const character = sourceText[index];
+          if (character === "\n" || character === "\r") {
+            flushLine();
+            continue;
+          }
+          range.setStart(textNode, index);
+          range.setEnd(textNode, index + 1);
+          const rect = range.getBoundingClientRect();
+          if (!rect.width && !rect.height) continue;
+          if (currentTop !== null && Math.abs(rect.top - currentTop) > 0.75) {
+            flushLine();
+          }
+          if (currentTop === null) currentTop = rect.top;
+          currentLine.push({ character, rect });
+        }
+        flushLine();
+      }
+    }
+    textNode = walker.nextNode() as Text | null;
+  }
+
+  return fragments;
+}
+
 const createSaturatedImageDataUrl = async (
   image: HTMLImageElement | null,
   saturation: number,
@@ -763,7 +916,11 @@ function printInvoice() {
             max-width: 100% !important;
           }
           @page { margin: 0.5cm; }
-          .page-break-section { page-break-inside: avoid; break-inside: avoid; }
+          .page-break-section,
+          .signature-area {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
         </style>
       </head>
       <body>
@@ -887,9 +1044,10 @@ const handleSavePdf = async () => {
     );
 
     const targetRect = targetElement.getBoundingClientRect();
+    const textFragments = extractPdfTextFragments(targetElement);
     const isSmallViewport = window.matchMedia("(max-width: 600px)").matches;
-    const requestedScale = isSmallViewport ? 3 : 4;
-    const maxCanvasPixels = isSmallViewport ? 36_000_000 : 64_000_000;
+    const requestedScale = isSmallViewport ? 2 : 3;
+    const maxCanvasPixels = isSmallViewport ? 12_000_000 : 40_000_000;
     const safeScale = Math.sqrt(
       maxCanvasPixels / (targetRect.width * targetRect.height),
     );
@@ -920,6 +1078,20 @@ const handleSavePdf = async () => {
             htmlElement.style.boxShadow = "none";
           },
         );
+
+        clonedTarget.querySelectorAll<HTMLElement>("*").forEach((element) => {
+          // Teks tabel dan terbilang tetap diraster bersama border-nya agar
+          // posisi vertikal di PDF sama persis dengan preview browser.
+          if (element.closest(".main-table, .terbilang-strip")) return;
+
+          element.style.setProperty("color", "transparent", "important");
+          element.style.setProperty(
+            "-webkit-text-fill-color",
+            "transparent",
+            "important",
+          );
+          element.style.setProperty("text-shadow", "none", "important");
+        });
       },
     });
 
@@ -928,16 +1100,82 @@ const handleSavePdf = async () => {
       unit: "mm",
       format: "a4",
       compress: true,
+      putOnlyUsedFonts: true,
       precision: 4,
     });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const marginTop = 8;
+    const marginTop = 5;
     const marginBottom = 8;
+    const minimumSignatureBottomMargin = 3;
     const printableHeight = pageHeight - marginTop - marginBottom;
     const pixelsPerMm = canvas.width / pageWidth;
     const pageSliceHeight = Math.floor(printableHeight * pixelsPerMm);
-    const canvasScale = canvas.width / targetRect.width;
+    const signaturePageCapacity = Math.floor(
+      (pageHeight - marginTop - minimumSignatureBottomMargin) * pixelsPerMm,
+    );
+    const canvasScale = canvas.height / targetRect.height;
+    const mmPerCssPixel = pageWidth / targetRect.width;
+    const mmPerCssPixelY = canvasScale / pixelsPerMm;
+    const drawPdfTextFragments = (
+      originY: number,
+      sourceTop: number,
+      sourceBottom: number,
+    ) => {
+      const sourceTopCss = sourceTop / canvasScale;
+      const sourceBottomCss = sourceBottom / canvasScale;
+      textFragments.forEach((fragment) => {
+        const fragmentMiddle = fragment.top + fragment.height / 2;
+        if (
+          fragmentMiddle < sourceTopCss ||
+          fragmentMiddle >= sourceBottomCss
+        ) {
+          return;
+        }
+
+        const fontStyle = fragment.isItalic
+          ? fragment.fontWeight >= 600
+            ? "bolditalic"
+            : "italic"
+          : fragment.fontWeight >= 600
+            ? "bold"
+            : "normal";
+        pdf.setFont("helvetica", fontStyle);
+        pdf.setFontSize(fragment.fontSizePx * mmPerCssPixel * (72 / 25.4));
+        pdf.setTextColor(...fragment.color);
+        pdf.text(
+          fragment.text,
+          fragment.left * mmPerCssPixel,
+          originY + (fragment.baseline - sourceTopCss) * mmPerCssPixelY,
+          { align: fragment.alignment },
+        );
+      });
+    };
+    const toLosslessPdfImage = (sourceCanvas: HTMLCanvasElement) =>
+      sourceCanvas.toDataURL("image/png");
+    const signatureElement =
+      targetElement.querySelector<HTMLElement>(".signature-area");
+    const signatureRect = signatureElement?.getBoundingClientRect();
+    const signatureTop = signatureRect
+      ? Math.max(
+          0,
+          Math.floor((signatureRect.top - targetRect.top) * canvasScale) - 3,
+        )
+      : canvas.height;
+    const signatureBottom = signatureRect
+      ? Math.min(
+          canvas.height,
+          Math.ceil((signatureRect.bottom - targetRect.top) * canvasScale) + 3,
+        )
+      : canvas.height;
+    const signatureTopMargin = signatureElement
+      ? Math.max(
+          0,
+          Number.parseFloat(window.getComputedStyle(signatureElement).marginTop) *
+            canvasScale || 0,
+        )
+      : 0;
+    const contentEnd = signatureElement ? signatureTop : canvas.height;
     const keepTogetherRanges: Array<{ top: number; bottom: number }> = [];
 
     targetElement
@@ -973,26 +1211,56 @@ const handleSavePdf = async () => {
 
     let sourceY = 0;
     let pageIndex = 0;
-    while (sourceY < canvas.height) {
+    let lastPageUsedHeight = 0;
+    while (sourceY < contentEnd) {
       if (pageIndex > 0) pdf.addPage();
 
-      let targetY = Math.min(sourceY + pageSliceHeight, canvas.height);
-      const crossingRanges = keepTogetherRanges.filter(
-        (range) =>
-          range.top > sourceY &&
-          range.top < targetY &&
-          range.bottom > targetY,
+      const preferredTargetY = Math.min(
+        sourceY + pageSliceHeight,
+        contentEnd,
       );
+      const moveBeforeProtectedRange = (breakY: number) => {
+        const crossingRanges = keepTogetherRanges.filter(
+          (range) =>
+            range.top > sourceY &&
+            range.top < breakY &&
+            range.bottom > breakY,
+        );
+        return crossingRanges.length
+          ? Math.min(...crossingRanges.map((range) => range.top))
+          : breakY;
+      };
 
-      if (crossingRanges.length) {
-        targetY = Math.min(...crossingRanges.map((range) => range.top));
-      } else {
-        targetY = findSafeCanvasBreak(
+      let targetY = moveBeforeProtectedRange(preferredTargetY);
+      if (targetY === preferredTargetY && preferredTargetY < contentEnd) {
+        const safeTargetY = findSafeCanvasBreak(
           canvas,
           sourceY,
-          targetY,
+          preferredTargetY,
           canvasScale,
         );
+        // Pencarian area putih dapat masuk ke dalam blok yang dilindungi.
+        // Validasi ulang hasil akhirnya sebelum canvas dipotong.
+        targetY = moveBeforeProtectedRange(safeTargetY);
+      }
+
+      const crossingTextFragments = textFragments.filter((fragment) => {
+        const fragmentTop = fragment.top * canvasScale;
+        const fragmentBottom =
+          (fragment.top + fragment.height) * canvasScale;
+        return fragmentTop < targetY && fragmentBottom > targetY;
+      });
+      if (crossingTextFragments.length) {
+        const textSafeTarget = Math.floor(
+          Math.min(
+            ...crossingTextFragments.map(
+              (fragment) => fragment.top * canvasScale,
+            ),
+          ) - 2,
+        );
+        if (textSafeTarget > sourceY) {
+          targetY = moveBeforeProtectedRange(textSafeTarget);
+        }
       }
 
       const sliceHeight = targetY - sourceY;
@@ -1013,9 +1281,8 @@ const handleSavePdf = async () => {
         sliceHeight,
       );
 
-      const imageData = pageCanvas.toDataURL("image/png");
       pdf.addImage(
-        imageData,
+        toLosslessPdfImage(pageCanvas),
         "PNG",
         0,
         marginTop,
@@ -1024,9 +1291,67 @@ const handleSavePdf = async () => {
         `invoice-page-${pageIndex}`,
         "SLOW",
       );
+      drawPdfTextFragments(marginTop, sourceY, targetY);
 
+      lastPageUsedHeight = sliceHeight;
       sourceY = targetY;
       pageIndex++;
+    }
+
+    if (signatureElement && signatureTop < signatureBottom) {
+      const signatureHeight = signatureBottom - signatureTop;
+      const signatureCanvas = document.createElement("canvas");
+      signatureCanvas.width = canvas.width;
+      signatureCanvas.height = signatureHeight;
+      const signatureContext = signatureCanvas.getContext("2d");
+      if (signatureContext) signatureContext.imageSmoothingEnabled = false;
+      signatureContext?.drawImage(
+        canvas,
+        0,
+        signatureTop,
+        canvas.width,
+        signatureHeight,
+        0,
+        0,
+        canvas.width,
+        signatureHeight,
+      );
+
+      let signaturePageY = lastPageUsedHeight;
+      const compactSignaturePageY = Math.max(
+        0,
+        signaturePageY - signatureTopMargin,
+      );
+      if (
+        signaturePageY + signatureHeight > signaturePageCapacity &&
+        compactSignaturePageY + signatureHeight <= signaturePageCapacity
+      ) {
+        // Gunakan ruang margin kosong lebih dulu agar blok TTD tetap berada di
+        // halaman yang sama ketika sebenarnya masih cukup.
+        signaturePageY = compactSignaturePageY;
+      }
+
+      if (signaturePageY + signatureHeight > signaturePageCapacity) {
+        pdf.addPage();
+        pageIndex++;
+        signaturePageY = 0;
+      }
+
+      pdf.addImage(
+        toLosslessPdfImage(signatureCanvas),
+        "PNG",
+        0,
+        marginTop + signaturePageY / pixelsPerMm,
+        pageWidth,
+        signatureHeight / pixelsPerMm,
+        `invoice-signature-${pageIndex}`,
+        "SLOW",
+      );
+      drawPdfTextFragments(
+        marginTop + signaturePageY / pixelsPerMm,
+        signatureTop,
+        signatureBottom,
+      );
     }
 
     const year =
@@ -1292,6 +1617,7 @@ const handleSavePdf = async () => {
 }
 
 .page-break-section,
+.signature-area,
 .remark-border-box,
 .terbilang-strip {
   break-inside: avoid !important;

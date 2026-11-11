@@ -22,7 +22,7 @@
           icon="mdi-close"
           variant="text"
           size="small"
-          :disabled="saving || readingImages"
+          :disabled="saving || imageProcessing"
           aria-label="Tutup Service Report"
           @click="close"
         />
@@ -97,6 +97,32 @@
                 density="compact"
                 hide-details
                 class="sr-full-field"
+              />
+            </div>
+          </section>
+
+          <section class="sr-section">
+            <div class="sr-section-title">
+              <span><v-icon icon="mdi-signature-freehand" size="17" /></span>
+              <div>
+                <h3>Tanda Tangan</h3>
+                <p>Nama dan jabatan teknisi ditampilkan di sisi kiri dokumen.</p>
+              </div>
+            </div>
+            <div class="sr-field-grid">
+              <v-text-field
+                v-model="form.nama_teknisi"
+                label="Nama Teknisi"
+                variant="outlined"
+                density="compact"
+                hide-details
+              />
+              <v-text-field
+                v-model="form.jabatan_teknisi"
+                label="Jabatan Teknisi"
+                variant="outlined"
+                density="compact"
+                hide-details
               />
             </div>
           </section>
@@ -209,22 +235,22 @@
               /></span>
               <div>
                 <h3>Dokumentasi Foto</h3>
-                <p>Tarik nomor foto untuk mengubah urutan · maksimal tiga per baris.</p>
+                <p>Tarik nomor foto untuk mengubah urutan · dua kolom per baris.</p>
               </div>
             </div>
             <label
               class="sr-upload"
-              :class="{ 'sr-upload--busy': readingImages }"
+              :class="{ 'sr-upload--busy': imageProcessing }"
             >
               <input
                 type="file"
                 accept="image/*"
                 multiple
-                :disabled="readingImages"
+                :disabled="imageProcessing"
                 @change="addImages"
               />
               <v-progress-circular
-                v-if="readingImages"
+                v-if="imageProcessing"
                 indeterminate
                 size="27"
                 width="3"
@@ -237,7 +263,11 @@
                 color="primary"
               />
               <strong>{{
-                readingImages ? "Memproses foto..." : "Pilih foto dokumentasi"
+                loadingStoredImages
+                  ? "Memuat foto tersimpan..."
+                  : readingImages
+                    ? "Memproses foto..."
+                    : "Pilih foto dokumentasi"
               }}</strong>
               <small>JPG, PNG, atau WEBP · dikompres otomatis</small>
             </label>
@@ -248,28 +278,39 @@
                 :data-image-id="image.id"
                 class="sr-image-item"
               >
-                <img
-                  :src="image.dataUrl"
-                  :alt="image.name"
-                  draggable="false"
-                />
-                <figcaption>{{ imageIndex + 1 }}. {{ image.name }}</figcaption>
-                <button
-                  type="button"
-                  class="sr-image-drag-handle"
-                  :aria-label="`Geser foto ${imageIndex + 1}`"
-                  :title="`Geser foto ${imageIndex + 1}`"
-                >
-                  <v-icon icon="mdi-drag" size="15" />
-                  {{ imageIndex + 1 }}
-                </button>
-                <v-btn
-                  class="sr-image-remove"
-                  icon="mdi-close"
-                  size="x-small"
-                  color="red-darken-1"
-                  variant="flat"
-                  @click="removeImage(imageIndex)"
+                <div class="sr-image-preview">
+                  <img
+                    :src="image.dataUrl"
+                    :alt="image.description || image.name"
+                    draggable="false"
+                  />
+                  <figcaption>{{ imageIndex + 1 }}. {{ image.name }}</figcaption>
+                  <button
+                    type="button"
+                    class="sr-image-drag-handle"
+                    :aria-label="`Geser foto ${imageIndex + 1}`"
+                    :title="`Geser foto ${imageIndex + 1}`"
+                  >
+                    <v-icon icon="mdi-drag" size="15" />
+                    {{ imageIndex + 1 }}
+                  </button>
+                  <v-btn
+                    class="sr-image-remove"
+                    icon="mdi-close"
+                    size="x-small"
+                    color="red-darken-1"
+                    variant="flat"
+                    @click="removeImage(imageIndex)"
+                  />
+                </div>
+                <v-text-field
+                  v-model="image.description"
+                  label="Deskripsi gambar"
+                  placeholder="Contoh: PLC Inspection"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  class="sr-image-description"
                 />
               </figure>
             </div>
@@ -341,7 +382,7 @@
                   {{
                     block.type === "section"
                       ? "Point"
-                      : `${block.imageIds.length}/3 foto · ${normalizeImageRowHeight(block.height)}px`
+                      : `${block.imageIds.length}/2 foto · ${normalizeImageRowHeight(block.height)}px`
                   }}
                 </span>
               </article>
@@ -392,7 +433,7 @@
             prepend-icon="mdi-content-save-outline"
             class="text-none"
             :loading="saving"
-            :disabled="readingImages || saving"
+            :disabled="imageProcessing || saving"
             @click="save"
             >Simpan Service Report</v-btn
           >
@@ -406,14 +447,13 @@
 import Sortable from "sortablejs";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { doc, getDoc, runTransaction } from "firebase/firestore";
-import {
-  deleteObject,
-  getDownloadURL,
-  ref as storageRef,
-  uploadBytes,
-} from "firebase/storage";
 import { useDisplay } from "vuetify";
-import { useFirebaseStorage, useFirestore } from "vuefire";
+import { useFirestore } from "vuefire";
+import {
+  deleteServiceReportImages,
+  hydrateServiceReportImages,
+  persistServiceReportImages,
+} from "~/composables/useServiceReportImages";
 import type {
   serviceReportContentBlockM,
   serviceReportImageM,
@@ -432,19 +472,22 @@ const emit = defineEmits<{
 
 const display = useDisplay();
 const db = useFirestore();
-const storage = useFirebaseStorage();
 const notificationStore = useNotificationStore();
 const loadingStore = useloadingStore();
 const userStore = useUserStore();
 const saving = ref(false);
 const readingImages = ref(false);
+const loadingStoredImages = ref(false);
 const loadingNumber = ref(false);
 const photoGrid = ref<HTMLElement | null>(null);
 const contentBlocksContainer = ref<HTMLElement | null>(null);
 let photoSortable: Sortable | null = null;
 let contentBlocksSortable: Sortable | null = null;
-const removedImageStoragePaths = ref<string[]>([]);
-const DEFAULT_IMAGE_ROW_HEIGHT = 170;
+const removedImageFirestoreIds = ref<string[]>([]);
+const imageProcessing = computed(
+  () => readingImages.value || loadingStoredImages.value,
+);
+const DEFAULT_IMAGE_ROW_HEIGHT = 230;
 const MIN_IMAGE_ROW_HEIGHT = 100;
 const MAX_IMAGE_ROW_HEIGHT = 520;
 
@@ -490,6 +533,8 @@ function emptyReport(): serviceReportM {
     servicePeriodEnd: "",
     scopeOfWork: "",
     reportNo: "",
+    nama_teknisi: "",
+    jabatan_teknisi: "",
     sections: [section],
     images: [],
     contentBlocks: [newSectionBlock(section.id)],
@@ -510,8 +555,8 @@ function clone<T>(value: T): T {
 
 function chunkImageIds(imageIds: string[]) {
   const rows: string[][] = [];
-  for (let index = 0; index < imageIds.length; index += 3) {
-    rows.push(imageIds.slice(index, index + 3));
+  for (let index = 0; index < imageIds.length; index += 2) {
+    rows.push(imageIds.slice(index, index + 2));
   }
   return rows;
 }
@@ -653,10 +698,12 @@ function formatReportNumber(sequence: number) {
   return `SR/DRM/${quotationYear()}/${String(sequence).padStart(5, "0")}`;
 }
 
-function initializeForm() {
-  removedImageStoragePaths.value = [];
+async function initializeForm() {
+  removedImageFirestoreIds.value = [];
   if (props.penawaran.service_report) {
     form.value = clone(props.penawaran.service_report);
+    form.value.nama_teknisi = form.value.nama_teknisi || "";
+    form.value.jabatan_teknisi = form.value.jabatan_teknisi || "";
     form.value.sections = (form.value.sections || []).map((section) => ({
       ...section,
       id: section.id || uid("section"),
@@ -667,6 +714,24 @@ function initializeForm() {
       ...image,
       id: image.id || uid("photo"),
     }));
+    const quotationId = props.penawaran.id_penawaran || props.penawaran.id;
+    if (quotationId) {
+      loadingStoredImages.value = true;
+      try {
+        form.value = await hydrateServiceReportImages(
+          db,
+          String(quotationId),
+          form.value,
+        );
+      } catch (error) {
+        console.error("Gagal memuat foto Service Report:", error);
+        notificationStore.showError(
+          "Foto Service Report belum dapat dimuat. Silakan coba buka kembali.",
+        );
+      } finally {
+        loadingStoredImages.value = false;
+      }
+    }
     normalizeContentBlocks();
     return;
   }
@@ -837,7 +902,7 @@ watch(
   async (open) => {
     destroySortables();
     if (!open) return;
-    initializeForm();
+    await initializeForm();
     await initializeSortables();
   },
   { flush: "post" },
@@ -850,7 +915,7 @@ function updateDialog(value: boolean) {
 }
 
 function close() {
-  if (saving.value || readingImages.value) return;
+  if (saving.value || imageProcessing.value) return;
   emit("update:modelValue", false);
 }
 
@@ -879,10 +944,10 @@ function removeItem(sectionIndex: number, itemIndex: number) {
 async function removeImage(index: number) {
   const [removedImage] = form.value.images.splice(index, 1);
   if (
-    removedImage?.storagePath &&
-    !removedImageStoragePaths.value.includes(removedImage.storagePath)
+    removedImage?.firestoreImageId &&
+    !removedImageFirestoreIds.value.includes(removedImage.firestoreImageId)
   ) {
-    removedImageStoragePaths.value.push(removedImage.storagePath);
+    removedImageFirestoreIds.value.push(removedImage.firestoreImageId);
   }
   syncImageRowsWithImages();
   await nextTick();
@@ -954,7 +1019,7 @@ async function addImages(event: Event) {
   const input = event.target as HTMLInputElement;
   const files = Array.from(input.files || []);
   input.value = "";
-  if (!files.length || readingImages.value) return;
+  if (!files.length || imageProcessing.value) return;
   if (files.some((file) => !file.type.startsWith("image/")))
     return notificationStore.showError("Semua file harus berupa gambar");
   readingImages.value = true;
@@ -973,55 +1038,8 @@ async function addImages(event: Event) {
   }
 }
 
-async function uploadReportImages(
-  images: serviceReportImageM[],
-  quotationId: string,
-  uploadedPaths: string[],
-) {
-  const uploadedImages = clone(images);
-  const safeQuotationId = quotationId.replace(/[^a-zA-Z0-9_-]/g, "_");
-
-  for (let start = 0; start < uploadedImages.length; start += 4) {
-    const batch = uploadedImages.slice(start, start + 4);
-    const uploadResults = await Promise.allSettled(
-      batch.map(async (image, batchIndex) => {
-        if (!image.dataUrl.startsWith("data:")) return;
-
-        const response = await fetch(image.dataUrl);
-        const blob = await response.blob();
-        const path = `service-reports/${safeQuotationId}/${image.id}.jpg`;
-        const imageReference = storageRef(storage, path);
-        await uploadBytes(imageReference, blob, {
-          contentType: image.contentType || "image/jpeg",
-          cacheControl: "public,max-age=31536000,immutable",
-        });
-        uploadedPaths.push(path);
-        uploadedImages[start + batchIndex] = {
-          ...image,
-          dataUrl: await getDownloadURL(imageReference),
-          size: blob.size,
-          storagePath: path,
-        };
-      }),
-    );
-    const failedUpload = uploadResults.find(
-      (result): result is PromiseRejectedResult => result.status === "rejected",
-    );
-    if (failedUpload) throw failedUpload.reason;
-  }
-
-  return uploadedImages;
-}
-
-async function deleteStoredImages(paths: string[]) {
-  const uniquePaths = [...new Set(paths.filter(Boolean))];
-  await Promise.allSettled(
-    uniquePaths.map((path) => deleteObject(storageRef(storage, path))),
-  );
-}
-
 async function save() {
-  if (saving.value || readingImages.value) return;
+  if (saving.value || imageProcessing.value) return;
   const id = props.penawaran.id_penawaran || props.penawaran.id;
   if (!id) return notificationStore.showError("ID quotation tidak ditemukan");
   if (!form.value.vesselProject.trim())
@@ -1033,26 +1051,28 @@ async function save() {
     sub: section.sub.trim(),
     items: section.items.map((item) => item.trim()).filter(Boolean),
   }));
-  if (sections.some((section) => !section.point || !section.items.length))
-    return notificationStore.showError(
-      "Setiap point wajib memiliki nama dan minimal satu item",
-    );
 
   const existing = props.penawaran.service_report;
-  const uploadedPaths: string[] = [];
+  const writtenImageIds: string[] = [];
   let transactionCommitted = false;
   saving.value = true;
   loadingStore.setLoading(true);
   try {
-    const uploadedImages = await uploadReportImages(
-      form.value.images,
+    const storedImageMetadata = await persistServiceReportImages(
+      db,
       String(id),
-      uploadedPaths,
+      form.value.images,
+      userStore.getEmail,
+      writtenImageIds,
+    );
+    const storedImageByLocalId = new Map(
+      storedImageMetadata.map((image) => [image.id, image] as const),
     );
     const baseReport: serviceReportM = {
       ...clone(form.value),
+      quotationId: String(id),
       sections,
-      images: uploadedImages,
+      images: storedImageMetadata,
       createdAt: existing?.createdAt || Date.now(),
       createdBy: existing?.createdBy || userStore.getEmail,
       updatedAt: Date.now(),
@@ -1091,19 +1111,48 @@ async function save() {
       });
     });
     transactionCommitted = true;
-    form.value = clone(savedReport);
-    await deleteStoredImages(removedImageStoragePaths.value);
-    removedImageStoragePaths.value = [];
+    const savedReportForDisplay: serviceReportM = {
+      ...savedReport,
+      images: form.value.images.map((image) => ({
+        ...image,
+        firestoreImageId:
+          storedImageByLocalId.get(image.id)?.firestoreImageId ||
+          image.firestoreImageId,
+      })),
+    };
+    form.value = clone(savedReportForDisplay);
+    try {
+      await deleteServiceReportImages(
+        db,
+        String(id),
+        removedImageFirestoreIds.value,
+      );
+    } catch (cleanupError) {
+      console.warn(
+        "Foto Service Report lama belum dapat dibersihkan:",
+        cleanupError,
+      );
+    }
+    removedImageFirestoreIds.value = [];
     sessionStorage.removeItem("penawaran");
     notificationStore.showSuccess(
       existing
         ? "Service Report berhasil diperbarui"
         : "Service Report berhasil dibuat",
     );
-    emit("saved", savedReport);
+    emit("saved", savedReportForDisplay);
     emit("update:modelValue", false);
   } catch (error) {
-    if (!transactionCommitted) await deleteStoredImages(uploadedPaths);
+    if (!transactionCommitted && writtenImageIds.length) {
+      try {
+        await deleteServiceReportImages(db, String(id), writtenImageIds);
+      } catch (cleanupError) {
+        console.warn(
+          "Foto dari penyimpanan Service Report yang gagal belum dapat dibersihkan:",
+          cleanupError,
+        );
+      }
+    }
     console.error("Gagal menyimpan Service Report quotation:", error);
     notificationStore.showError(
       transactionCommitted
@@ -1327,20 +1376,25 @@ async function save() {
 }
 .sr-images {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
 .sr-images figure {
-  position: relative;
-  aspect-ratio: 4/3;
+  min-width: 0;
   margin: 0;
   overflow: hidden;
   border: 1px solid #cbd5e1;
   border-radius: 7px;
+  background: #fff;
+}
+.sr-image-preview {
+  position: relative;
+  aspect-ratio: 4/3;
+  overflow: hidden;
   background: #eef1f5;
 }
-.sr-images img {
+.sr-image-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1359,6 +1413,12 @@ async function save() {
   font-size: 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.sr-image-description {
+  padding: 7px;
+}
+.sr-image-description :deep(.v-field) {
+  font-size: 10px;
 }
 .sr-images .sr-image-remove {
   position: absolute;

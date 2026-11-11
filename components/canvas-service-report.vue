@@ -36,7 +36,12 @@
                 }"
                 :style="imageRowStyle(block)"
               >
-                <ServiceReportContentBlock :block="block" />
+                <ServiceReportContentBlock
+                  :block="block"
+                  :signature-date="signatureDate"
+                  :technician-name="serviceReport.nama_teknisi"
+                  :technician-title="serviceReport.jabatan_teknisi"
+                />
                 <button
                   v-if="editable && block.type === 'image-row'"
                   type="button"
@@ -81,7 +86,12 @@
             class="pagination-block-measure"
             :style="imageRowStyle(block)"
           >
-            <ServiceReportContentBlock :block="block" />
+            <ServiceReportContentBlock
+              :block="block"
+              :signature-date="signatureDate"
+              :technician-name="serviceReport.nama_teknisi"
+              :technician-title="serviceReport.jabatan_teknisi"
+            />
           </div>
         </div>
       </div>
@@ -93,8 +103,8 @@
         color="indigo-darken-3"
         variant="flat"
         class="text-none"
-        :loading="isPrinting"
-        :disabled="isPrinting || isSavingPdf"
+        :loading="isPrinting || isHydratingReportImages"
+        :disabled="isPrinting || isSavingPdf || isHydratingReportImages"
         @click="printReport"
       >
         Print Service Report
@@ -104,8 +114,8 @@
         color="red-darken-2"
         variant="flat"
         class="text-none"
-        :loading="isSavingPdf"
-        :disabled="isPrinting || isSavingPdf"
+        :loading="isSavingPdf || isHydratingReportImages"
+        :disabled="isPrinting || isSavingPdf || isHydratingReportImages"
         @click="savePdf"
       >
         Save PDF
@@ -124,8 +134,13 @@ import {
   watch,
   type ComponentPublicInstance,
 } from "vue";
+import { useFirestore } from "vuefire";
 import ServiceReportContentBlock from "./ServiceReport/content-block.vue";
 import ServiceReportLetterhead from "./ServiceReport/letterhead.vue";
+import {
+  hydrateServiceReportImages,
+  reportNeedsImageHydration,
+} from "~/composables/useServiceReportImages";
 import type {
   invoiceM,
   serviceReportImageM,
@@ -148,6 +163,8 @@ const emit = defineEmits<{
   "update:image-row-height": [blockId: string, height: number];
 }>();
 
+const db = useFirestore();
+
 type ReportPage = {
   id: string;
   blocks: serviceReportRenderBlockM[];
@@ -168,7 +185,7 @@ const PAPER_HEIGHT_PX = 1123;
 const PAPER_PADDING_TOP_PX = 26;
 const PAPER_PADDING_BOTTOM_PX = 54;
 const CONTENT_BLOCK_GAP_PX = 16;
-const DEFAULT_IMAGE_ROW_HEIGHT = 170;
+const DEFAULT_IMAGE_ROW_HEIGHT = 230;
 const MIN_IMAGE_ROW_HEIGHT = 100;
 const MAX_IMAGE_ROW_HEIGHT = 520;
 
@@ -183,9 +200,13 @@ const reportPages = ref<ReportPage[]>([
 ]);
 const isSavingPdf = ref(false);
 const isPrinting = ref(false);
+const isHydratingReportImages = ref(false);
+const hydratedReportImages = ref<serviceReportImageM[]>([]);
 const measurementElements = new Map<string, HTMLElement>();
 let resizeObserver: ResizeObserver | null = null;
 let paginationFrame: number | null = null;
+let hydrationVersion = 0;
+let imageHydrationPromise: Promise<void> = Promise.resolve();
 let activeImageResize:
   | {
       pointerId: number;
@@ -206,6 +227,58 @@ const metadataRows = computed(() => [
   { label: "Report No", value: props.serviceReport.reportNo },
 ]);
 
+const signatureDate = computed(() => {
+  const date = new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+  }).format(new Date());
+  return `Batam, ${date}`;
+});
+
+const effectiveReportImages = computed(() => {
+  if (!reportNeedsImageHydration(props.serviceReport)) {
+    return props.serviceReport.images || [];
+  }
+  return hydratedReportImages.value.length
+    ? hydratedReportImages.value
+    : props.serviceReport.images || [];
+});
+
+async function hydrateCanvasImages() {
+  const currentVersion = ++hydrationVersion;
+  const report = props.serviceReport;
+  const quotationId = report.quotationId;
+  hydratedReportImages.value = [];
+  if (
+    !import.meta.client ||
+    !quotationId ||
+    !reportNeedsImageHydration(report)
+  ) {
+    isHydratingReportImages.value = false;
+    return;
+  }
+
+  isHydratingReportImages.value = true;
+  try {
+    const hydratedReport = await hydrateServiceReportImages(
+      db,
+      quotationId,
+      report,
+    );
+    if (currentVersion === hydrationVersion) {
+      hydratedReportImages.value = hydratedReport.images || [];
+    }
+  } catch (error) {
+    console.error("Gagal memuat foto pada canvas Service Report:", error);
+  } finally {
+    if (currentVersion === hydrationVersion) {
+      isHydratingReportImages.value = false;
+    }
+  }
+}
+
 function sectionHasContent(section: serviceReportSectionM) {
   return Boolean(
     section.point?.trim() ||
@@ -220,7 +293,7 @@ const orderedContentBlocks = computed<serviceReportRenderBlockM[]>(() => {
     sections.map((section) => [section.id, section] as const),
   );
   const imageById = new Map(
-    (props.serviceReport.images || []).map(
+    effectiveReportImages.value.map(
       (image) => [image.id, image] as const,
     ),
   );
@@ -252,14 +325,13 @@ const orderedContentBlocks = computed<serviceReportRenderBlockM[]>(() => {
         if (!image || usedImageIds.has(image.id)) return false;
         usedImageIds.add(image.id);
         return true;
-      })
-      .slice(0, 3);
-    if (images.length) {
+      });
+    for (let index = 0; index < images.length; index += 2) {
       blocks.push({
-        key: block.id,
+        key: index === 0 ? block.id : `${block.id}-row-${index / 2}`,
         type: "image-row",
         blockId: block.id,
-        images,
+        images: images.slice(index, index + 2),
         height: normalizeImageRowHeight(block.height),
       });
     }
@@ -280,15 +352,15 @@ const orderedContentBlocks = computed<serviceReportRenderBlockM[]>(() => {
     }
   });
 
-  const remainingImages = (props.serviceReport.images || []).filter(
+  const remainingImages = effectiveReportImages.value.filter(
     (image) => !usedImageIds.has(image.id),
   );
-  for (let index = 0; index < remainingImages.length; index += 3) {
+  for (let index = 0; index < remainingImages.length; index += 2) {
     blocks.push({
-      key: `legacy-image-row-${index / 3}`,
+      key: `legacy-image-row-${index / 2}`,
       type: "image-row",
-      blockId: `legacy-image-row-${index / 3}`,
-      images: remainingImages.slice(index, index + 3),
+      blockId: `legacy-image-row-${index / 2}`,
+      images: remainingImages.slice(index, index + 2),
       height: DEFAULT_IMAGE_ROW_HEIGHT,
     });
   }
@@ -601,6 +673,7 @@ async function waitForImages(root: HTMLElement) {
 
 async function createServiceReportPdf() {
   if (!reportPagesElement.value) return null;
+  await imageHydrationPromise;
   const previousZoom = previewZoom.value;
   previewZoom.value = 1;
 
@@ -759,6 +832,22 @@ watch(
 );
 
 watch(metadataRows, schedulePagination, { deep: true, flush: "post" });
+
+watch(
+  () => [
+    props.serviceReport.quotationId || "",
+    (props.serviceReport.images || [])
+      .map(
+        (image) =>
+          `${image.id}:${image.firestoreImageId || ""}:${image.dataUrl ? "ready" : "empty"}`,
+      )
+      .join("|"),
+  ],
+  () => {
+    imageHydrationPromise = hydrateCanvasImages();
+  },
+  { immediate: true },
+);
 
 onMounted(async () => {
   updatePreviewZoom();

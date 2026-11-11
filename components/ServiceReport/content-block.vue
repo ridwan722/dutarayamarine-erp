@@ -19,38 +19,40 @@
       v-for="(image, imageIndex) in block.images"
       :key="image.id || imageIndex"
       class="report-photo"
+      :class="{ 'report-photo--first-column': imageIndex % 2 === 0 }"
     >
       <img
         :src="image.dataUrl"
-        :alt="image.name || `Foto ${imageIndex + 1}`"
+        :alt="image.description || image.name || `Foto ${imageIndex + 1}`"
       />
+      <figcaption class="report-photo-caption">
+        {{ image.description || "" }}
+      </figcaption>
     </figure>
   </section>
 
   <section v-else class="report-signatures" aria-label="Kolom tanda tangan">
-    <div class="signature-main-row">
-      <div class="signature-field">
-        <span class="signature-line" />
-        <strong>CHARGEHAND NAME / SIGNATURE</strong>
-      </div>
-      <div class="signature-field">
-        <span class="signature-line" />
-        <strong>CLIENT</strong>
-      </div>
-      <div class="signature-field signature-field--date">
-        <span class="signature-line" />
-        <strong>DATE</strong>
-      </div>
+    <p class="signature-date">{{ props.signatureDate }}</p>
+
+    <div class="signature-company-row">
+      <strong>PT. Duta Raya Marine</strong>
+      <strong>PT. Limin Marine and Offshore</strong>
     </div>
 
-    <div class="signature-time-row">
-      <div class="signature-time-field">
-        <strong>TIME &amp; DATE COMMENCEMENT</strong>
-        <span />
+    <div class="signature-fields-row">
+      <div class="signature-party">
+        <span class="signature-line" />
+        <div class="signature-details">
+          <span>Name</span><span>:</span><span>{{ props.technicianName }}</span>
+          <span>Title</span><span>:</span><span>{{ props.technicianTitle }}</span>
+        </div>
       </div>
-      <div class="signature-time-field">
-        <strong>COMPLETION</strong>
-        <span />
+      <div class="signature-party">
+        <span class="signature-line" />
+        <div class="signature-details">
+          <span>Name</span><span>:</span><span />
+          <span>Title</span><span>:</span><span />
+        </div>
       </div>
     </div>
   </section>
@@ -60,7 +62,15 @@
 import { computed } from "vue";
 import type { serviceReportRenderBlockM } from "~/types/invoice";
 
-const props = defineProps<{ block: serviceReportRenderBlockM }>();
+const props = withDefaults(
+  defineProps<{
+    block: serviceReportRenderBlockM;
+    signatureDate?: string;
+    technicianName?: string;
+    technicianTitle?: string;
+  }>(),
+  { signatureDate: "", technicianName: "", technicianTitle: "" },
+);
 
 const items = computed(() =>
   props.block.type === "section"
@@ -108,44 +118,87 @@ function itemLabel(index: number) {
 
 .report-gallery-row {
   display: grid;
-  height: var(--service-report-image-row-height, 170px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  box-sizing: border-box;
+  height: calc(var(--service-report-image-row-height, 230px) + 30px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  border: 1.5px solid #111;
   break-inside: avoid;
 }
 
 .report-photo {
   box-sizing: border-box;
-  height: 100%;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) 30px;
   margin: 0;
   overflow: hidden;
-  border: 1px solid #aeb7c2;
-  border-radius: 2px;
-  background: #f3f4f6;
+  background: #fff;
+}
+
+.report-photo--first-column {
+  border-right: 1.5px solid #111;
+}
+
+.report-photo-caption {
+  display: flex;
+  min-width: 0;
+  padding: 0 8px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-top: 1.5px solid #111;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .report-photo img {
   display: block;
   width: 100%;
+  min-height: 0;
   height: 100%;
   object-fit: cover;
 }
 
 .report-signatures {
-  padding-top: 16px;
+  padding: 14px 0 0;
   break-inside: avoid;
 }
 
-.signature-main-row {
-  display: grid;
-  grid-template-columns: 1.25fr 1.25fr 0.9fr;
-  gap: 28px;
+.signature-date {
+  margin: 0;
+  font-size: 12px;
 }
 
-.signature-field {
+.signature-company-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px;
+  margin-top: 17px;
+}
+
+.signature-company-row strong {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.signature-fields-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px;
+  margin-top: 5px;
+}
+
+.signature-party {
   display: flex;
   min-width: 0;
-  min-height: 105px;
+  min-height: 180px;
   justify-content: flex-end;
   flex-direction: column;
 }
@@ -155,39 +208,17 @@ function itemLabel(index: number) {
   border-top: 1.5px solid #111;
 }
 
-.signature-field strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.signature-time-row {
+.signature-details {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 30px;
-  margin-top: 50px;
+  grid-template-columns: 72px 12px minmax(0, 1fr);
+  column-gap: 3px;
+  row-gap: 1px;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.25;
 }
 
-.signature-time-field {
-  display: flex;
-  min-width: 0;
-  align-items: flex-end;
-  gap: 5px;
-}
-
-.signature-time-field strong {
-  flex: 0 0 auto;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.signature-time-field span {
-  min-width: 36px;
-  flex: 1;
-  border-bottom: 1.5px solid #111;
+.signature-details span:nth-child(3n + 1) {
+  white-space: nowrap;
 }
 </style>

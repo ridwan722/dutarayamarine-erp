@@ -15,6 +15,9 @@ export interface invoicePoDocumentM {
   dataUrl: string;
   size: number;
   contentType: string;
+  storagePath?: string;
+  firestoreFileId?: string;
+  chunkCount?: number;
 }
 
 export interface invoiceBuktiBayarM {
@@ -44,10 +47,12 @@ export interface serviceReportSectionM {
 export interface serviceReportImageM {
   id: string;
   name: string;
+  description?: string;
   dataUrl: string;
   size: number;
   contentType: string;
   storagePath?: string;
+  firestoreImageId?: string;
 }
 
 export interface serviceReportSectionBlockM {
@@ -91,6 +96,7 @@ export type serviceReportRenderBlockM =
     };
 
 export interface serviceReportM {
+  quotationId?: string;
   vesselProject: string;
   attention: string;
   location: string;
@@ -98,6 +104,8 @@ export interface serviceReportM {
   servicePeriodEnd: string;
   scopeOfWork: string;
   reportNo: string;
+  nama_teknisi?: string;
+  jabatan_teknisi?: string;
   sections: serviceReportSectionM[];
   images: serviceReportImageM[];
   contentBlocks?: serviceReportContentBlockM[];

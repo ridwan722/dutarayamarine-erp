@@ -16,8 +16,9 @@ import {
   getDoc,
   setDoc,
 } from "firebase/firestore";
+import { deleteObject, ref as storageRef } from "firebase/storage";
 import { nextTick, ref } from "vue";
-import { useDocument, useFirestore } from "vuefire";
+import { useDocument, useFirebaseStorage, useFirestore } from "vuefire";
 import { queryambilid } from "~/composables/useFirestoreQuery";
 import type { invoiceM } from "~/types/invoice";
 import type { dokumenSpkM, penawaranM } from "~/types/penawaranModel";
@@ -58,6 +59,7 @@ const router = useRouter();
 const penawaranstore = usePenawaranStore();
 const penawaranId = String(route.params.id);
 const db = useFirestore();
+const storage = useFirebaseStorage();
 
 const basePenawaran = computed(() => penawaranstore.getDetailPenawaran);
 const requestedRevisionId = computed(() => {
@@ -138,7 +140,8 @@ const detailpenawaran = computed(() => {
 const quotationServiceReport = computed(
   () =>
     detailpenawaran.value.service_report ||
-    invoiceLinks.value.find((invoice) => invoice.service_report)?.service_report ||
+    invoiceLinks.value.find((invoice) => invoice.service_report)
+      ?.service_report ||
     null,
 );
 const serviceReportQuotation = computed<penawaranM>(() => ({
@@ -600,14 +603,10 @@ function isAllowedSpkFile(file: File) {
 
 function setSpkFile(file: File) {
   if (file.size <= 0) {
-    return useNotificationStore().showError(
-      "File kosong tidak dapat diunggah",
-    );
+    return useNotificationStore().showError("File kosong tidak dapat diunggah");
   }
   if (file.size > MAX_SPK_FILE_BYTES) {
-    return useNotificationStore().showError(
-      "Ukuran file SPK maksimal 10 MB",
-    );
+    return useNotificationStore().showError("Ukuran file SPK maksimal 10 MB");
   }
   if (!isAllowedSpkFile(file)) {
     return useNotificationStore().showError(
@@ -678,11 +677,7 @@ async function saveSpkFileToFirestore(
     const chunk = bytes.slice(start, end);
 
     await setDoc(
-      doc(
-        db,
-        SPK_FILES_COLLECTION,
-        createSpkChunkId(fileId, chunkIndex),
-      ),
+      doc(db, SPK_FILES_COLLECTION, createSpkChunkId(fileId, chunkIndex)),
       {
         penawaranId,
         fileId,
@@ -701,11 +696,7 @@ async function deleteFirestoreSpkFile(fileId: string, chunkCount: number) {
   await Promise.all(
     Array.from({ length: chunkCount }, (_, chunkIndex) =>
       deleteDoc(
-        doc(
-          db,
-          SPK_FILES_COLLECTION,
-          createSpkChunkId(fileId, chunkIndex),
-        ),
+        doc(db, SPK_FILES_COLLECTION, createSpkChunkId(fileId, chunkIndex)),
       ),
     ),
   );
@@ -713,11 +704,12 @@ async function deleteFirestoreSpkFile(fileId: string, chunkCount: number) {
 
 async function saveSpkDocument() {
   if (spkSaving.value) return;
-  if (hasSpkDocument.value) {
-    return useNotificationStore().showInfo("Dokumen SPK sudah tersimpan");
-  }
   if (!spkFile.value) {
-    return useNotificationStore().showError("Pilih file SPK terlebih dahulu");
+    return useNotificationStore().showError(
+      hasSpkDocument.value
+        ? "Pilih file SPK pengganti terlebih dahulu"
+        : "Pilih file SPK terlebih dahulu",
+    );
   }
   if (spkFile.value.size > MAX_SPK_FILE_BYTES) {
     return useNotificationStore().showError("Ukuran file SPK maksimal 10 MB");
@@ -725,6 +717,8 @@ async function saveSpkDocument() {
 
   spkSaving.value = true;
   spkUploadProgress.value = 0;
+  const previousDocument = detailpenawaran.value?.dokumen_spk;
+  const isReplacingDocument = Boolean(previousDocument && hasSpkDocument.value);
   const file = spkFile.value;
   const fileId = doc(collection(db, SPK_FILES_COLLECTION)).id;
   const expectedChunkCount = Math.ceil(file.size / SPK_CHUNK_BYTES);
@@ -760,8 +754,44 @@ async function saveSpkDocument() {
     if (!saved) return;
     penawaranUpdated = true;
 
+    if (
+      previousDocument?.firestoreFileId &&
+      previousDocument.firestoreFileId !== fileId
+    ) {
+      const previousChunkCount = Number(previousDocument.chunkCount) || 0;
+      void deleteFirestoreSpkFile(
+        previousDocument.firestoreFileId,
+        previousChunkCount,
+      ).catch((error) => {
+        console.warn("File SPK lama gagal dibersihkan dari Firestore:", error);
+      });
+
+      const cacheKey = `firestore:${previousDocument.firestoreFileId}`;
+      const cachedUrl = spkObjectUrls.get(cacheKey);
+      if (cachedUrl) URL.revokeObjectURL(cachedUrl);
+      spkObjectUrls.delete(cacheKey);
+    }
+
+    if (previousDocument?.storagePath) {
+      void deleteObject(storageRef(storage, previousDocument.storagePath)).catch(
+        (error) => {
+          console.warn("File SPK lama gagal dibersihkan dari Storage:", error);
+        },
+      );
+    }
+
+    const previousInlineUrl =
+      previousDocument?.dataUrl || previousDocument?.url || "";
+    const cachedInlineUrl = previousInlineUrl
+      ? spkObjectUrls.get(previousInlineUrl)
+      : undefined;
+    if (cachedInlineUrl) URL.revokeObjectURL(cachedInlineUrl);
+    if (previousInlineUrl) spkObjectUrls.delete(previousInlineUrl);
+
     useNotificationStore().showSuccess(
-      "SPK berhasil diunggah. Invoice sekarang dapat dibuat.",
+      isReplacingDocument
+        ? "File SPK berhasil diganti."
+        : "SPK berhasil diunggah. Invoice sekarang dapat dibuat.",
     );
     spkFile.value = null;
     clearSpkPreview();
@@ -776,7 +806,10 @@ async function saveSpkDocument() {
   } finally {
     if (!penawaranUpdated) {
       void deleteFirestoreSpkFile(fileId, expectedChunkCount).catch((error) => {
-        console.warn("Data chunk SPK yang gagal disimpan tidak dapat dibersihkan:", error);
+        console.warn(
+          "Data chunk SPK yang gagal disimpan tidak dapat dibersihkan:",
+          error,
+        );
       });
     }
     spkSaving.value = false;
@@ -933,7 +966,9 @@ async function opendialogaddpengeluaran() {
   data.dialogAddPengeluaran = true;
 }
 
-function handleServiceReportSaved(report: NonNullable<penawaranM["service_report"]>) {
+function handleServiceReportSaved(
+  report: NonNullable<penawaranM["service_report"]>,
+) {
   penawaranstore.$patch({
     detailPenawaran: {
       ...basePenawaran.value,
@@ -1119,9 +1154,15 @@ onBeforeUnmount(() => {
             <v-icon icon="mdi-handshake" size="20" />
           </span>
           <div>
-            <div class="text-subtitle-1 font-weight-bold">Upload SPK</div>
+            <div class="text-subtitle-1 font-weight-bold">
+              {{ hasSpkDocument ? "Ganti File SPK" : "Upload SPK" }}
+            </div>
             <div class="spk-dialog-subtitle">
-              Lengkapi dokumen sebelum membuat invoice
+              {{
+                hasSpkDocument
+                  ? "Pilih file baru untuk menggantikan SPK yang tersimpan"
+                  : "Lengkapi dokumen sebelum membuat invoice"
+              }}
             </div>
           </div>
         </div>
@@ -1138,6 +1179,20 @@ onBeforeUnmount(() => {
       <v-divider />
 
       <v-card-text class="spk-dialog-body">
+        <div v-if="hasSpkDocument" class="spk-current-document">
+          <div class="spk-current-document-copy">
+            <span>File SPK saat ini</span>
+            <button type="button" @click="openSpkDocument">
+              <v-icon icon="mdi-file-check-outline" size="17" />
+              <strong>{{ detailpenawaran.dokumen_spk?.name }}</strong>
+              <v-icon icon="mdi-open-in-new" size="13" />
+            </button>
+          </div>
+          <small>
+            File lama tetap tersimpan sampai file pengganti berhasil disimpan.
+          </small>
+        </div>
+
         <div
           class="spk-upload-area"
           :class="{
@@ -1159,16 +1214,18 @@ onBeforeUnmount(() => {
             @change="selectSpkFile"
           />
 
-          <label
-            v-if="!spkFile"
-            for="spk-file-input"
-            class="spk-upload-empty"
-          >
+          <label v-if="!spkFile" for="spk-file-input" class="spk-upload-empty">
             <span class="spk-upload-empty-icon">
               <v-icon icon="mdi-tray-arrow-up" size="24" />
             </span>
             <span class="spk-upload-copy">
-              <strong>Pilih atau tarik file SPK ke sini</strong>
+              <strong>
+                {{
+                  hasSpkDocument
+                    ? "Pilih atau tarik file SPK pengganti"
+                    : "Pilih atau tarik file SPK ke sini"
+                }}
+              </strong>
               <small>PDF, JPG, PNG, DOC, atau DOCX · maksimal 10 MB</small>
             </span>
             <span class="spk-browse-label">Pilih file</span>
@@ -1184,9 +1241,7 @@ onBeforeUnmount(() => {
             >
               <img
                 v-if="
-                  spkFileKind === 'image' &&
-                  spkPreviewUrl &&
-                  !spkPreviewFailed
+                  spkFileKind === 'image' && spkPreviewUrl && !spkPreviewFailed
                 "
                 :src="spkPreviewUrl"
                 :alt="`Preview ${spkFile.name}`"
@@ -1194,9 +1249,7 @@ onBeforeUnmount(() => {
               />
               <iframe
                 v-else-if="
-                  spkFileKind === 'pdf' &&
-                  spkPreviewUrl &&
-                  !spkPreviewFailed
+                  spkFileKind === 'pdf' && spkPreviewUrl && !spkPreviewFailed
                 "
                 :src="`${spkPreviewUrl}#toolbar=0&navpanes=0&view=FitH`"
                 :title="`Preview ${spkFile.name}`"
@@ -1217,7 +1270,7 @@ onBeforeUnmount(() => {
             <div class="spk-selected-details">
               <span class="spk-ready-label">
                 <v-icon icon="mdi-check-circle" size="14" />
-                Siap diunggah
+                {{ hasSpkDocument ? "Siap menggantikan file lama" : "Siap diunggah" }}
               </span>
               <strong class="spk-selected-name" :title="spkFile.name">
                 {{ spkFile.name }}
@@ -1271,7 +1324,11 @@ onBeforeUnmount(() => {
       <v-card-actions class="spk-dialog-actions">
         <span class="spk-upload-note">
           <v-icon icon="mdi-shield-check-outline" size="15" />
-          File tersimpan bersama data quotation
+          {{
+            hasSpkDocument
+              ? "File lama dihapus setelah pengganti berhasil tersimpan"
+              : "File tersimpan bersama data quotation"
+          }}
         </span>
         <div class="spk-dialog-buttons">
           <v-btn
@@ -1286,12 +1343,12 @@ onBeforeUnmount(() => {
             color="primary"
             variant="flat"
             class="text-none px-5"
-            prepend-icon="mdi-handshake"
+            :prepend-icon="hasSpkDocument ? 'mdi-swap-horizontal' : 'mdi-handshake'"
             :loading="spkSaving"
             :disabled="!spkFile"
             @click="saveSpkDocument"
           >
-            Upload SPK
+            {{ hasSpkDocument ? "Simpan Pengganti" : "Upload SPK" }}
           </v-btn>
         </div>
       </v-card-actions>
@@ -1328,22 +1385,22 @@ onBeforeUnmount(() => {
       <div class="quotation-grid">
         <aside class="quotation-sidebar">
           <section class="info-card">
-            <div class="info-card-header">
+            <!-- <div class="info-card-header">
               <div class="header-icon">
                 <v-icon size="19"> mdi-file-document-outline </v-icon>
               </div>
 
               <div>
                 <div class="info-card-title">Detail Quotation</div>
-                <!-- <div class="info-card-description">
+                <div class="info-card-description">
                   Detail dokumen penawaran
-                </div> -->
+                </div>
               </div>
-            </div>
+            </div> -->
 
             <div class="quotation-number-box">
               <div class="quotation-number-heading">
-                <div class="field-label">Quotation No.</div>
+                <div class="field-label">DETAIL QUOTATION</div>
                 <div class="quotation-status-row">
                   <v-chip
                     size="x-small"
@@ -1403,7 +1460,7 @@ onBeforeUnmount(() => {
                 class="spk-document-link"
                 @click="openSpkDocument"
               >
-                <v-icon icon="mdi-file-check-outline" size="17" />
+                <v-icon icon="mdi-handshake" size="17" />
                 <span>
                   <strong>Dokumen SPK</strong>
                   <small>{{ detailpenawaran.dokumen_spk?.name }}</small>
@@ -1411,51 +1468,7 @@ onBeforeUnmount(() => {
                 <v-icon icon="mdi-open-in-new" size="14" />
               </button>
 
-              <div
-                v-if="detailpenawaran.status == 'INVOICE'"
-                class="invoice-status"
-              >
-                <v-icon size="15">mdi-check-circle-outline</v-icon>
-                <p>Invoice telah dibuat</p>
-
-                <div v-for="invoice in invoiceLinks" :key="invoice.id">
-                  <NuxtLink
-                    class="text-primary"
-                    :to="`/admin/invoice/${invoice.id}`"
-                  >
-                    #{{ invoice.no_inv || invoice.id }}
-                  </NuxtLink>
-                </div>
-              </div>
-
               <div class="action-buttons">
-                <div
-                  v-if="quotationServiceReport"
-                  class="service-report-status service-report-status--ready"
-                  role="status"
-                >
-                  <span class="service-report-status-icon">
-                    <v-icon
-                      icon="mdi-clipboard-check-outline"
-                      size="18"
-                    />
-                  </span>
-                  <div>
-                    <strong>Service Report sudah dibuat</strong>
-                    <span>{{ quotationServiceReport.reportNo }}</span>
-                  </div>
-                  <v-btn
-                    v-if="detailpenawaran.status !== 'Cancel'"
-                    size="x-small"
-                    variant="tonal"
-                    color="teal-darken-1"
-                    class="text-none"
-                    @click="serviceReportDialogOpen = true"
-                  >
-                    Lihat / Edit
-                  </v-btn>
-                </div>
-
                 <div
                   v-if="isFullyInvoiced"
                   class="invoice-fully-billed-notice"
@@ -1463,6 +1476,23 @@ onBeforeUnmount(() => {
                 >
                   <v-icon size="16">mdi-check-circle</v-icon>
                   <span>Seluruh nominal quotation sudah ditagih.</span>
+                </div>
+
+                <div
+                  v-if="detailpenawaran.status == 'INVOICE'"
+                  class="invoice-status"
+                >
+                  <!-- <v-icon size="15">mdi-check-circle-outline</v-icon> -->
+                  <p><v-icon size="15" class="mr-1">mdi-check-circle-outline</v-icon>Invoice telah dibuat</p>
+
+                  <div v-for="invoice in invoiceLinks" :key="invoice.id">
+                    <NuxtLink
+                      class="text-primary"
+                      :to="`/admin/invoice/${invoice.id}`"
+                    >
+                      #{{ invoice.no_inv || invoice.id }}
+                    </NuxtLink>
+                  </div>
                 </div>
 
                 <div
@@ -1482,7 +1512,7 @@ onBeforeUnmount(() => {
                     :disabled="detailpenawaran.status !== 'Draft'"
                     @click="openRevisionDialog"
                   >
-                   <v-icon
+                    <v-icon
                       v-if="detailpenawaran.status != 'Draft'"
                       class="action-card-lock"
                       icon="mdi-lock-outline"
@@ -1496,7 +1526,6 @@ onBeforeUnmount(() => {
 
                   <v-btn
                     v-if="
-                      !hasSpkDocument &&
                       ['Draft', 'SPK', 'INVOICE'].includes(
                         detailpenawaran.status,
                       )
@@ -1506,9 +1535,15 @@ onBeforeUnmount(() => {
                     @click="openSpkDialog"
                   >
                     <span class="action-card-icon">
-                      <v-icon icon="mdi-handshake" />
+                      <v-icon
+                        :icon="
+                          hasSpkDocument ? 'mdi-file-replace-outline' : 'mdi-handshake'
+                        "
+                      />
                     </span>
-                    <span class="action-card-label">Upload SPK</span>
+                    <span class="action-card-label">
+                      {{ hasSpkDocument ? "Ganti SPK" : "Upload SPK" }}
+                    </span>
                   </v-btn>
 
                   <v-btn
@@ -1585,6 +1620,29 @@ onBeforeUnmount(() => {
                   </v-btn>
                 </div>
               </div>
+              <div
+                v-if="quotationServiceReport"
+                class="service-report-status service-report-status--ready mt-2"
+                role="status"
+              >
+                <span class="service-report-status-icon">
+                  <v-icon icon="mdi-hammer-screwdriver" size="18" />
+                </span>
+                <div>
+                  <strong>Service Report sudah dibuat</strong>
+                  <span>{{ quotationServiceReport.reportNo }}</span>
+                </div>
+                <v-btn
+                  v-if="detailpenawaran.status !== 'Cancel'"
+                  size="x-small"
+                  variant="tonal"
+                  color="teal-darken-1"
+                  class="text-none"
+                  @click="serviceReportDialogOpen = true"
+                >
+                  Lihat / Edit
+                </v-btn>
+              </div>
             </div>
           </section>
         </aside>
@@ -1633,6 +1691,7 @@ onBeforeUnmount(() => {
               align-tabs="start"
               show-arrows
               class="preview-tabs"
+              :disabled="detailpenawaran.status !== 'Draft'"
             >
               <v-tab
                 value="original"
@@ -2520,6 +2579,64 @@ onBeforeUnmount(() => {
   padding: 16px 18px !important;
 }
 
+.spk-current-document {
+  display: flex;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  background: #f0fdf4;
+}
+
+.spk-current-document-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.spk-current-document-copy > span {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.spk-current-document-copy button {
+  display: flex;
+  min-width: 0;
+  padding: 0;
+  align-items: center;
+  gap: 6px;
+  color: #166534;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.spk-current-document-copy strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spk-current-document > small {
+  max-width: 220px;
+  flex: 0 0 auto;
+  color: #4b5563;
+  font-size: 9px;
+  line-height: 1.4;
+  text-align: right;
+}
+
 .spk-upload-area {
   position: relative;
   min-height: 108px;
@@ -2826,6 +2943,17 @@ onBeforeUnmount(() => {
     padding: 14px !important;
   }
 
+  .spk-current-document {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .spk-current-document > small {
+    max-width: none;
+    text-align: left;
+  }
+
   .spk-upload-empty {
     padding: 13px;
   }
@@ -3098,8 +3226,8 @@ onBeforeUnmount(() => {
 .invoice-status {
   /* display: flex; */
   align-items: center;
-  gap: 6px;
-  margin-bottom: 9px;
+
+  margin-bottom: 1px;
   padding: 7px 10px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;

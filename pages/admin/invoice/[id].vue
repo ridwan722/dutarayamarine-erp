@@ -194,6 +194,191 @@
       </v-card>
     </v-dialog>
 
+    <!-- // DIALOG TAMBAH DOKUMEN PO \\ -->
+    <v-dialog
+      v-model="data.dialogTambahPo"
+      max-width="520"
+      scrollable
+      :persistent="readingPoDocuments"
+      @after-leave="resetPoDocumentFiles"
+    >
+      <v-card class="do-wr-dialog" rounded="lg">
+        <div class="do-wr-dialog-header">
+          <div class="do-wr-dialog-heading">
+            <div class="do-wr-dialog-icon">
+              <v-icon icon="mdi-file-document-plus-outline" size="20" />
+            </div>
+
+            <div>
+              <div class="do-wr-dialog-title">
+                Upload Dokumen Purchase Order
+              </div>
+            </div>
+          </div>
+
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            aria-label="Tutup dialog"
+            :disabled="readingPoDocuments || savingInvoice"
+            @click="tutupDialogPo"
+          />
+        </div>
+
+        <v-divider />
+
+        <v-card-text class="do-wr-dialog-body">
+          <label
+            for="upload-invoice-po"
+            class="do-wr-upload-area"
+            :class="{ 'do-wr-upload-area--disabled': readingPoDocuments }"
+          >
+            <input
+              id="upload-invoice-po"
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+              class="po-file-input"
+              :disabled="readingPoDocuments"
+              @change="addPoDocumentFiles"
+            />
+
+            <v-icon icon="mdi-upload" size="22" />
+
+            <div class="do-wr-upload-copy">
+              <div class="do-wr-upload-title">Pilih dokumen PO</div>
+              <div class="do-wr-upload-description">
+                PDF, gambar, atau dokumen Office · maks. 10 MB per file
+              </div>
+            </div>
+          </label>
+
+          <div
+            v-if="savedPoDocuments.length || poDocumentFiles.length"
+            class="do-wr-selected-files"
+          >
+            <div class="do-wr-selected-header">
+              <span>
+                {{ savedPoDocuments.length + poDocumentFiles.length }} dokumen
+              </span>
+              <span v-if="poDocumentFiles.length">
+                {{ poDocumentFiles.length }} baru ·
+                {{ formatFileSize(poDocumentTotalBytes) }}
+              </span>
+            </div>
+
+            <div class="do-wr-file-list">
+              <div
+                v-for="(document, index) in savedPoDocuments"
+                :key="`saved-po-${index}-${document.name}`"
+                class="do-wr-file-item"
+              >
+                <v-icon
+                  icon="mdi-file-check-outline"
+                  size="19"
+                  class="do-wr-file-icon"
+                />
+
+                <div class="do-wr-file-info">
+                  <button
+                    type="button"
+                    class="do-wr-file-name do-wr-file-link"
+                    :disabled="readingPoDocuments"
+                    @click="bukaDokumenLampiran(document)"
+                  >
+                    {{ document.name }}
+                  </button>
+                  <div class="do-wr-file-size">
+                    Tersimpan · {{ formatFileSize(Number(document.size) || 0) }}
+                  </div>
+                </div>
+
+                <v-btn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="x-small"
+                  color="error"
+                  :aria-label="`Hapus ${document.name}`"
+                  :disabled="readingPoDocuments"
+                  @click="removeSavedPoDocument(index)"
+                />
+              </div>
+
+              <div
+                v-for="(file, index) in poDocumentFiles"
+                :key="`po-${file.name}-${file.size}-${file.lastModified}`"
+                class="do-wr-file-item"
+              >
+                <v-icon
+                  icon="mdi-file-document-outline"
+                  size="19"
+                  class="do-wr-file-icon"
+                />
+
+                <div class="do-wr-file-info">
+                  <div class="do-wr-file-name">{{ file.name }}</div>
+                  <div class="do-wr-file-size">
+                    File baru · {{ formatFileSize(file.size) }}
+                  </div>
+                </div>
+
+                <v-btn
+                  icon="mdi-close"
+                  variant="text"
+                  size="x-small"
+                  aria-label="Hapus dokumen"
+                  :disabled="readingPoDocuments"
+                  @click="removePoDocumentFile(index)"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div v-if="readingPoDocuments" class="do-wr-upload-progress">
+            <div class="do-wr-progress-label">
+              <span class="text-truncate">
+                Menyiapkan {{ activePoDocumentFileName || "dokumen" }}
+              </span>
+              <span>{{ poDocumentUploadProgress }}%</span>
+            </div>
+            <v-progress-linear
+              :model-value="poDocumentUploadProgress"
+              color="primary"
+              height="4"
+              rounded
+            />
+          </div>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="do-wr-dialog-footer">
+          <v-spacer />
+
+          <v-btn
+            variant="text"
+            :disabled="readingPoDocuments || savingInvoice"
+            @click="tutupDialogPo"
+          >
+            Batal
+          </v-btn>
+
+          <v-btn
+            color="primary"
+            variant="flat"
+            :loading="savingInvoice"
+            :disabled="
+              !hasPoDocumentChanges || readingPoDocuments || savingInvoice
+            "
+            @click="simpanDokumenPo"
+          >
+            Simpan Dokumen
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- // DIALOG TAMBAH DO/WR \\ -->
     <v-dialog
       v-model="data.dialogTambahDoWr"
@@ -477,7 +662,7 @@
         >
           <span class="invoice-context-icon">
             <v-icon
-              icon="mdi-clipboard-check-outline"
+              icon="mdi-hammer-screwdriver"
               size="16"
             />
           </span>
@@ -516,8 +701,22 @@
             </div>
           </dl>
 
-          <div class="invoice-file-group">
-            <span class="invoice-file-label">Lampiran</span>
+          <p class="invoice-information-description">
+            Tambahkan dokumen Purchase Order
+          </p>
+
+          <v-btn
+            variant="outlined"
+            color="blue-grey-darken-2"
+            size="small"
+            prepend-icon="mdi-upload"
+            class="invoice-do-action"
+            @click="openDialogPo"
+          >
+            Upload Dokumen
+          </v-btn>
+
+          <div class="invoice-file-group invoice-file-group--do">
             <div
               v-if="invoiceDetail.doc_preorder?.length"
               class="invoice-file-list"
@@ -536,7 +735,9 @@
                 <v-icon icon="mdi-open-in-new" size="13" />
               </a>
             </div>
-            <div v-else class="invoice-file-empty">Belum ada dokumen</div>
+            <div v-else class="invoice-file-empty">
+              <v-icon>mdi-cancel</v-icon> Belum ada dokumen
+            </div>
           </div>
         </article>
 
@@ -733,6 +934,7 @@ import type {
   invoiceM,
   invoiceBuktiBayarM,
   invoiceDoWrM,
+  invoicePoDocumentM,
 } from "~/types/invoice";
 import type { penawaranM } from "~/types/penawaranModel";
 import { uploadStore } from "~/stores/uploadStore";
@@ -758,8 +960,11 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 const dialogDikirim = ref(false);
 const serviceReportDialogOpen = ref(false);
 const readingBuktiBayar = ref(false);
+const readingPoDocuments = ref(false);
 const readingDoWr = ref(false);
 const savingInvoice = ref(false);
+const poDocumentUploadProgress = ref(0);
+const activePoDocumentFileName = ref("");
 const doWrUploadProgress = ref(0);
 const activeDoWrFileName = ref("");
 const MAX_INVOICE_BYTES = 900 * 1024;
@@ -883,11 +1088,25 @@ onMounted(() => {
 
 const data = reactive({
   dialogSelesai: false,
+  dialogTambahPo: false,
   dialogTambahDoWr: false,
 });
 
 function openDialogSelesai() {
   data.dialogSelesai = true;
+}
+
+function openDialogPo() {
+  resetPoDocumentFiles();
+  const documents = invoiceDetail.value.doc_preorder || [];
+  savedPoDocuments.value = [...documents];
+  originalPoDocuments.value = [...documents];
+  data.dialogTambahPo = true;
+}
+
+function tutupDialogPo() {
+  if (readingPoDocuments.value || savingInvoice.value) return;
+  data.dialogTambahPo = false;
 }
 
 function openDialogDoWr() {
@@ -1047,7 +1266,7 @@ async function tambahDokumenBb(event: Event) {
 }
 
 async function bukaDokumenLampiran(
-  document: invoiceBuktiBayarM | invoiceDoWrM,
+  document: invoiceBuktiBayarM | invoiceDoWrM | invoicePoDocumentM,
 ) {
   const firestoreFileId =
     "firestoreFileId" in document ? document.firestoreFileId : undefined;
@@ -1186,9 +1405,29 @@ async function ubahStatusDikirim() {
 }
 
 const poFiles = ref<File[]>([]);
+const poDocumentFiles = ref<File[]>([]);
+const savedPoDocuments = ref<invoicePoDocumentM[]>([]);
+const originalPoDocuments = ref<invoicePoDocumentM[]>([]);
 const doWrFiles = ref<File[]>([]);
 const savedDoWrDocuments = ref<invoiceDoWrM[]>([]);
 const originalDoWrDocuments = ref<invoiceDoWrM[]>([]);
+const poDocumentTotalBytes = computed(() =>
+  poDocumentFiles.value.reduce((total, file) => total + file.size, 0),
+);
+const hasPoDocumentChanges = computed(() => {
+  if (poDocumentFiles.value.length) return true;
+  if (savedPoDocuments.value.length !== originalPoDocuments.value.length) {
+    return true;
+  }
+
+  return savedPoDocuments.value.some((document, index) => {
+    const original = originalPoDocuments.value[index];
+    return (
+      document.dataUrl !== original?.dataUrl ||
+      document.firestoreFileId !== original?.firestoreFileId
+    );
+  });
+});
 const doWrTotalBytes = computed(() =>
   doWrFiles.value.reduce((total, file) => total + file.size, 0),
 );
@@ -1236,6 +1475,58 @@ function addfile(event: Event) {
   }
 
   target.value = "";
+}
+
+function addPoDocumentFiles(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  input.value = "";
+
+  if (!files.length) return;
+
+  const nonEmptyFiles = files.filter((file) => file.size > 0);
+  if (nonEmptyFiles.length !== files.length) {
+    notificationStore.showError("File kosong tidak dapat diunggah.");
+  }
+
+  const validFiles = nonEmptyFiles.filter(
+    (file) => file.size <= MAX_DO_WR_FILE_BYTES,
+  );
+  if (validFiles.length !== nonEmptyFiles.length) {
+    notificationStore.showError(
+      "Ukuran maksimal dokumen PO adalah 10 MB per file.",
+    );
+  }
+
+  const knownFiles = new Set(
+    poDocumentFiles.value.map(
+      (file) => `${file.name}-${file.size}-${file.lastModified}`,
+    ),
+  );
+  const uniqueFiles = validFiles.filter(
+    (file) => !knownFiles.has(`${file.name}-${file.size}-${file.lastModified}`),
+  );
+
+  poDocumentFiles.value = [...poDocumentFiles.value, ...uniqueFiles];
+}
+
+function removePoDocumentFile(index: number) {
+  if (readingPoDocuments.value) return;
+  poDocumentFiles.value.splice(index, 1);
+}
+
+function removeSavedPoDocument(index: number) {
+  if (readingPoDocuments.value) return;
+  savedPoDocuments.value.splice(index, 1);
+}
+
+function resetPoDocumentFiles() {
+  if (readingPoDocuments.value) return;
+  poDocumentFiles.value = [];
+  savedPoDocuments.value = [];
+  originalPoDocuments.value = [];
+  poDocumentUploadProgress.value = 0;
+  activePoDocumentFileName.value = "";
 }
 
 function addDoWrFiles(event: Event) {
@@ -1340,6 +1631,138 @@ async function deleteFirestoreDoWrFile(fileId: string, chunkCount: number) {
       ),
     ),
   );
+}
+
+async function simpanDokumenPo() {
+  if (savingInvoice.value || readingPoDocuments.value) return;
+  if (!hasPoDocumentChanges.value) return;
+
+  savingInvoice.value = true;
+  readingPoDocuments.value = true;
+  poDocumentUploadProgress.value = poDocumentFiles.value.length ? 0 : 100;
+  const createdFirestoreFiles: Array<{
+    fileId: string;
+    chunkCount: number;
+  }> = [];
+  let invoiceUpdated = false;
+
+  try {
+    const id = route.params.id as string;
+    const invoice = JSON.parse(JSON.stringify(invoiceDetail.value)) as invoiceM;
+    const newDocuments: invoicePoDocumentM[] = [];
+    const totalBytes = poDocumentTotalBytes.value;
+    let completedBytes = 0;
+
+    for (const file of poDocumentFiles.value) {
+      activePoDocumentFileName.value = file.name;
+      const fileId = doc(collection(db, DO_WR_FILES_COLLECTION)).id;
+      const expectedChunkCount = Math.ceil(file.size / DO_WR_CHUNK_BYTES);
+      createdFirestoreFiles.push({
+        fileId,
+        chunkCount: expectedChunkCount,
+      });
+
+      const { chunkCount } = await saveDoWrFileToFirestore(
+        id,
+        fileId,
+        file,
+        (fileCompletedBytes) => {
+          poDocumentUploadProgress.value = totalBytes
+            ? Math.round(
+                ((completedBytes + fileCompletedBytes) / totalBytes) * 100,
+              )
+            : 100;
+        },
+      );
+
+      newDocuments.push({
+        name: file.name,
+        dataUrl: "",
+        size: file.size,
+        contentType: file.type || "application/octet-stream",
+        firestoreFileId: fileId,
+        chunkCount,
+      });
+
+      completedBytes += file.size;
+      poDocumentUploadProgress.value = totalBytes
+        ? Math.round((completedBytes / totalBytes) * 100)
+        : 100;
+    }
+
+    invoice.doc_preorder = [...savedPoDocuments.value, ...newDocuments];
+
+    const updated = await invoiceStore.updateInvoiceAct(id, invoice, {
+      showLoading: false,
+    });
+    if (!updated) return;
+    invoiceUpdated = true;
+
+    const retainedPaths = new Set(
+      savedPoDocuments.value
+        .map((document) => document.storagePath)
+        .filter((path): path is string => Boolean(path)),
+    );
+    const retainedFirestoreFileIds = new Set(
+      savedPoDocuments.value
+        .map((document) => document.firestoreFileId)
+        .filter((fileId): fileId is string => Boolean(fileId)),
+    );
+    const removedPaths = originalPoDocuments.value
+      .map((document) => document.storagePath)
+      .filter(
+        (path): path is string => Boolean(path) && !retainedPaths.has(path),
+      );
+    const removedFirestoreFiles = originalPoDocuments.value.filter(
+      (document) =>
+        Boolean(document.firestoreFileId) &&
+        !retainedFirestoreFileIds.has(document.firestoreFileId!),
+    );
+
+    if (removedPaths.length) {
+      void Promise.allSettled(
+        removedPaths.map((path) => deleteObject(storageRef(storage, path))),
+      ).then((results) => {
+        if (results.some((result) => result.status === "rejected")) {
+          console.warn("Sebagian file PO lama gagal dihapus dari Storage.");
+        }
+      });
+    }
+    if (removedFirestoreFiles.length) {
+      void Promise.allSettled(
+        removedFirestoreFiles.map((document) =>
+          deleteFirestoreDoWrFile(
+            document.firestoreFileId!,
+            Number(document.chunkCount) || 0,
+          ),
+        ),
+      ).then((results) => {
+        if (results.some((result) => result.status === "rejected")) {
+          console.warn("Sebagian data PO lama gagal dihapus dari Firestore.");
+        }
+      });
+    }
+
+    data.dialogTambahPo = false;
+  } catch (error) {
+    console.error("Gagal menyimpan dokumen PO:", error);
+    notificationStore.showError(
+      error instanceof Error
+        ? error.message
+        : "Dokumen PO gagal diunggah atau disimpan. Silakan coba lagi.",
+    );
+  } finally {
+    if (!invoiceUpdated && createdFirestoreFiles.length) {
+      void Promise.allSettled(
+        createdFirestoreFiles.map(({ fileId, chunkCount }) =>
+          deleteFirestoreDoWrFile(fileId, chunkCount),
+        ),
+      );
+    }
+    readingPoDocuments.value = false;
+    savingInvoice.value = false;
+    activePoDocumentFileName.value = "";
+  }
 }
 
 async function simpanDoWr() {
