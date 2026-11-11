@@ -43,8 +43,8 @@
       <div class="signature-party">
         <span class="signature-line" />
         <div class="signature-details">
-          <span>Name</span><span>:</span><span>{{ props.technicianName }}</span>
-          <span>Title</span><span>:</span><span>{{ props.technicianTitle }}</span>
+          <span>Name</span><span>:</span><span class="font-weight-bold">{{ props.technicianName }}</span>
+          <span>Title</span><span>:</span><span class="font-weight-bold">{{ props.technicianTitle }}</span>
         </div>
       </div>
       <div class="signature-party">
@@ -129,10 +129,10 @@ function itemLabel(index: number) {
 
 .report-photo {
   box-sizing: border-box;
-  display: grid;
+  display: flex;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: minmax(0, 1fr) 30px;
+  flex-direction: column;
   margin: 0;
   overflow: hidden;
   background: #fff;
@@ -144,15 +144,19 @@ function itemLabel(index: number) {
 
 .report-photo-caption {
   display: flex;
+  box-sizing: border-box;
   min-width: 0;
-  padding: 0 8px;
+  height: 30px;
+  flex: 0 0 30px;
+  padding: 2px 8px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   border-top: 1.5px solid #111;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1.15;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -161,8 +165,9 @@ function itemLabel(index: number) {
 .report-photo img {
   display: block;
   width: 100%;
+  height: 0;
+  flex: 1 1 0;
   min-height: 0;
-  height: 100%;
   object-fit: cover;
 }
 
@@ -215,7 +220,7 @@ function itemLabel(index: number) {
   row-gap: 1px;
   margin-top: 3px;
   font-size: 12px;
-  line-height: 1.25;
+  line-height: 1.65;
 }
 
 .signature-details span:nth-child(3n + 1) {

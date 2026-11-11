@@ -77,7 +77,6 @@
               <col class="col-project" />
               <col class="col-debit" />
               <col class="col-balance" />
-              <col class="col-remark" />
             </colgroup>
             <thead>
               <tr>
@@ -88,7 +87,6 @@
                 <th>Project Name</th>
                 <th>Debit ({{ soaDetail.currency || "IDR" }})</th>
                 <th>Balance</th>
-                <th>Remark</th>
               </tr>
             </thead>
             <tbody>
@@ -100,16 +98,14 @@
                 <td class="text-center">{{ invoice.projectName || "—" }}</td>
                 <td class="amount-cell">{{ formatAmount(invoice.debit) }}</td>
                 <td class="amount-cell balance-cell">{{ formatAmount(invoice.balance) }}</td>
-                <td>{{ invoice.remark || "" }}</td>
               </tr>
               <tr v-if="!soaDetail.invoices?.length">
-                <td colspan="8" class="empty-row">Tidak ada invoice pada SOA ini.</td>
+                <td colspan="7" class="empty-row">Tidak ada invoice pada SOA ini.</td>
               </tr>
               <tr class="soa-total-row">
                 <th colspan="5">Total Outstanding Amount</th>
                 <td />
                 <td class="outstanding-total">{{ formatAmount(outstandingTotal) }}</td>
-                <td />
               </tr>
             </tbody>
           </table>
@@ -274,7 +270,6 @@ interface SoaInvoiceSnapshot {
   debit: number;
   credit?: number;
   balance: number;
-  remark?: string;
 }
 
 interface SoaDetail {
@@ -1123,11 +1118,10 @@ function printSoa() {
 .col-no { width: 4.5%; }
 .col-date { width: 9%; }
 .col-invoice { width: 15%; }
-.col-perihal { width: 32%; }
-.col-project { width: 11%; }
-.col-debit { width: 10%; }
-.col-balance { width: 10%; }
-.col-remark { width: 8.5%; }
+.col-perihal { width: 38%; }
+.col-project { width: 13%; }
+.col-debit { width: 10.5%; }
+.col-balance { width: 10.5%; }
 
 .text-center {
   text-align: center;

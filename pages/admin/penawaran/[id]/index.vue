@@ -988,6 +988,26 @@ function handlePurchaseOrderSaved() {
 
 const penawaranWrapper = ref<HTMLElement | null>(null);
 const penawaranContent = ref<HTMLElement | null>(null);
+const quotationSidebar = ref<HTMLElement | null>(null);
+const quotationPreview = ref<HTMLElement | null>(null);
+
+function scrollQuotationToTop() {
+  if (!import.meta.client) return;
+
+  const behavior: ScrollBehavior = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches
+    ? "auto"
+    : "smooth";
+
+  if (window.matchMedia("(max-width: 960px)").matches) {
+    window.scrollTo({ top: 0, behavior });
+    return;
+  }
+
+  quotationSidebar.value?.scrollTo({ top: 0, behavior });
+  quotationPreview.value?.scrollTo({ top: 0, behavior });
+}
 
 // Nuxt berjalan sebagai SPA, jadi viewport sudah bisa dibaca saat setup. Ini
 // mencegah render desktop sesaat sebelum berubah menjadi tampilan mobile.
@@ -1370,18 +1390,26 @@ onBeforeUnmount(() => {
             />
             <div>
               <h1>Detail Quotation</h1>
-              <p>
-                Review quotation details, revisions, and related transactions.
-              </p>
             </div>
           </div>
+          <v-btn
+            variant="outlined"
+            color="blue-grey-darken-1"
+            size="x-small"
+            prepend-icon="mdi-arrow-up"
+            class="quotation-scroll-top-btn text-none mb-3"
+            aria-label="Gulir ke bagian atas quotation"
+            @click="scrollQuotationToTop"
+          >
+            Scroll to Top
+          </v-btn>
         </div>
       </div>
     </header>
 
     <div class="grid-wrapper">
       <div class="quotation-grid">
-        <aside class="quotation-sidebar">
+        <aside ref="quotationSidebar" class="quotation-sidebar">
           <section class="info-card">
             <!-- <div class="info-card-header">
               <div class="header-icon">
@@ -1398,7 +1426,7 @@ onBeforeUnmount(() => {
 
             <div class="quotation-number-box">
               <div class="quotation-number-heading">
-                <div class="field-label">DETAIL QUOTATION</div>
+                <div class="field-label">Duta Raya Marine</div>
                 <div class="quotation-status-row">
                   <v-chip
                     size="x-small"
@@ -1645,24 +1673,8 @@ onBeforeUnmount(() => {
           </section>
         </aside>
 
-        <main class="quotation-preview">
-          <div class="preview-header">
-            <div class="preview-title-wrapper">
-              <div class="preview-icon">
-                <v-icon size="18"> mdi-file-eye-outline </v-icon>
-              </div>
-
-              <div>
-                <div class="preview-title">Preview Dokumen</div>
-                <!-- <div class="preview-subtitle">Tampilan surat penawaran</div> -->
-              </div>
-            </div>
-
-            <div class="preview-status">
-              <!-- <span class="status-dot"></span>
-              Dokumen -->
-            </div>
-          </div>
+        <main ref="quotationPreview" class="quotation-preview">
+          
 
           <!-- TAB SELECTION -->
           <div class="preview-tabs-wrapper">
@@ -1742,50 +1754,52 @@ onBeforeUnmount(() => {
             </v-tabs>
           </div>
 
-          <div
-            ref="penawaranWrapper"
-            class="penawaran-wrapper"
-            :style="{
-              height:
-                isMobile && penawaranHeight
-                  ? `${penawaranHeight}px`
-                  : undefined,
-            }"
-          >
+          <div class="preview-document-content">
             <div
-              ref="penawaranContent"
-              class="penawaran-content"
+              ref="penawaranWrapper"
+              class="penawaran-wrapper"
               :style="{
-                transform: isMobile ? `scale(${penawaranScale})` : undefined,
-              }"
-            >
-              <canvas-penawaran :detailpenawaran="detailpenawaran" />
-            </div>
-          </div>
-          <template v-if="hasPurchaseOrder">
-            <v-divider opacity="100" thickness="2" class="my-4" />
-            <div
-              ref="poWrapper"
-              id="purchase-order-preview"
-              class="po-wrapper"
-              :style="{
-                height: isMobile && poHeight ? `${poHeight}px` : undefined,
+                height:
+                  isMobile && penawaranHeight
+                    ? `${penawaranHeight}px`
+                    : undefined,
               }"
             >
               <div
-                ref="poContent"
-                class="po-content"
+                ref="penawaranContent"
+                class="penawaran-content"
                 :style="{
-                  transform: isMobile ? `scale(${poScale})` : undefined,
+                  transform: isMobile ? `scale(${penawaranScale})` : undefined,
                 }"
               >
-                <canvas-purchaseorder
-                  :key="purchaseorderPreviewKey"
-                  :detailpenawaran="detailpenawaran"
-                />
+                <canvas-penawaran :detailpenawaran="detailpenawaran" />
               </div>
             </div>
-          </template>
+            <template v-if="hasPurchaseOrder">
+              <v-divider opacity="100" thickness="2" class="my-4" />
+              <div
+                ref="poWrapper"
+                id="purchase-order-preview"
+                class="po-wrapper"
+                :style="{
+                  height: isMobile && poHeight ? `${poHeight}px` : undefined,
+                }"
+              >
+                <div
+                  ref="poContent"
+                  class="po-content"
+                  :style="{
+                    transform: isMobile ? `scale(${poScale})` : undefined,
+                  }"
+                >
+                  <canvas-purchaseorder
+                    :key="purchaseorderPreviewKey"
+                    :detailpenawaran="detailpenawaran"
+                  />
+                </div>
+              </div>
+            </template>
+          </div>
         </main>
       </div>
     </div>
@@ -1799,7 +1813,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   position: relative;
   overflow: hidden;
-  scroll-margin-top: 150px;
+  scroll-margin-top: 16px;
 }
 
 .po-content {
@@ -1833,19 +1847,24 @@ onBeforeUnmount(() => {
   }
 }
 .quotation-page {
+  display: flex;
   width: 100%;
-  min-height: 100vh;
+  height: calc(100vh - 145px);
+  height: calc(100dvh - 145px);
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
   background: #ffff;
   box-sizing: border-box;
 }
 
 .top-sticky-container {
-  position: sticky;
-  top: 15px;
+  position: relative;
   z-index: 100;
+  flex: 0 0 auto;
   background: #ffff;
   width: 100%;
-  padding: 16px 28px 14px;
+  padding: 0px 4px 0;
   border-bottom: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
   box-sizing: border-box;
@@ -1859,7 +1878,7 @@ onBeforeUnmount(() => {
 
 .quotation-page-heading {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 0;
@@ -1867,6 +1886,7 @@ onBeforeUnmount(() => {
 
 .quotation-page-title {
   display: flex;
+  flex: 1 1 auto;
   min-width: 0;
   align-items: center;
   gap: 8px;
@@ -1897,6 +1917,20 @@ onBeforeUnmount(() => {
   line-height: 1.3;
 }
 
+.quotation-scroll-top-btn {
+  flex: 0 0 auto;
+  height: 27px !important;
+  padding-inline: 9px !important;
+  border-radius: 4px !important;
+  font-size: 9px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+}
+
+.quotation-scroll-top-btn :deep(.v-btn__prepend) {
+  margin-inline-end: 5px !important;
+}
+
 .quotation-page-heading p {
   margin: 3px 0 0;
   color: #7b8490;
@@ -1905,51 +1939,63 @@ onBeforeUnmount(() => {
 }
 
 .grid-wrapper {
-  padding: 24px 28px 50px;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .quotation-grid {
   display: grid;
+  height: 100%;
+  min-height: 0;
   grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  gap: 24px;
+  gap: 0;
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
-  align-items: start;
+  align-items: stretch;
 }
 
 .quotation-sidebar {
+  box-sizing: border-box;
+  height: 100%;
   width: 100%;
   min-width: 0;
-  position: sticky;
-
-  top: calc(145px + -10px);
-  max-height: calc(100vh - (105px + 48px));
+  min-height: 0;
+  position: static;
+  max-height: none;
   overflow-y: auto;
-
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-
-  will-change: transform;
-  transform: translateZ(0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #c1cbd6 transparent;
+  border: 1px solid #e6eaf0;
+  border-right: 0;
 }
 
 .quotation-sidebar::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+
+.quotation-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.quotation-sidebar::-webkit-scrollbar-thumb {
+  background: #c1cbd6;
+  border-radius: 999px;
 }
 
 .info-card {
   width: 100%;
   background: #ffffff;
-  border: 1px solid #e6eaf0;
-  border-radius: 14px;
-  overflow: hidden;
-
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.03),
-    0 8px 24px rgba(15, 23, 42, 0.04);
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
 }
 
 .info-card-header {
@@ -2119,19 +2165,42 @@ onBeforeUnmount(() => {
 }
 
 .quotation-preview {
+  box-sizing: border-box;
+  display: block;
+  height: 100%;
   min-width: 0;
+  min-height: 0;
   width: 100%;
   background: #ffffff;
   border: 1px solid #e6eaf0;
-  border-radius: 14px;
-  overflow: hidden;
+  border-radius: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #c1cbd6 transparent;
 
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.03),
     0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
+.quotation-preview::-webkit-scrollbar {
+  width: 6px;
+}
+
+.quotation-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.quotation-preview::-webkit-scrollbar-thumb {
+  background: #c1cbd6;
+  border-radius: 999px;
+}
+
 .preview-header {
+  flex: 0 0 auto;
   min-height: 22px;
   padding: 6px 18px;
   display: flex;
@@ -2209,12 +2278,12 @@ onBeforeUnmount(() => {
   }
 
   .grid-wrapper {
-    padding: 20px 20px 40px;
+    padding: 0;
   }
 
   .quotation-grid {
     grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);
-    gap: 18px;
+    gap: 0;
   }
 
   .paper-container {
@@ -2223,24 +2292,40 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 960px) {
+  .quotation-page {
+    height: auto;
+    min-height: calc(100vh - 120px);
+    min-height: calc(100svh - 120px);
+    overflow: visible;
+  }
+
   .top-sticky-container {
     padding-left: 16px;
     padding-right: 16px;
   }
 
   .grid-wrapper {
-    padding: 18px 16px 35px;
+    min-height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+    padding: 0;
   }
 
   .quotation-grid {
+    height: auto;
+    min-height: 0;
     grid-template-columns: 1fr;
-    gap: 18px;
+    gap: 0;
+    align-items: start;
   }
 
   .quotation-sidebar {
     position: static;
+    height: auto;
     max-height: none;
     overflow-y: visible;
+    border-right: 1px solid #e6eaf0;
+    border-bottom: 0;
   }
 
   .info-card {
@@ -2248,7 +2333,16 @@ onBeforeUnmount(() => {
   }
 
   .quotation-preview {
+    display: block;
+    height: auto;
+    min-height: 0;
     width: 100%;
+    overflow: visible;
+  }
+
+  .preview-document-content {
+    min-height: 0;
+    overflow: visible;
   }
 
   .paper-container {
@@ -2258,15 +2352,15 @@ onBeforeUnmount(() => {
 
 @media (max-width: 600px) {
   .top-sticky-container {
-    padding: 12px 14px 10px;
+    padding: 12px 14px 0;
   }
 
   .grid-wrapper {
-    padding: 14px 10px 30px;
+    padding: 0;
   }
 
   .info-card {
-    border-radius: 12px;
+    border-radius: 0;
   }
 
   .info-card-header {
@@ -2320,12 +2414,19 @@ onBeforeUnmount(() => {
 
 .preview-tabs-wrapper {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   min-height: 48px;
   overflow: hidden;
   padding: 0 14px;
   border-bottom: 1px solid #e9edf2;
   background-color: #ffffff;
+}
+
+.preview-document-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
 }
 
 .preview-revision-heading {

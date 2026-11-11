@@ -710,9 +710,9 @@
       <header class="soa-preview-dialog-header">
         <div>
           <h2>Statement of Account</h2>
-          <p v-if="activeSoa">
+          <!-- <p v-if="activeSoa">
             {{ activeSoa.nama_customer }} · {{ activeSoa.currency }}
-          </p>
+          </p> -->
         </div>
         <v-btn
           icon="mdi-close"
@@ -3326,7 +3326,7 @@ async function refreshData() {
 .soa-preview-dialog-header h2 {
   margin: 0;
   color: #1f2937;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 750;
   line-height: 1.3;
 }

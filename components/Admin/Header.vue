@@ -922,7 +922,7 @@ const logout = async () => {
   </v-navigation-drawer>
 
   <!-- APP BAR / TOP HEADER -->
-  <v-app-bar flat height="72" extension-height="44" class="app-bar-border">
+  <v-app-bar flat height="62" extension-height="40" class="app-bar-border">
     <template #prepend>
       <div class="header-left">
         <div v-if="!mdAndUp" class="logo-box">
