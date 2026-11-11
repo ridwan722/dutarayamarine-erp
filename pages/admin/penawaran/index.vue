@@ -289,6 +289,173 @@
         </div>
       </template>
 
+      <template v-slot:item.grafik="{ item }">
+        <v-menu
+          :model-value="isFinancialGraphOpen(item)"
+          :close-on-content-click="false"
+          location="bottom end"
+          origin="top end"
+          :offset="8"
+          @update:model-value="ignoreFinancialGraphMenuUpdate"
+          @click:outside="closeFinancialGraph(item)"
+        >
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              icon="mdi-chart-box-outline"
+              size="small"
+              variant="text"
+              color="blue-grey-darken-1"
+              class="quotation-graph-trigger"
+              :aria-label="`Lihat grafik keuangan ${item.no_penawaran || ''}`"
+              :aria-pressed="pinnedFinancialGraphId === financialGraphId(item)"
+              @mouseenter="enterFinancialGraph(item)"
+              @mouseleave="leaveFinancialGraph(item)"
+              @focus="enterFinancialGraph(item)"
+              @blur="leaveFinancialGraph(item)"
+              @click.stop="toggleFinancialGraphPin(item)"
+              @keydown.esc.stop.prevent="closeFinancialGraph(item)"
+            />
+          </template>
+
+          <v-card
+            class="financial-graph-card"
+            rounded="lg"
+            @mouseenter="enterFinancialGraph(item)"
+            @mouseleave="leaveFinancialGraph(item)"
+            @keydown.esc.stop.prevent="closeFinancialGraph(item)"
+          >
+            <div class="financial-graph-heading">
+              <div>
+                <div class="financial-graph-eyebrow">Grafik keuangan</div>
+                <strong>{{ item.no_penawaran || "Quotation" }}</strong>
+              </div>
+              <v-btn
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                color="grey-darken-1"
+                aria-label="Tutup grafik keuangan"
+                @click.stop="closeFinancialGraph(item)"
+              />
+            </div>
+
+            <div class="financial-graph-statuses">
+              <span
+                class="financial-graph-status"
+                :class="financialGraphHasSpk(item) ? 'is-available' : 'is-missing'"
+              >
+                <v-icon
+                  :icon="financialGraphHasSpk(item) ? 'mdi-check-circle-outline' : 'mdi-minus-circle-outline'"
+                  size="13"
+                />
+                SPK {{ financialGraphHasSpk(item) ? "Ada" : "Belum ada" }}
+              </span>
+              <span
+                class="financial-graph-status"
+                :class="`is-${financialGraphServiceReportStatus(item)}`"
+              >
+                <v-icon
+                  :icon="financialGraphServiceReportIcon(item)"
+                  size="13"
+                />
+                Service Report {{ financialGraphServiceReportLabel(item) }}
+              </span>
+            </div>
+
+            <div
+              v-if="financialGraphSnapshot(item)?.loading"
+              class="financial-graph-state"
+            >
+              <v-progress-circular indeterminate size="18" width="2" />
+              <span>Memuat invoice dan Purchase Order…</span>
+            </div>
+
+            <template v-else>
+              <p
+                v-if="financialGraphSnapshot(item)?.error"
+                class="financial-graph-error"
+              >
+                Sebagian data belum berhasil dimuat.
+                <button type="button" @click="retryFinancialGraph(item)">
+                  Coba lagi
+                </button>
+              </p>
+
+              <div
+                v-if="financialGraphBillingSummary(item)"
+                class="financial-graph-billing"
+              >
+                <div class="financial-graph-billing-heading">
+                  <span>Sisa belum ditagih</span>
+                  <strong>
+                    {{
+                      formatCurrency(
+                        financialGraphBillingSummary(item)?.remaining,
+                        financialGraphBillingSummary(item)?.currency,
+                      )
+                    }}
+                  </strong>
+                </div>
+                <div class="financial-graph-billing-track">
+                  <span
+                    :style="{
+                      width: `${financialGraphBillingSummary(item)?.progress || 0}%`,
+                    }"
+                  />
+                </div>
+                <small>
+                  {{ financialGraphBillingSummary(item)?.progress || 0 }}% dari nilai quotation sudah ditagih
+                </small>
+              </div>
+
+              <div
+                v-for="group in financialGraphChart(item)"
+                :key="group.currency"
+                class="financial-graph-currency-group"
+              >
+                <div class="financial-graph-currency-label">
+                  {{ group.currency }}
+                </div>
+                <div
+                  v-for="metric in group.metrics"
+                  :key="metric.key"
+                  class="financial-graph-metric"
+                >
+                  <div class="financial-graph-metric-heading">
+                    <span>{{ metric.label }}</span>
+                    <strong>
+                      {{
+                        metric.count
+                          ? formatCurrency(metric.amount, group.currency)
+                          : "—"
+                      }}
+                    </strong>
+                  </div>
+                  <div class="financial-graph-track">
+                    <span
+                      :class="`financial-graph-bar financial-graph-bar--${metric.key}`"
+                      :style="{ width: `${financialGraphBarWidth(metric.amount, group.max)}%` }"
+                    />
+                  </div>
+                  <small>{{ financialGraphCountLabel(metric) }}</small>
+                </div>
+              </div>
+
+              <div
+                v-if="
+                  financialGraphSnapshot(item)?.loaded &&
+                  !financialGraphChart(item).length
+                "
+                class="financial-graph-empty"
+              >
+                Belum ada data keuangan.
+              </div>
+            </template>
+          </v-card>
+        </v-menu>
+      </template>
+
       <template v-slot:item.status="{ item }">
         <v-chip
           size="x-small"
@@ -400,6 +567,8 @@ import { useDisplay } from "vuetify";
 import type { ConfirmationDialog } from "#components";
 import DialogPenawaran from "~/components/Admin/Penawaran/dialog-penawaran.vue";
 import type { penawaranM } from "~/types/penawaranModel";
+import type { invoiceM } from "~/types/invoice";
+import type { purchaseorderM } from "~/types/purchaseorderModel";
 import { queryambilid } from "~/composables/useFirestoreQuery";
 
 definePageMeta({
@@ -417,6 +586,373 @@ const isLoading = ref(!penawaranStore.hasCachedData());
 const isRefreshing = ref(false);
 const activeRevisionRows = ref<Record<string, penawaranM>>({});
 let activeRevisionLoadVersion = 0;
+
+type FinancialGraphMetricKey =
+  | "quotation"
+  | "invoice"
+  | "expense"
+  | "purchaseOrder";
+
+interface FinancialGraphMetric {
+  key: FinancialGraphMetricKey;
+  label: string;
+  amount: number;
+  count: number;
+}
+
+interface FinancialGraphCurrencyGroup {
+  currency: string;
+  max: number;
+  metrics: FinancialGraphMetric[];
+}
+
+interface FinancialGraphSnapshot {
+  loading: boolean;
+  loaded: boolean;
+  error: boolean;
+  invoiceLoaded: boolean;
+  invoices: invoiceM[];
+  purchaseOrders: purchaseorderM[];
+}
+
+interface FinancialGraphBillingSummary {
+  currency: string;
+  remaining: number;
+  progress: number;
+}
+
+const financialGraphSnapshots = reactive<
+  Record<string, FinancialGraphSnapshot>
+>({});
+const hoveredFinancialGraphId = ref("");
+const pinnedFinancialGraphId = ref("");
+let financialGraphCloseTimer: ReturnType<typeof setTimeout> | undefined;
+
+function financialGraphId(quotation: penawaranM) {
+  return quotationRootId(quotation);
+}
+
+function financialGraphSnapshot(quotation: penawaranM) {
+  return financialGraphSnapshots[financialGraphId(quotation)];
+}
+
+function isFinancialGraphOpen(quotation: penawaranM) {
+  const id = financialGraphId(quotation);
+  return Boolean(
+    id &&
+      (pinnedFinancialGraphId.value === id ||
+        (!pinnedFinancialGraphId.value && hoveredFinancialGraphId.value === id)),
+  );
+}
+
+function ensureFinancialGraphLoaded(quotation: penawaranM) {
+  const id = financialGraphId(quotation);
+  if (!id) return;
+
+  const current = financialGraphSnapshots[id];
+  if (current?.loading || current?.loaded) return;
+
+  const snapshot = reactive<FinancialGraphSnapshot>({
+    loading: true,
+    loaded: false,
+    error: false,
+    invoiceLoaded: false,
+    invoices: [],
+    purchaseOrders: [],
+  });
+  financialGraphSnapshots[id] = snapshot;
+
+  void Promise.allSettled([
+    queryambilid(`penawaran/${id}/invoice`),
+    queryambilid(`penawaran/${id}/purchaseorder`),
+  ]).then(([invoiceResult, purchaseOrderResult]) => {
+    if (invoiceResult.status === "fulfilled") {
+      snapshot.invoices = invoiceResult.value as invoiceM[];
+      snapshot.invoiceLoaded = true;
+    } else {
+      console.error(`Gagal memuat invoice quotation ${id}:`, invoiceResult.reason);
+      snapshot.error = true;
+    }
+
+    if (purchaseOrderResult.status === "fulfilled") {
+      snapshot.purchaseOrders = purchaseOrderResult.value as purchaseorderM[];
+    } else {
+      console.error(
+        `Gagal memuat Purchase Order quotation ${id}:`,
+        purchaseOrderResult.reason,
+      );
+      snapshot.error = true;
+    }
+
+    snapshot.loading = false;
+    snapshot.loaded = true;
+  });
+}
+
+function enterFinancialGraph(quotation: penawaranM) {
+  if (financialGraphCloseTimer) clearTimeout(financialGraphCloseTimer);
+  const id = financialGraphId(quotation);
+  if (!id) return;
+  hoveredFinancialGraphId.value = id;
+  ensureFinancialGraphLoaded(quotation);
+}
+
+function leaveFinancialGraph(quotation: penawaranM) {
+  const id = financialGraphId(quotation);
+  if (!id) return;
+  if (financialGraphCloseTimer) clearTimeout(financialGraphCloseTimer);
+  financialGraphCloseTimer = setTimeout(() => {
+    if (hoveredFinancialGraphId.value === id) {
+      hoveredFinancialGraphId.value = "";
+    }
+  }, 180);
+}
+
+function toggleFinancialGraphPin(quotation: penawaranM) {
+  const id = financialGraphId(quotation);
+  if (!id) return;
+
+  if (pinnedFinancialGraphId.value === id) {
+    pinnedFinancialGraphId.value = "";
+    hoveredFinancialGraphId.value = "";
+    return;
+  }
+
+  pinnedFinancialGraphId.value = id;
+  hoveredFinancialGraphId.value = id;
+  ensureFinancialGraphLoaded(quotation);
+}
+
+function closeFinancialGraph(quotation: penawaranM) {
+  const id = financialGraphId(quotation);
+  if (pinnedFinancialGraphId.value === id) pinnedFinancialGraphId.value = "";
+  if (hoveredFinancialGraphId.value === id) hoveredFinancialGraphId.value = "";
+  if (financialGraphCloseTimer) clearTimeout(financialGraphCloseTimer);
+}
+
+function ignoreFinancialGraphMenuUpdate() {
+  // Visibilitas dikendalikan oleh state hover dan pin supaya hover tidak ikut terkunci.
+}
+
+function retryFinancialGraph(quotation: penawaranM) {
+  const id = financialGraphId(quotation);
+  if (!id) return;
+  delete financialGraphSnapshots[id];
+  ensureFinancialGraphLoaded(quotation);
+}
+
+function normalizedFinancialCurrency(currency?: string) {
+  const code = String(currency || "IDR").toUpperCase();
+  return ["USD", "SGD"].includes(code) ? code : "IDR";
+}
+
+function financialGraphRootQuotation(quotation: penawaranM) {
+  return (
+    penawaranStore.getDataPenawaran.find(
+      (candidate) => quotationRootId(candidate) === financialGraphId(quotation),
+    ) || quotation
+  );
+}
+
+function financialGraphHasSpk(quotation: penawaranM) {
+  const rootQuotation = financialGraphRootQuotation(quotation);
+  const document = rootQuotation.dokumen_spk || quotation.dokumen_spk;
+  return Boolean(
+    document?.firestoreFileId || document?.url || document?.dataUrl,
+  );
+}
+
+function financialGraphServiceReportStatus(
+  quotation: penawaranM,
+): "available" | "missing" | "checking" | "unknown" {
+  const rootQuotation = financialGraphRootQuotation(quotation);
+  if (rootQuotation.service_report || quotation.service_report) return "available";
+
+  const snapshot = financialGraphSnapshot(quotation);
+  if (!snapshot?.invoiceLoaded) {
+    return snapshot?.loaded ? "unknown" : "checking";
+  }
+  return snapshot.invoices.some((invoice) => invoice.service_report)
+    ? "available"
+    : "missing";
+}
+
+function financialGraphServiceReportLabel(quotation: penawaranM) {
+  const status = financialGraphServiceReportStatus(quotation);
+  if (status === "available") return "Ada";
+  if (status === "missing") return "Belum ada";
+  if (status === "checking") return "Memeriksa";
+  return "Tidak diketahui";
+}
+
+function financialGraphServiceReportIcon(quotation: penawaranM) {
+  const status = financialGraphServiceReportStatus(quotation);
+  if (status === "available") return "mdi-check-circle-outline";
+  if (status === "missing") return "mdi-minus-circle-outline";
+  if (status === "checking") return "mdi-progress-clock";
+  return "mdi-help-circle-outline";
+}
+
+function financialGraphInvoiceAmount(invoice: invoiceM) {
+  const netSubtotal = Math.max(
+    0,
+    Number(invoice.subtotal_invoice || 0) -
+      Number(invoice.discount_invoice || 0),
+  );
+  return invoice.down_payment
+    ? netSubtotal * (Number(invoice.dp_persen || 0) / 100)
+    : netSubtotal;
+}
+
+function financialGraphQuotationTarget(quotation: penawaranM) {
+  return (
+    Number(quotation.grand_total_penawaran) ||
+    Number(quotation.subtotal_penawaran) ||
+    (quotation.penawaran_item || []).reduce(
+      (total, item) =>
+        total +
+        Number(item.subtotal_item || Number(item.qty) * Number(item.amount)),
+      0,
+    )
+  );
+}
+
+function financialGraphBillingSummary(
+  quotation: penawaranM,
+): FinancialGraphBillingSummary | null {
+  const snapshot = financialGraphSnapshot(quotation);
+  if (!snapshot?.loaded || !snapshot.invoiceLoaded) return null;
+
+  const currency = normalizedFinancialCurrency(quotation.currency);
+  const target = financialGraphQuotationTarget(quotation);
+  if (target <= 0) return null;
+
+  const invoiced = snapshot.invoices.reduce((total, invoice) => {
+    if (normalizedFinancialCurrency(invoice.currency_inv) !== currency) {
+      return total;
+    }
+    return total + financialGraphInvoiceAmount(invoice);
+  }, 0);
+
+  return {
+    currency,
+    remaining: Math.max(0, target - invoiced),
+    progress: Math.min(100, Math.round((invoiced / target) * 100)),
+  };
+}
+
+function financialGraphChart(
+  quotation: penawaranM,
+): FinancialGraphCurrencyGroup[] {
+  const snapshot = financialGraphSnapshot(quotation);
+  if (!snapshot?.loaded) return [];
+
+  const byCurrency = new Map<
+    string,
+    Map<FinancialGraphMetricKey, FinancialGraphMetric>
+  >();
+  const addMetric = (
+    currency: string,
+    key: FinancialGraphMetricKey,
+    label: string,
+    amount: number,
+    count: number,
+  ) => {
+    const values = byCurrency.get(currency) ?? new Map();
+    const existing = values.get(key);
+    values.set(key, {
+      key,
+      label,
+      amount: (existing?.amount || 0) + (Number(amount) || 0),
+      count: (existing?.count || 0) + (Number(count) || 0),
+    });
+    byCurrency.set(currency, values);
+  };
+
+  addMetric(
+    normalizedFinancialCurrency(quotation.currency),
+    "quotation",
+    "Quotation",
+    Number(quotation.grand_total_penawaran) || 0,
+    1,
+  );
+
+  for (const invoice of snapshot.invoices) {
+    addMetric(
+      normalizedFinancialCurrency(invoice.currency_inv),
+      "invoice",
+      "Invoice",
+      financialGraphInvoiceAmount(invoice),
+      1,
+    );
+  }
+
+  const rootQuotation = financialGraphRootQuotation(quotation);
+  const expenses = Array.isArray(rootQuotation.pengeluaran)
+    ? rootQuotation.pengeluaran
+    : [];
+  const expenseTotal = expenses.length
+    ? expenses.reduce((sum, expense) => sum + (Number(expense.nominal) || 0), 0)
+    : Number(rootQuotation.grandtotal_pengeluaran) || 0;
+  if (expenseTotal || expenses.length) {
+    addMetric(
+      "IDR",
+      "expense",
+      "Pengeluaran",
+      expenseTotal,
+      expenses.length || (expenseTotal > 0 ? 1 : 0),
+    );
+  }
+
+  for (const purchaseOrder of snapshot.purchaseOrders) {
+    addMetric(
+      normalizedFinancialCurrency(purchaseOrder.currency),
+      "purchaseOrder",
+      "Purchase Order",
+      Number(purchaseOrder.grandtotal_purchaseorder) || 0,
+      1,
+    );
+  }
+
+  const metricOrder: FinancialGraphMetricKey[] = [
+    "quotation",
+    "invoice",
+    "expense",
+    "purchaseOrder",
+  ];
+  const labels: Record<FinancialGraphMetricKey, string> = {
+    quotation: "Quotation",
+    invoice: "Invoice",
+    expense: "Pengeluaran",
+    purchaseOrder: "Purchase Order",
+  };
+
+  return [...byCurrency.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([currency, values]) => {
+      const metrics = metricOrder.map((key) =>
+        values.get(key) || { key, label: labels[key], amount: 0, count: 0 },
+      );
+      return {
+        currency,
+        max: Math.max(...metrics.map((metric) => metric.amount), 0),
+        metrics,
+      };
+    });
+}
+
+function financialGraphBarWidth(amount: number, max: number) {
+  if (max <= 0 || amount <= 0) return 0;
+  return Math.max(3, Math.min(100, (amount / max) * 100));
+}
+
+function financialGraphCountLabel(metric: FinancialGraphMetric) {
+  if (!metric.count) return "Belum ada data";
+  if (metric.key === "quotation") return "Nilai quotation aktif";
+  if (metric.key === "invoice") return `${metric.count} invoice`;
+  if (metric.key === "expense") return `${metric.count} pengeluaran`;
+  return `${metric.count} Purchase Order`;
+}
 
 function quotationRootId(quotation: penawaranM) {
   return quotation.id || quotation.id_penawaran || "";
@@ -606,6 +1142,13 @@ const data = reactive({
       width: "155px",
       align: "end" as const,
       sortable: true,
+    },
+    {
+      title: "Grafik",
+      value: "grafik",
+      width: "78px",
+      align: "center" as const,
+      sortable: false,
     },
     {
       title: "Status",
@@ -1213,7 +1756,7 @@ async function refreshData() {
 }
 
 .quotation-list-table :deep(table) {
-  min-width: 1160px;
+  min-width: 1238px;
 }
 
 .quotation-list-table :deep(.v-data-table__th) {
@@ -1419,6 +1962,239 @@ async function refreshData() {
   color: #fcfcfc !important;
   background: #fe9258 !important;
   box-shadow: inset 0 0 0 1px #d3e2ef;
+}
+
+.quotation-graph-trigger {
+  width: 20px !important;
+  height: 20px !important;
+  color: #8b8d8e !important;
+  border-radius: 6px !important;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.quotation-graph-trigger:hover,
+.quotation-graph-trigger[aria-pressed="true"] {
+  color: #244988 !important;
+  background: #eaf2f8 !important;
+}
+
+.financial-graph-card {
+  width: min(370px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 32px));
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #dce4eb;
+  box-shadow: 0 14px 34px rgba(26, 43, 59, 0.18) !important;
+}
+
+.financial-graph-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.financial-graph-heading strong {
+  display: block;
+  max-width: 290px;
+  overflow: hidden;
+  color: #25384a;
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.financial-graph-eyebrow {
+  margin-bottom: 3px;
+  color: #8491a0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.financial-graph-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 10px 0 2px;
+}
+
+.financial-graph-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.financial-graph-status.is-available {
+  color: #24745c;
+  background: #edf8f3;
+  border-color: #d8eee4;
+}
+
+.financial-graph-status.is-missing {
+  color: #737f8b;
+  background: #f3f5f7;
+  border-color: #e6e9ec;
+}
+
+.financial-graph-status.is-checking {
+  color: #4a6f92;
+  background: #eef5fb;
+  border-color: #dce9f4;
+}
+
+.financial-graph-status.is-unknown {
+  color: #8b6d3d;
+  background: #fff8eb;
+  border-color: #f1e7d2;
+}
+
+.financial-graph-billing {
+  margin-top: 12px;
+  padding: 9px 10px;
+  background: #f7f9fb;
+  border: 1px solid #e9edf1;
+  border-radius: 6px;
+}
+
+.financial-graph-billing-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: #627181;
+  font-size: 9px;
+}
+
+.financial-graph-billing-heading strong {
+  color: #2d4357;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.financial-graph-billing-track {
+  height: 5px;
+  margin-top: 7px;
+  overflow: hidden;
+  background: #e5ebf0;
+  border-radius: 99px;
+}
+
+.financial-graph-billing-track span {
+  display: block;
+  height: 100%;
+  background: #36a58d;
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+.financial-graph-billing small {
+  display: block;
+  margin-top: 5px;
+  color: #85919d;
+  font-size: 8px;
+}
+
+.financial-graph-currency-group {
+  padding-top: 12px;
+}
+
+.financial-graph-currency-label {
+  margin-bottom: 8px;
+  color: #536779;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.financial-graph-metric + .financial-graph-metric {
+  margin-top: 9px;
+}
+
+.financial-graph-metric-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: #637181;
+  font-size: 10px;
+}
+
+.financial-graph-metric-heading strong {
+  color: #263746;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.financial-graph-track {
+  height: 5px;
+  margin-top: 5px;
+  overflow: hidden;
+  background: #edf1f4;
+  border-radius: 99px;
+}
+
+.financial-graph-bar {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+.financial-graph-bar--quotation { background: #4c83b5; }
+.financial-graph-bar--invoice { background: #36a58d; }
+.financial-graph-bar--expense { background: #e2a54c; }
+.financial-graph-bar--purchaseOrder { background: #8b73bd; }
+
+.financial-graph-metric small {
+  display: block;
+  margin-top: 3px;
+  color: #929daa;
+  font-size: 8.5px;
+}
+
+.financial-graph-state,
+.financial-graph-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 92px;
+  color: #7c8997;
+  font-size: 10px;
+  text-align: center;
+}
+
+.financial-graph-error {
+  margin: 10px 0 2px;
+  padding: 8px 9px;
+  color: #8b5b2b;
+  background: #fff7e9;
+  border-radius: 5px;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.financial-graph-error button {
+  margin-left: 4px;
+  color: #285f91;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .quotation-action-menu {

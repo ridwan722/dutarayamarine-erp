@@ -2,13 +2,6 @@
   <div>
     <ConfirmationDialog ref="confirmationDialog" />
 
-    <admin-penawaran-dialog-service-report
-      v-if="serviceReportQuotation"
-      v-model="serviceReportDialogOpen"
-      :penawaran="serviceReportQuotation"
-      @saved="handleServiceReportSaved"
-    />
-
     <div class="invoice-page-nav">
       <v-btn
         variant="text"
@@ -597,7 +590,7 @@
             size="small"
             prepend-icon="mdi-hammer-screwdriver"
             class="invoice-service-report-action text-none"
-            @click="serviceReportDialogOpen = true"
+            @click="openServiceReportPage"
           >
             Buat Service Report
           </v-btn>
@@ -950,6 +943,7 @@ const uploadStoreInstance = uploadStore();
 const notificationStore = useNotificationStore();
 const userStore = useUserStore();
 const route = useRoute();
+const router = useRouter();
 const db = useFirestore();
 const storage = useFirebaseStorage();
 
@@ -958,7 +952,6 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 );
 
 const dialogDikirim = ref(false);
-const serviceReportDialogOpen = ref(false);
 const readingBuktiBayar = ref(false);
 const readingPoDocuments = ref(false);
 const readingDoWr = ref(false);
@@ -1140,15 +1133,24 @@ const serviceReportQuotation = computed<penawaranM | null>(() => {
   };
 });
 
-function handleServiceReportSaved(
-  report: NonNullable<penawaranM["service_report"]>,
-) {
-  if (relatedQuotation.value) {
-    relatedQuotation.value = {
-      ...relatedQuotation.value,
-      service_report: report,
-    };
+function openServiceReportPage() {
+  const quotationId =
+    serviceReportQuotation.value?.id_penawaran ||
+    serviceReportQuotation.value?.id;
+  if (!quotationId) {
+    notificationStore.showError(
+      "Quotation untuk Service Report tidak ditemukan",
+    );
+    return;
   }
+
+  void router.push({
+    path: `/admin/penawaran/${encodeURIComponent(String(quotationId))}/buat-service-report`,
+    query: {
+      invoiceId: String(invoiceDetail.value.id || route.params.id),
+      mode: "buat",
+    },
+  });
 }
 const invoiceYear = computed(() => invoiceDetail.value.tanggal?.slice(0, 4));
 const invoiceCurrency = computed<invoiceCurrencyM>(() => {

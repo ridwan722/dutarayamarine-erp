@@ -119,12 +119,12 @@
               <span class="sep">:</span>
               <span class="val bold">
                 {{ props.detailpenawaran.no_penawaran }}
-                <template
+                <!-- <template
                   v-if="Number(props.detailpenawaran.revision_number) > 0"
                 >
                   (Rev.
                   {{ String(props.detailpenawaran.revision_number).padStart(2, "0") }})
-                </template>
+                </template> -->
               </span>
             </div>
             <div class="meta-row">

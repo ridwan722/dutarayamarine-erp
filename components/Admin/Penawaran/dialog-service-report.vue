@@ -1,12 +1,6 @@
 <template>
-  <v-dialog
-    :model-value="modelValue"
-    max-width="1680"
-    :fullscreen="display.mdAndDown.value"
-    persistent
-    @update:model-value="updateDialog"
-  >
-    <v-card class="sr-dialog" elevation="0">
+  <div class="sr-page-shell">
+    <v-card class="sr-page-card" elevation="0">
       <header class="sr-header">
         <div class="sr-heading">
           <span><v-icon icon="mdi-hammer-screwdriver" size="21" /></span>
@@ -18,14 +12,38 @@
             </p>
           </div>
         </div>
-        <v-btn
-          icon="mdi-close"
-          variant="text"
-          size="small"
-          :disabled="saving || imageProcessing"
-          aria-label="Tutup Service Report"
-          @click="close"
-        />
+        <div class="sr-header-actions">
+          <span class="sr-save-reminder" role="status">
+            <v-icon icon="mdi-information-outline" size="15" />
+            Simpan sebelum ekspor PDF
+          </span>
+          <div class="sr-header-buttons">
+            <v-btn
+              variant="text"
+              color="grey-darken-2"
+              prepend-icon="mdi-arrow-left"
+              size="small"
+              class="text-none sr-action-btn sr-action-btn--back"
+              :disabled="saving || imageProcessing"
+              @click="close"
+            >
+              Kembali
+            </v-btn>
+            <v-btn
+              :color="hasExistingReport ? 'orange-darken-2' : 'primary'"
+              variant="flat"
+              prepend-icon="mdi-content-save-outline"
+              size="small"
+              class="text-none sr-action-btn sr-action-btn--save"
+              :loading="saving"
+              :disabled="imageProcessing || saving"
+              :aria-label="hasExistingReport ? 'Simpan Revisi' : 'Simpan'"
+              @click="save"
+            >
+              {{ hasExistingReport ? "Simpan Revisi" : "Simpan" }}
+            </v-btn>
+          </div>
+        </div>
       </header>
 
       <div class="sr-content">
@@ -35,7 +53,7 @@
               <span><v-icon icon="mdi-table-edit" size="17" /></span>
               <div>
                 <h3>Informasi Report</h3>
-                <p>Data utama yang tampil pada dokumen.</p>
+                <!-- <p>Data utama yang tampil pada dokumen.</p> -->
               </div>
             </div>
             <div class="sr-field-grid">
@@ -106,7 +124,9 @@
               <span><v-icon icon="mdi-signature-freehand" size="17" /></span>
               <div>
                 <h3>Tanda Tangan</h3>
-                <p>Nama dan jabatan teknisi ditampilkan di sisi kiri dokumen.</p>
+                <p>
+                  Nama dan jabatan teknisi ditampilkan di sisi kiri dokumen.
+                </p>
               </div>
             </div>
             <div class="sr-field-grid">
@@ -136,10 +156,11 @@
               </div>
             </div>
 
-            <div class="sr-point-list">
+            <div ref="pointList" class="sr-point-list">
               <article
                 v-for="(section, sectionIndex) in form.sections"
                 :key="section.id"
+                :data-section-id="section.id"
                 class="sr-point-card"
               >
                 <div class="sr-point-head">
@@ -154,7 +175,7 @@
                     @click="removeSection(sectionIndex)"
                   />
                 </div>
-                <div class="sr-point-fields">
+                <div class="sr-point-fields sr-point-fields--stacked">
                   <v-text-field
                     v-model="section.point"
                     label="Point"
@@ -163,10 +184,14 @@
                     density="compact"
                     hide-details
                   />
-                  <v-text-field
+                </div>
+                <div class="sr-point-fields sr-point-fields--stacked">
+                  <v-textarea
                     v-model="section.sub"
-                    label="Sub"
+                    label="Sub point"
                     placeholder="Description of Work Performed"
+                    rows="1"
+                    auto-grow
                     variant="outlined"
                     density="compact"
                     hide-details
@@ -188,6 +213,10 @@
                     <v-textarea
                       v-model="section.items[itemIndex]"
                       :placeholder="`Isi item ${itemIndex + 1}`"
+                      :ref="
+                        (element) =>
+                          setItemTextareaRef(section.id, itemIndex, element)
+                      "
                       rows="1"
                       auto-grow
                       variant="outlined"
@@ -216,17 +245,17 @@
             </div>
           </section>
 
-           <div class="text-center">
+          <div class="text-center">
             <v-btn
-                size="small"
-                color="primary"
-                variant="tonal"
-                prepend-icon="mdi-plus"
-                class="text-none mb-3"
-                @click="addSection"
-                >Tambah Point</v-btn
-              >
-           </div>
+              size="small"
+              color="primary"
+              variant="tonal"
+              prepend-icon="mdi-plus"
+              class="text-none mb-3"
+              @click="addSection"
+              >Tambah Point</v-btn
+            >
+          </div>
 
           <section class="sr-section">
             <div class="sr-section-title">
@@ -235,7 +264,9 @@
               /></span>
               <div>
                 <h3>Dokumentasi Foto</h3>
-                <p>Tarik nomor foto untuk mengubah urutan · dua kolom per baris.</p>
+                <p>
+                  Tarik nomor foto untuk mengubah urutan · dua kolom per baris.
+                </p>
               </div>
             </div>
             <label
@@ -284,7 +315,9 @@
                     :alt="image.description || image.name"
                     draggable="false"
                   />
-                  <figcaption>{{ imageIndex + 1 }}. {{ image.name }}</figcaption>
+                  <figcaption>
+                    {{ imageIndex + 1 }}. {{ image.name }}
+                  </figcaption>
                   <button
                     type="button"
                     class="sr-image-drag-handle"
@@ -305,8 +338,7 @@
                 </div>
                 <v-text-field
                   v-model="image.description"
-                  label="Deskripsi gambar"
-                  placeholder="Contoh: PLC Inspection"
+                  placeholder="Deskripsi gambar"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -362,7 +394,9 @@
 
                 <div class="sr-content-order-copy">
                   <strong v-if="block.type === 'section'">
-                    {{ sectionForBlock(block)?.point || "Point belum diberi nama" }}
+                    {{
+                      sectionForBlock(block)?.point || "Point belum diberi nama"
+                    }}
                   </strong>
                   <strong v-else>Baris Foto</strong>
                   <small v-if="block.type === 'section'">
@@ -411,43 +445,21 @@
           </div>
         </main>
       </div>
-
-      <footer class="sr-footer">
-        <span>Service Report tersimpan pada quotation ini.</span>
-        <div class="sr-footer-actions">
-          <v-btn
-            variant="outlined"
-            color="grey-darken-1"
-            class="text-none"
-            :disabled="saving"
-            @click="close"
-            >Batal</v-btn
-          >
-          <span class="sr-save-reminder" role="status">
-            <v-icon icon="mdi-alert-circle-outline" size="13" />
-            Simpan data dulu sebelum Save PDF
-          </span>
-          <v-btn
-            color="primary"
-            variant="flat"
-            prepend-icon="mdi-content-save-outline"
-            class="text-none"
-            :loading="saving"
-            :disabled="imageProcessing || saving"
-            @click="save"
-            >Simpan Service Report</v-btn
-          >
-        </div>
-      </footer>
     </v-card>
-  </v-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
 import Sortable from "sortablejs";
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  type ComponentPublicInstance,
+} from "vue";
 import { doc, getDoc, runTransaction } from "firebase/firestore";
-import { useDisplay } from "vuetify";
 import { useFirestore } from "vuefire";
 import {
   deleteServiceReportImages,
@@ -464,13 +476,18 @@ import type {
 } from "~/types/invoice";
 import type { penawaranM } from "~/types/penawaranModel";
 
-const props = defineProps<{ modelValue: boolean; penawaran: penawaranM }>();
+const props = withDefaults(
+  defineProps<{
+    penawaran: penawaranM;
+    invoiceId?: string;
+  }>(),
+  { invoiceId: "" },
+);
 const emit = defineEmits<{
-  "update:modelValue": [value: boolean];
+  cancel: [];
   saved: [report: serviceReportM];
 }>();
 
-const display = useDisplay();
 const db = useFirestore();
 const notificationStore = useNotificationStore();
 const loadingStore = useloadingStore();
@@ -480,7 +497,9 @@ const readingImages = ref(false);
 const loadingStoredImages = ref(false);
 const loadingNumber = ref(false);
 const photoGrid = ref<HTMLElement | null>(null);
+const pointList = ref<HTMLElement | null>(null);
 const contentBlocksContainer = ref<HTMLElement | null>(null);
+const itemTextareaRefs = new Map<string, HTMLTextAreaElement>();
 let photoSortable: Sortable | null = null;
 let contentBlocksSortable: Sortable | null = null;
 const removedImageFirestoreIds = ref<string[]>([]);
@@ -518,7 +537,10 @@ function normalizeImageRowHeight(height?: number) {
   return Math.round(
     Math.min(
       MAX_IMAGE_ROW_HEIGHT,
-      Math.max(MIN_IMAGE_ROW_HEIGHT, Number(height) || DEFAULT_IMAGE_ROW_HEIGHT),
+      Math.max(
+        MIN_IMAGE_ROW_HEIGHT,
+        Number(height) || DEFAULT_IMAGE_ROW_HEIGHT,
+      ),
     ),
   );
 }
@@ -656,9 +678,7 @@ function normalizeContentBlocks() {
 
 function sectionForBlock(block: serviceReportContentBlockM) {
   if (block.type !== "section") return undefined;
-  return form.value.sections.find(
-    (section) => section.id === block.sectionId,
-  );
+  return form.value.sections.find((section) => section.id === block.sectionId);
 }
 
 function imagesForBlock(block: serviceReportContentBlockM) {
@@ -763,7 +783,7 @@ async function loadNextNumber() {
     const current = snapshot.exists()
       ? Number(snapshot.data().no_service_report) || 0
       : 0;
-    if (props.modelValue && !props.penawaran.service_report)
+    if (!props.penawaran.service_report)
       form.value.reportNo = formatReportNumber(current + 1);
   } catch (error) {
     console.error("Gagal membaca nomor Service Report:", error);
@@ -897,26 +917,16 @@ async function initializeSortables() {
   initializeContentBlocksSortable();
 }
 
-watch(
-  () => props.modelValue,
-  async (open) => {
-    destroySortables();
-    if (!open) return;
-    await initializeForm();
-    await initializeSortables();
-  },
-  { flush: "post" },
-);
+onMounted(async () => {
+  await initializeForm();
+  await initializeSortables();
+});
 
 onBeforeUnmount(destroySortables);
 
-function updateDialog(value: boolean) {
-  if (!value) close();
-}
-
 function close() {
   if (saving.value || imageProcessing.value) return;
-  emit("update:modelValue", false);
+  emit("cancel");
 }
 
 function addSection() {
@@ -934,8 +944,47 @@ function removeSection(index: number) {
       block.type !== "section" || block.sectionId !== removedSection.id,
   );
 }
-function addItem(sectionIndex: number) {
-  form.value.sections[sectionIndex]?.items.push("");
+function itemTextareaKey(sectionId: string, itemIndex: number) {
+  return `${sectionId}:${itemIndex}`;
+}
+
+function setItemTextareaRef(
+  sectionId: string,
+  itemIndex: number,
+  instance: Element | ComponentPublicInstance | null,
+) {
+  const key = itemTextareaKey(sectionId, itemIndex);
+  if (!instance) {
+    itemTextareaRefs.delete(key);
+    return;
+  }
+
+  const root = instance instanceof Element ? instance : instance.$el;
+  const textarea =
+    root instanceof HTMLElement
+      ? root.querySelector<HTMLTextAreaElement>("textarea")
+      : null;
+  if (textarea) itemTextareaRefs.set(key, textarea);
+  else itemTextareaRefs.delete(key);
+}
+
+async function addItem(sectionIndex: number) {
+  const section = form.value.sections[sectionIndex];
+  if (!section) return;
+
+  section.items.push("");
+  const newItemIndex = section.items.length - 1;
+  await nextTick();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const sectionElement = [
+    ...(pointList.value?.querySelectorAll<HTMLElement>(".sr-point-card") || []),
+  ].find((element) => element.dataset.sectionId === section.id);
+  const itemTextarea =
+    itemTextareaRefs.get(itemTextareaKey(section.id, newItemIndex)) ||
+    sectionElement
+      ?.querySelectorAll<HTMLTextAreaElement>(".sr-item-row textarea")
+      .item(newItemIndex);
+  itemTextarea?.focus();
 }
 function removeItem(sectionIndex: number, itemIndex: number) {
   const items = form.value.sections[sectionIndex]?.items;
@@ -1082,6 +1131,12 @@ async function save() {
     await runTransaction(db, async (transaction) => {
       const quotationRef = doc(db, "penawaran", id);
       const quotationSnapshot = await transaction.get(quotationRef);
+      const invoiceRef = props.invoiceId
+        ? doc(db, "invoice", props.invoiceId)
+        : null;
+      const invoiceSnapshot = invoiceRef
+        ? await transaction.get(invoiceRef)
+        : null;
       const storedReport = quotationSnapshot.exists()
         ? (quotationSnapshot.data().service_report as
             | serviceReportM
@@ -1104,11 +1159,23 @@ async function save() {
         );
       }
       savedReport = { ...baseReport, reportNo };
+      const updatedAt = Math.floor(Date.now() / 1000);
       transaction.update(quotationRef, {
         service_report: savedReport,
-        updated_at: Math.floor(Date.now() / 1000),
+        updated_at: updatedAt,
         updated_by: userStore.getEmail,
       });
+      if (
+        invoiceRef &&
+        invoiceSnapshot?.exists() &&
+        String(invoiceSnapshot.data().id_penawaran || "") === String(id)
+      ) {
+        transaction.update(invoiceRef, {
+          service_report: savedReport,
+          updated_at: updatedAt,
+          updated_by: userStore.getEmail,
+        });
+      }
     });
     transactionCommitted = true;
     const savedReportForDisplay: serviceReportM = {
@@ -1141,7 +1208,6 @@ async function save() {
         : "Service Report berhasil dibuat",
     );
     emit("saved", savedReportForDisplay);
-    emit("update:modelValue", false);
   } catch (error) {
     if (!transactionCommitted && writtenImageIds.length) {
       try {
@@ -1167,16 +1233,22 @@ async function save() {
 </script>
 
 <style scoped>
-.sr-dialog {
+.sr-page-card {
   display: flex;
-  height: min(94vh, 960px);
+  width: 100%;
+  height: min(900px, calc(100vh - 145px));
+  min-height: 420px;
   overflow: hidden;
   flex-direction: column;
   border-radius: 14px !important;
   background: #f7f9fc !important;
 }
-.sr-header,
-.sr-footer {
+.sr-page-shell {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+.sr-header {
   position: sticky;
   z-index: 10;
   display: flex;
@@ -1184,6 +1256,7 @@ async function save() {
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   background: #fff;
 }
@@ -1195,8 +1268,32 @@ async function save() {
 .sr-heading {
   display: flex;
   min-width: 0;
+  flex: 1 1 280px;
   align-items: center;
   gap: 11px;
+}
+.sr-header-actions {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.sr-header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sr-action-btn {
+  min-height: 36px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.sr-action-btn--save {
+  min-width: 100px;
+  box-shadow: 0 2px 5px rgba(35, 79, 125, 0.14);
 }
 .sr-heading > span,
 .sr-section-title > span {
@@ -1272,6 +1369,12 @@ async function save() {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
+}
+.sr-point-fields--stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+.sr-point-fields--stacked + .sr-point-fields--stacked {
+  margin-top: 9px;
 }
 .sr-full-field {
   grid-column: 1 / -1;
@@ -1588,51 +1691,30 @@ async function save() {
   flex: 1;
   overflow: auto;
 }
-.sr-footer {
-  bottom: 0;
-  min-height: 62px;
-  border-top: 1px solid #e1e7ee;
-}
-.sr-footer > span {
-  color: #8390a0;
-  font-size: 9px;
-}
-.sr-footer-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .sr-save-reminder {
   display: inline-flex;
+  min-height: 28px;
+  padding: 0 9px;
   align-items: center;
   gap: 3px;
-  color: #b45309;
-  font-size: 8px;
-  font-weight: 700;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 600;
   white-space: nowrap;
-  animation: sr-save-reminder-pulse 1.25s ease-in-out infinite;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
 }
-@keyframes sr-save-reminder-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.28;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sr-save-reminder {
-    animation: none;
-  }
+.sr-save-reminder :deep(.v-icon) {
+  color: #718096;
 }
 @media (max-width: 959px) {
-  .sr-dialog {
-    height: 100%;
+  .sr-page-card {
+    height: calc(100vh - 120px);
     border-radius: 0 !important;
   }
 }
-@media (max-width: 700px) {
+@media (max-width: 1080px) {
   .sr-content {
     display: block;
     overflow-y: auto;
@@ -1647,12 +1729,40 @@ async function save() {
 }
 @media (max-width: 599px) {
   .sr-header {
-    min-height: 61px;
     padding: 10px 12px;
   }
-  .sr-heading p,
-  .sr-footer > span {
+  .sr-heading {
+    flex-basis: 100%;
+  }
+  .sr-heading p {
     display: none;
+  }
+  .sr-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .sr-save-reminder {
+    flex: 1 1 auto;
+    padding: 0 7px;
+    font-size: 8px;
+  }
+  .sr-header-buttons {
+    flex: 0 0 auto;
+  }
+  .sr-action-btn {
+    padding-inline: 8px;
+  }
+}
+@media (max-width: 380px) {
+  .sr-header-actions {
+    justify-content: flex-end;
+  }
+  .sr-save-reminder {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    border: 0;
+    background: transparent;
   }
   .sr-editor {
     padding: 9px;
@@ -1672,27 +1782,6 @@ async function save() {
   }
   .sr-section-title--action .v-btn {
     width: 100%;
-  }
-  .sr-footer {
-    padding: 9px 10px;
-  }
-  .sr-footer-actions {
-    display: grid;
-    width: 100%;
-    grid-template-columns: 0.7fr 1.4fr;
-  }
-  .sr-save-reminder {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    justify-self: end;
-  }
-  .sr-footer-actions .v-btn:first-of-type {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .sr-footer-actions .v-btn:last-of-type {
-    grid-column: 2;
-    grid-row: 2;
   }
 }
 </style>

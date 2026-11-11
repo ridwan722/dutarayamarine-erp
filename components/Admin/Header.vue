@@ -425,7 +425,7 @@ const workspaceStorageKey = computed(() => {
   return `${WORKSPACE_TABS_STORAGE_PREFIX}:${accountKey}`;
 });
 
-const workspaceTabMeta = (path) => {
+const workspaceTabMeta = (path, to = path) => {
   const currentPath = normalizePath(path);
   const currentMenu = [...menuItems.value]
     .filter((item) => {
@@ -460,6 +460,18 @@ const workspaceTabMeta = (path) => {
     .slice(menuPath.length)
     .split("/")
     .filter(Boolean);
+  if (
+    menuPath === "/admin/penawaran" &&
+    nestedSegments.at(-1) === "buat-service-report"
+  ) {
+    const queryString = String(to).split("?")[1]?.split("#")[0] || "";
+    const mode = new URLSearchParams(queryString).get("mode");
+    return {
+      title: mode === "revisi" ? "Revisi Service Report" : "Buat Service Report",
+      icon: "mdi-hammer-screwdriver",
+    };
+  }
+
   const nestedPageLabels = {
     pengeluaran: "Pengeluaran",
     activate: "Aktivasi",
@@ -499,7 +511,7 @@ const createWorkspaceTabId = () => {
 
 const createWorkspaceTab = (path, to = path, id = createWorkspaceTabId()) => {
   const normalizedPath = normalizePath(path);
-  const meta = workspaceTabMeta(normalizedPath);
+  const meta = workspaceTabMeta(normalizedPath, to);
   return {
     id,
     path: normalizedPath,
@@ -834,7 +846,7 @@ watch(
     if (!workspaceTabsReady.value) return;
 
     workspaceTabs.value = workspaceTabs.value.map((tab) => {
-      const meta = workspaceTabMeta(tab.path);
+      const meta = workspaceTabMeta(tab.path, tab.to);
       return { ...tab, title: meta.title, icon: meta.icon };
     });
     persistWorkspaceTabs();

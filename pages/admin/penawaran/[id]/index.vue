@@ -39,7 +39,6 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 );
 const dialogPenawaran = ref<InstanceType<typeof DialogPenawaran> | null>(null);
 const dialogSpk = ref(false);
-const serviceReportDialogOpen = ref(false);
 const spkFile = ref<File | null>(null);
 const spkPreviewUrl = ref("");
 const spkPreviewFailed = ref(false);
@@ -966,13 +965,18 @@ async function opendialogaddpengeluaran() {
   data.dialogAddPengeluaran = true;
 }
 
-function handleServiceReportSaved(
-  report: NonNullable<penawaranM["service_report"]>,
-) {
-  penawaranstore.$patch({
-    detailPenawaran: {
-      ...basePenawaran.value,
-      service_report: report,
+function openServiceReportPage() {
+  const id =
+    detailpenawaran.value.id_penawaran ||
+    detailpenawaran.value.id ||
+    penawaranId;
+  void router.push({
+    path: `/admin/penawaran/${encodeURIComponent(String(id))}/buat-service-report`,
+    query: {
+      ...(selectedRevisionId.value
+        ? { revisi: selectedRevisionId.value }
+        : {}),
+      mode: quotationServiceReport.value ? "revisi" : "buat",
     },
   });
 }
@@ -1138,12 +1142,6 @@ onBeforeUnmount(() => {
     v-model="data.dialogPurchaseOrder"
     :penawaran="detailpenawaran"
     @saved="handlePurchaseOrderSaved"
-  />
-
-  <admin-penawaran-dialog-service-report
-    v-model="serviceReportDialogOpen"
-    :penawaran="serviceReportQuotation"
-    @saved="handleServiceReportSaved"
   />
 
   <v-dialog v-model="dialogSpk" max-width="620" persistent>
@@ -1588,7 +1586,7 @@ onBeforeUnmount(() => {
                     v-if="detailpenawaran.status !== 'Cancel'"
                     variant="flat"
                     class="corporate-btn action-card--service-report"
-                    @click="serviceReportDialogOpen = true"
+                    @click="openServiceReportPage"
                   >
                     <span class="action-card-icon">
                       <v-icon
@@ -1638,7 +1636,7 @@ onBeforeUnmount(() => {
                   variant="tonal"
                   color="teal-darken-1"
                   class="text-none"
-                  @click="serviceReportDialogOpen = true"
+                  @click="openServiceReportPage"
                 >
                   Lihat / Edit
                 </v-btn>
