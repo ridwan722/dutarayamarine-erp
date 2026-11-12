@@ -40,6 +40,8 @@ export interface penawaranM {
   revision_of?: string;
   revision_created_at?: number;
   revision_created_by?: string;
+  revision_source?: "quotation" | "invoice";
+  revision_source_invoice_id?: string;
 
   status: string;
 

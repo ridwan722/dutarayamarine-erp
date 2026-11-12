@@ -127,26 +127,80 @@
 
             <div v-if="poFiles.length" class="invoice-po-files-wrapper">
               <span class="invoice-field-label">File Terpilih</span>
-              <div class="invoice-po-file-list">
-                <div
+              <div class="invoice-po-selected-list">
+                <article
                   v-for="(file, index) in poFiles"
-                  :key="index"
-                  class="invoice-po-file-item"
+                  :key="`${file.name}-${file.lastModified}-${index}`"
+                  class="invoice-po-selected-file"
                 >
-                  <span class="invoice-po-file-name">
-                    <v-icon icon="mdi-file-outline" size="16" />
-                    {{ file.name }}
-                  </span>
-                  <button
-                    type="button"
-                    class="invoice-po-file-remove"
-                    :disabled="saving"
-                    :aria-label="`Hapus ${file.name}`"
-                    @click="poFiles.splice(index, 1)"
+                  <div
+                    class="invoice-po-preview-frame"
+                    :class="{
+                      'invoice-po-preview-frame--document':
+                        poFileKind(file) === 'document',
+                    }"
                   >
-                    <v-icon icon="mdi-close" size="16" />
-                  </button>
-                </div>
+                    <img
+                      v-if="poFileKind(file) === 'image'"
+                      :src="poFilePreviewUrl(file)"
+                      :alt="`Preview ${file.name}`"
+                    />
+                    <iframe
+                      v-else-if="poFileKind(file) === 'pdf'"
+                      :src="`${poFilePreviewUrl(file)}#toolbar=0&navpanes=0&view=FitH`"
+                      :title="`Preview ${file.name}`"
+                    />
+                    <div v-else class="invoice-po-preview-placeholder">
+                      <v-icon :icon="poFileIcon(file)" size="38" />
+                      <span>{{ poFileTypeLabel(file) }}</span>
+                    </div>
+                    <span
+                      v-if="poFileKind(file) !== 'document'"
+                      class="invoice-po-preview-badge"
+                    >
+                      Preview
+                    </span>
+                  </div>
+
+                  <div class="invoice-po-selected-details">
+                    <span class="invoice-po-ready-label">
+                      <v-icon icon="mdi-check-circle" size="14" />
+                      Siap disimpan bersama invoice
+                    </span>
+                    <strong class="invoice-po-selected-name" :title="file.name">
+                      {{ file.name }}
+                    </strong>
+                    <div class="invoice-po-selected-meta">
+                      <span>{{ poFileTypeLabel(file) }}</span>
+                      <span aria-hidden="true">•</span>
+                      <span>{{ formatPoFileSize(file.size) }}</span>
+                    </div>
+                    <small v-if="poFileKind(file) === 'document'">
+                      Preview tidak tersedia, tetapi file tetap dapat disimpan.
+                    </small>
+
+                    <div class="invoice-po-file-actions">
+                      <button
+                        type="button"
+                        class="invoice-po-file-action"
+                        @click="openPoFile(file)"
+                      >
+                        <v-icon icon="mdi-open-in-new" size="16" />
+                        Lihat
+                      </button>
+                      <button
+                        type="button"
+                        class="invoice-po-file-action invoice-po-file-action--remove"
+                        :disabled="saving"
+                        :aria-label="`Hapus ${file.name}`"
+                        @click="removePoFile(index)"
+                      >
+                        <v-icon icon="mdi-delete-outline" size="16" />
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                </article>
               </div>
             </div>
           </div>
@@ -1021,16 +1075,9 @@ async function save() {
   ) {
     return;
   }
-  const spkDocument = props.penawaran.dokumen_spk;
-  const hasSpkDocument = Boolean(
-    spkDocument?.firestoreFileId || spkDocument?.url || spkDocument?.dataUrl,
-  );
-  if (
-    !hasSpkDocument ||
-    !["SPK", "INVOICE"].includes(props.penawaran.status)
-  ) {
+  if (props.penawaran.status === "Cancel") {
     return notificationStore.showError(
-      "Upload dokumen SPK sebelum membuat invoice",
+      "Quotation berstatus Cancel tidak dapat dibuatkan invoice",
     );
   }
   if (
@@ -1187,6 +1234,92 @@ function addfile(event: Event) {
   }
   target.value = "";
 }
+
+const poPreviewUrls = new Map<File, string>();
+
+function poFileExtension(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return extension === file.name.toLowerCase() ? "" : extension;
+}
+
+function poFileKind(file: File): "image" | "pdf" | "document" {
+  const extension = poFileExtension(file);
+  if (
+    file.type.startsWith("image/") ||
+    ["jpg", "jpeg", "png", "webp"].includes(extension)
+  ) {
+    return "image";
+  }
+  if (file.type === "application/pdf" || extension === "pdf") return "pdf";
+  return "document";
+}
+
+function poFileTypeLabel(file: File) {
+  const extension = poFileExtension(file);
+  if (extension) return extension.toUpperCase();
+  if (poFileKind(file) === "image") return "GAMBAR";
+  if (poFileKind(file) === "pdf") return "PDF";
+  return "DOKUMEN";
+}
+
+function poFileIcon(file: File) {
+  const kind = poFileKind(file);
+  if (kind === "pdf") return "mdi-file-pdf-box";
+  if (kind === "image") return "mdi-file-image-outline";
+  return "mdi-file-document-outline";
+}
+
+function poFilePreviewUrl(file: File) {
+  const existingUrl = poPreviewUrls.get(file);
+  if (existingUrl) return existingUrl;
+  const url = URL.createObjectURL(file);
+  poPreviewUrls.set(file, url);
+  return url;
+}
+
+function formatPoFileSize(bytes = 0) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function openPoFile(file: File) {
+  const link = document.createElement("a");
+  link.href = poFilePreviewUrl(file);
+  if (poFileKind(file) === "document") {
+    link.download = file.name;
+  } else {
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+  }
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function revokePoFilePreview(file: File) {
+  const url = poPreviewUrls.get(file);
+  if (!url) return;
+  URL.revokeObjectURL(url);
+  poPreviewUrls.delete(file);
+}
+
+function removePoFile(index: number) {
+  if (saving.value) return;
+  const [removedFile] = poFiles.value.splice(index, 1);
+  if (removedFile) revokePoFilePreview(removedFile);
+}
+
+watch(poFiles, (currentFiles, previousFiles) => {
+  previousFiles
+    .filter((file) => !currentFiles.includes(file))
+    .forEach(revokePoFilePreview);
+});
+
+onBeforeUnmount(() => {
+  poPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+  poPreviewUrls.clear();
+});
 </script>
 
 <style scoped>
@@ -1548,62 +1681,178 @@ function addfile(event: Event) {
   font-size: 9px;
 }
 
-.invoice-po-file-list {
+.invoice-po-selected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.invoice-po-selected-file {
   display: grid;
+  grid-template-columns: minmax(165px, 0.8fr) minmax(0, 1.2fr);
+  min-width: 0;
+  padding: 10px;
+  align-items: center;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid #dbe5f1;
+  border-radius: 10px;
+}
+
+.invoice-po-preview-frame {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 150px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background:
+    linear-gradient(45deg, #f8fafc 25%, transparent 25%) 0 0 / 14px 14px,
+    linear-gradient(-45deg, #f8fafc 25%, transparent 25%) 0 7px / 14px 14px,
+    #ffffff;
+}
+
+.invoice-po-preview-frame img,
+.invoice-po-preview-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.invoice-po-preview-frame img {
+  object-fit: contain;
+}
+
+.invoice-po-preview-frame iframe {
+  pointer-events: none;
+  background: #ffffff;
+}
+
+.invoice-po-preview-frame--document {
+  color: #315f8d;
+  background: #f8fafc;
+}
+
+.invoice-po-preview-placeholder {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
   gap: 6px;
 }
 
-.invoice-po-file-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 40px;
-  padding: 6px 8px 6px 10px;
-  background: #fbfcfd;
-  border: 1px solid #dfe3e8;
-  border-radius: 5px;
+.invoice-po-preview-placeholder span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
-.invoice-po-file-name {
+.invoice-po-preview-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 3px 6px;
+  color: #334155;
+  font-size: 8px;
+  font-weight: 700;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.invoice-po-selected-details {
   display: flex;
-  align-items: center;
-  gap: 7px;
   min-width: 0;
+  padding: 5px 4px 4px 0;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.invoice-po-ready-label {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 7px;
+  padding: 3px 7px;
+  align-items: center;
+  gap: 4px;
+  color: #15803d;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #dcfce7;
+}
+
+.invoice-po-selected-name {
+  display: block;
+  max-width: 100%;
   overflow: hidden;
-  color: #4f5d6c;
-  font-size: 11px;
+  color: #1e293b;
+  font-size: 12px;
+  line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.invoice-po-file-name .v-icon {
-  flex: 0 0 auto;
-  color: #778493;
+.invoice-po-selected-meta {
+  display: flex;
+  margin-top: 3px;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 10px;
 }
 
-.invoice-po-file-remove {
-  display: grid;
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  place-items: center;
-  color: #8b95a1;
-  background: transparent;
-  border: 0;
-  border-radius: 4px;
+.invoice-po-selected-details > small {
+  max-width: 280px;
+  margin-top: 7px;
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.invoice-po-file-actions {
+  display: flex;
+  margin-top: 11px;
+  align-items: center;
+  gap: 7px;
+}
+
+.invoice-po-file-action {
+  display: inline-flex;
+  margin: 0;
+  padding: 5px 8px;
+  align-items: center;
+  gap: 4px;
+  color: #315f8d;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   cursor: pointer;
 }
 
-.invoice-po-file-remove:hover:not(:disabled) {
-  color: #b54747;
-  background: #fff3f3;
+.invoice-po-file-action:hover:not(:disabled) {
+  background: #eff6ff;
 }
 
-.invoice-po-file-remove:disabled {
+.invoice-po-file-action:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.invoice-po-file-action--remove {
+  color: #b91c1c;
+}
+
+.invoice-po-file-action--remove:hover:not(:disabled) {
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
 .invoice-subject-field {
@@ -2202,6 +2451,15 @@ function addfile(event: Event) {
 
   .invoice-client-address {
     grid-column: auto;
+  }
+
+  .invoice-po-selected-file {
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 11px;
+  }
+
+  .invoice-po-preview-frame {
+    height: 136px;
   }
 
   .invoice-items-header {

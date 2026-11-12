@@ -1183,11 +1183,11 @@ const previewImage = (dataUrl: string) => {
               {{ detailPenawaran?.perihal || "Memuat data..." }}
             </div>
 
-            <div class="company-name">
+            <!-- <div class="company-name">
               <v-icon icon="mdi-domain" size="15" class="mr-1" />
 
               {{ detailPenawaran?.nama_perusahaan || "-" }}
-            </div>
+            </div> -->
           </div>
 
           <div class="project-reference">

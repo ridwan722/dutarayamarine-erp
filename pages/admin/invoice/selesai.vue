@@ -12,7 +12,10 @@
   <div class="invoice-page-heading">
     <div>
       <h1>Invoice Selesai</h1>
-      <p>Manage completed invoices, clients, payment status, and transaction value.</p>
+      <p>
+        Invoice selesai tetap dapat direvisi; status dan bukti pembayaran tidak
+        dihapus, sedangkan quotation terkait ikut disinkronkan.
+      </p>
     </div>
   </div>
 
@@ -148,6 +151,12 @@
                 :to="`/admin/invoice/${item.id}`"
                 prepend-icon="mdi-eye-outline"
                 title="Detail invoice"
+              />
+              <v-list-item
+                :to="{ path: '/admin/invoice', query: { revisi: item.id } }"
+                prepend-icon="mdi-file-sync-outline"
+                title="Revisi invoice"
+                subtitle="Sinkronkan quotation tanpa mereset pembayaran"
               />
             </v-list>
           </v-menu>

@@ -53,8 +53,8 @@
             <p>
               {{
                 newInvoice.no_inv
-                  ? `Invoice ${newInvoice.no_inv}`
-                  : "Invoice details and billing information"
+                  ? `Nomor ${invoiceNumberDisplay} tidak dapat diubah`
+                  : "Nomor invoice dibuat otomatis saat disimpan"
               }}
             </p>
           </div>
@@ -76,18 +76,38 @@
       </header>
 
       <v-card-text class="invoice-dialog-body">
+        <v-alert
+          v-if="data.invoiceAddEdit === 'edit' && newInvoice.id_penawaran && newInvoice.id_penawaran !== '-'"
+          type="info"
+          variant="tonal"
+          density="compact"
+          icon="mdi-sync-circle"
+          class="invoice-sync-notice"
+        >
+          <strong>Revisi tersinkron otomatis.</strong>
+          Perubahan client, subject, Description, Qty, UOM, harga, dan nilai akan
+          diterapkan ke Quotation serta seluruh invoice termin terkait. Status,
+          bukti pembayaran, SPK, dokumen, dan pengeluaran tidak diubah.
+        </v-alert>
+
         <section class="invoice-form-section">
           <div class="invoice-section-header">
             <div>
               <span>01</span>
-              <h3>Client Information</h3>
+              <h3>Invoice &amp; Client Information</h3>
             </div>
-            <p>Detail client yang terhubung dengan invoice.</p>
+            <p>
+              Nomor invoice terkunci. Perusahaan, PIC, vessel, dan lokasi dapat
+              diperbarui.
+            </p>
           </div>
-          <div class="invoice-client-picker">
+
+          <div class="invoice-document-fields">
             <a-text-field-new
-              v-model="newInvoice.nama_customer"
-              label="Customer"
+              :model-value="invoiceNumberDisplay"
+              label="No. Invoice"
+              hint="Nomor invoice tidak dapat diubah"
+              persistent-hint
               disabled
             />
             <a-date-picker-new
@@ -95,14 +115,47 @@
               label="Tanggal Invoice"
             />
           </div>
+
+          <div class="invoice-client-picker">
+            <a-autocomplete-new
+              v-model="newInvoice.id_customer"
+              label="Perusahaan"
+              placeholder="Pilih perusahaan"
+              item-title="label"
+              item-value="value"
+              :items="invoiceCompanyOptions"
+              :disabled="Boolean(assignedInvoiceCompanyId)"
+            />
+            <a-select-new
+              v-model="newInvoice.id_pic"
+              label="PIC"
+              placeholder="Pilih PIC"
+              item-title="label"
+              item-value="value"
+              :items="invoicePicOptions"
+              :disabled="!newInvoice.id_customer"
+            />
+          </div>
+
+          <div
+            v-if="!assignedInvoiceCompanyId"
+            class="invoice-client-master-actions"
+          >
+            <v-btn
+              class="invoice-master-client-btn text-none"
+              variant="text"
+              color="grey-darken-1"
+              prepend-icon="mdi-account-cog-outline"
+              @click="router.push('/admin/master/client')"
+            >
+              Kelola Master Perusahaan &amp; PIC
+            </v-btn>
+          </div>
+
           <dl class="invoice-client-details">
             <div class="invoice-client-address">
               <dt>Address</dt>
               <dd>{{ newInvoice.alamat_customer || "—" }}</dd>
-            </div>
-            <div>
-              <dt>PIC</dt>
-              <dd>{{ newInvoice.pic || "—" }}</dd>
             </div>
             <div>
               <dt>Phone Number</dt>
@@ -112,11 +165,21 @@
               <dt>Email</dt>
               <dd>{{ newInvoice.email || "—" }}</dd>
             </div>
-            <div>
-              <dt>Vessel</dt>
-              <dd>{{ newInvoice.vessel || "—" }}</dd>
-            </div>
           </dl>
+
+          <div class="invoice-operation-fields">
+            <a-text-field-new
+              v-model="newInvoice.vessel"
+              label="Vessel"
+              placeholder="Nama vessel"
+            />
+            <a-autocomplete-new
+              v-model="newInvoice.location"
+              label="Location"
+              placeholder="Pilih lokasi pekerjaan"
+              :items="invoiceLocationOptions"
+            />
+          </div>
         </section>
 
         <section class="invoice-form-section">
@@ -140,10 +203,10 @@
               v-model="newInvoice.tanggal_preorder"
               label="Tanggal Pre Order (PO)"
             />
-            <a-select-new
-              v-model="newInvoice.currency_inv"
-              label="Currency Invoice"
-              :items="['IDR', 'USD', 'SGD']"
+            <a-text-field-new
+              :model-value="newInvoice.no_penawaran || 'Invoice langsung'"
+              label="Based On Quotation"
+              disabled
             />
           </div>
 
@@ -185,135 +248,142 @@
               >
                 <div class="po-upload-label">File Terpilih</div>
 
-                <div class="po-file-list">
-                  <div
+                <div class="po-selected-list">
+                  <article
                     v-for="(document, index) in newInvoice.doc_preorder"
-                    :key="index"
-                    class="po-file-item"
+                    :key="`${document.name}-${index}`"
+                    class="po-selected-file"
                   >
-                    <a
-                      :href="document.dataUrl"
-                      :download="document.name"
-                      class="po-file-name"
+                    <div
+                      class="po-preview-frame"
+                      :class="{
+                        'po-preview-frame--document':
+                          poDocumentKind(document) === 'document' ||
+                          !document.dataUrl,
+                      }"
                     >
-                      📄 {{ document.name }}
-                    </a>
+                      <img
+                        v-if="
+                          poDocumentKind(document) === 'image' &&
+                          document.dataUrl
+                        "
+                        :src="document.dataUrl"
+                        :alt="`Preview ${document.name}`"
+                      />
+                      <iframe
+                        v-else-if="
+                          poDocumentKind(document) === 'pdf' &&
+                          document.dataUrl
+                        "
+                        :src="`${document.dataUrl}#toolbar=0&navpanes=0&view=FitH`"
+                        :title="`Preview ${document.name}`"
+                      />
+                      <div v-else class="po-preview-placeholder">
+                        <v-icon :icon="poDocumentIcon(document)" size="38" />
+                        <span>{{ poDocumentTypeLabel(document) }}</span>
+                      </div>
+                      <span
+                        v-if="
+                          poDocumentKind(document) !== 'document' &&
+                          document.dataUrl
+                        "
+                        class="po-preview-badge"
+                      >
+                        Preview
+                      </span>
+                    </div>
 
-                    <button
-                      type="button"
-                      class="po-file-remove"
-                      :disabled="readingPo || savingInvoice"
-                      :aria-label="`Hapus ${document.name}`"
-                      @click="newInvoice.doc_preorder?.splice(index, 1)"
-                    >
-                      ×
-                    </button>
-                  </div>
+                    <div class="po-selected-details">
+                      <span class="po-ready-label">
+                        <v-icon icon="mdi-check-circle" size="14" />
+                        Siap disimpan bersama invoice
+                      </span>
+                      <strong class="po-selected-name" :title="document.name">
+                        {{ document.name }}
+                      </strong>
+                      <div class="po-selected-meta">
+                        <span>{{ poDocumentTypeLabel(document) }}</span>
+                        <span aria-hidden="true">•</span>
+                        <span>{{ formatPoFileSize(document.size) }}</span>
+                      </div>
+                      <small
+                        v-if="
+                          poDocumentKind(document) === 'document' ||
+                          !document.dataUrl
+                        "
+                      >
+                        Preview tidak tersedia, tetapi file tetap dapat
+                        disimpan.
+                      </small>
+
+                      <div class="po-file-actions">
+                        <button
+                          type="button"
+                          class="po-file-action"
+                          :disabled="!document.dataUrl"
+                          @click="openPoDocument(document)"
+                        >
+                          <v-icon icon="mdi-open-in-new" size="16" />
+                          Lihat
+                        </button>
+                        <button
+                          type="button"
+                          class="po-file-action po-file-action--remove"
+                          :disabled="readingPo || savingInvoice"
+                          :aria-label="`Hapus ${document.name}`"
+                          @click="newInvoice.doc_preorder?.splice(index, 1)"
+                        >
+                          <v-icon icon="mdi-delete-outline" size="16" />
+                          Hapus
+                        </button>
+                      </div>
+                    </div>
+                  </article>
                 </div>
               </div>
             </div>
           </div>
 
+        </section>
+
+        <section class="invoice-currency-section">
+          <div class="invoice-currency-heading">
+            <div>
+              <h3>Transaction Currency</h3>
+              <p>Currency dan subject yang digunakan pada invoice.</p>
+            </div>
+            <a-select-new
+              v-model="newInvoice.currency_inv"
+              class="invoice-currency-field"
+              label="Currency"
+              :items="[
+                { title: 'IDR', value: 'IDR' },
+                { title: 'USD', value: 'USD' },
+                { title: 'SGD', value: 'SGD' },
+              ]"
+            />
+          </div>
           <a-textarea-new
             v-model="newInvoice.perihal"
-            class="invoice-subject-field"
             label="Subject"
-            placeholder="subject"
+            placeholder="Invoice subject"
+            rows="2"
           />
         </section>
 
-        <section class="invoice-form-section invoice-items-section">
-          <div class="invoice-section-header invoice-items-header">
+        <InvoiceItemsEditor
+          v-model="newInvoice.item_pekerjaan"
+          :currency="newInvoice.currency_inv || 'IDR'"
+        />
+
+        <section class="invoice-form-section invoice-authorization-section">
+          <div class="invoice-section-header">
             <div>
-              <span>03</span>
-              <h3>Invoice Items</h3>
+              <span>04</span>
+              <h3>Authorization</h3>
             </div>
-            <v-btn
-              size="small"
-              variant="outlined"
-              color="primary"
-              prepend-icon="mdi-plus"
-              class="invoice-add-row-btn text-none"
-              @click="tambahBarisInvoice"
-            >
-              Add Item
-            </v-btn>
+            <p>Pilih penandatangan yang akan tercantum pada invoice.</p>
           </div>
-
-          <div
-            v-for="(item, index) in newInvoice.item_pekerjaan"
-            :key="index"
-            class="invoice-line-item"
-          >
-            <div class="invoice-line-item-header">
-              <span>Item {{ String(index + 1).padStart(2, "0") }}</span>
-              <v-btn
-                icon="mdi-delete-outline"
-                size="x-small"
-                variant="text"
-                color="error"
-                aria-label="Hapus item invoice"
-                @click="hapusBarisInvoice(index)"
-              />
-            </div>
-            <div class="invoice-item-description">
-              <a-textarea-new
-                v-model="item.nama"
-                label="Description"
-                placeholder="Description"
-              />
-            </div>
-            <div class="invoice-item-fields">
-              <a-select-new
-                v-model="item.kategori_item"
-                label="Kategori"
-                :items="[
-                  'Unit',
-                  'Pcs',
-                  'Kg',
-                  'Lot',
-                  'Set',
-                  'Meter',
-                  'Box',
-                  'Liter',
-                ]"
-              />
-              <a-field-number-new
-                v-model="item.qty"
-                label="Qty"
-                placeholder="0"
-              />
-              <a-select-new
-                :items="[
-                  'Unit',
-                  'Pcs',
-                  'Kg',
-                  'Lot',
-                  'Set',
-                  'Meter',
-                  'Box',
-                  'Liter',
-                ]"
-                v-model="item.uom"
-                label="UOM"
-                placeholder="Select"
-              />
-              <a-field-number-new
-                v-model="item.amount"
-                :label="`Amount/unit (${newInvoice.currency_inv || 'IDR'})`"
-                placeholder="0"
-                :allow-decimal="newInvoice.currency_inv !== 'IDR'"
-                :step="newInvoice.currency_inv === 'IDR' ? 1 : 0.01"
-              />
-              <a-field-number-new
-                v-model="item.subtotal_item"
-                label="Subtotal"
-                placeholder="0"
-                disabled
-              />
-            </div>
-          </div>
-
           <a-select-new
             v-model="newInvoice.sign_by"
             :items="[
@@ -322,7 +392,7 @@
               'Muhammad Ridwan',
               'Lilis',
             ]"
-            label="Sign By / Yang Bertanda Tangan ?"
+            label="Sign By"
             class="invoice-sign-field"
           />
         </section>
@@ -331,7 +401,7 @@
         <section class="invoice-form-section">
           <div class="invoice-section-header">
             <div>
-              <span>04</span>
+              <span>05</span>
               <h3>Terms &amp; Conditions</h3>
             </div>
             <p>Pilih ketentuan yang akan dicantumkan pada invoice.</p>
@@ -375,15 +445,39 @@
         <section class="invoice-form-section invoice-summary-section">
           <div class="invoice-section-header">
             <div>
-              <span>05</span>
+              <span>06</span>
               <h3>Commercial Summary</h3>
             </div>
             <p>Ringkasan pajak, termin, dan nilai akhir invoice.</p>
           </div>
           <v-row justify="end" align="center">
             <v-col cols="12" md="6">
+              <div class="invoice-discount-fields">
+                <v-text-field
+                  v-model.number="discountPercentInvoice"
+                  label="Discount (%)"
+                  type="number"
+                  suffix="%"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                />
+                <v-text-field
+                  v-model.number="newInvoice.discount_invoice"
+                  label="Discount Amount"
+                  type="number"
+                  min="0"
+                  :prefix="newInvoice.currency_inv === 'IDR' ? 'Rp' : newInvoice.currency_inv"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                />
+              </div>
               <div
-                class="d-flex align-center justify-space-between px-3 py-1 bg-grey-lighten-5 rounded-lg border"
+                class="d-flex align-center justify-space-between px-3 py-1 mt-3 bg-grey-lighten-5 rounded-lg border"
               >
                 <span class="text-body-2 font-weight-medium text-grey-darken-2"
                   >Sertakan PPN 11%</span
@@ -1239,9 +1333,9 @@
                 title="Detail invoice"
               />
               <v-list-item
-                v-if="item.status === 'Draft'"
-                prepend-icon="mdi-pencil-outline"
-                title="Edit invoice"
+                prepend-icon="mdi-file-sync-outline"
+                title="Revisi invoice"
+                subtitle="Sinkronkan dengan quotation tanpa mengubah status pembayaran"
                 @click="openDialogEditInvoice(item)"
               />
               <template v-if="item.status === 'Draft'">
@@ -1405,8 +1499,8 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { reactive, ref, computed, nextTick, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import moment from "moment";
 import {
@@ -1422,9 +1516,12 @@ import {
 } from "firebase/firestore";
 import { useFirestore } from "vuefire";
 import type { ConfirmationDialog } from "#components";
+import InvoiceItemsEditor from "~/components/Admin/Invoice/invoice-items-editor.vue";
 import type { customerM } from "~/types/customerModel";
+import type { masterPicM } from "~/types/masterPicModel";
 import type {
   invoiceCurrencyM,
+  invoiceItemM,
   invoiceM,
   invoicePoDocumentM,
   serviceReportImageM,
@@ -1432,6 +1529,13 @@ import type {
   serviceReportSectionM,
 } from "~/types/invoice";
 import { useinvoiceStore } from "~/stores/invoiceStore";
+import {
+  buildCompanyMaster,
+  buildLegacyMasterPics,
+  mergeMasterPics,
+  normalizeCompanyName as normalizeMasterCompanyName,
+} from "~/utils/customer-master";
+import type { CompanyMasterRow } from "~/utils/customer-master";
 
 interface SoaInvoiceSnapshot {
   id: string;
@@ -1481,9 +1585,11 @@ definePageMeta({
 });
 
 const router = useRouter();
+const route = useRoute();
 const display = useDisplay();
 const db = useFirestore();
 const customerStore = usecustomerStore();
+const masterPicStore = useMasterPicStore();
 const invoiceStore = useinvoiceStore();
 const userStore = useUserStore();
 const notificationStore = useNotificationStore();
@@ -1601,6 +1707,8 @@ const data = reactive({
   dialogTambahInvoice: false,
   invoiceAddEdit: "add" as "add" | "edit",
   editOriginalCustomerId: "",
+  editOriginalInvoiceNumber: "",
+  editOriginalInvoiceInternalId: "",
   customerAddEdit: "add" as "add" | "edit",
   headCustomer: [
     { title: "Nama Customer", value: "nama", sortable: true },
@@ -1710,6 +1818,7 @@ function emptyInvoice(): invoiceM {
   return {
     no_inv: "",
     id_customer: "",
+    id_pic: "",
     nama_customer: "",
     alamat_customer: "",
     no_preorder: "",
@@ -1723,16 +1832,7 @@ function emptyInvoice(): invoiceM {
     tanggal: moment().format("YYYY-MM-DD"),
     currency_inv: "IDR",
     perihal: "",
-    item_pekerjaan: [
-      {
-        nama: "",
-        qty: 1,
-        uom: "Unit",
-        kategori_item: "",
-        amount: 0,
-        subtotal_item: 0,
-      },
-    ],
+    item_pekerjaan: [emptyInvoiceItem()],
     pakai_ppn: false,
     subtotal_invoice: 0,
     discount_invoice: 0,
@@ -1750,20 +1850,74 @@ function emptyInvoice(): invoiceM {
   };
 }
 
+function emptyInvoiceItem(): invoiceItemM {
+  return {
+    nama: "",
+    qty: 1,
+    uom: "Unit",
+    kategori_item: "Barang",
+    amount: 0,
+    subtotal_item: 0,
+  };
+}
+
+function normalizeInvoiceItems(value: unknown): invoiceItemM[] {
+  const sourceItems = Array.isArray(value)
+    ? value
+    : value && typeof value === "object"
+      ? Object.values(value as Record<string, unknown>)
+      : [];
+  if (!sourceItems.length) return [emptyInvoiceItem()];
+
+  const items = sourceItems
+    .filter(
+      (item): item is Record<string, unknown> =>
+        Boolean(item) && typeof item === "object",
+    )
+    .map((item) => {
+      const qty = Number(item.qty ?? item.quantity);
+      const amount = Number(item.amount ?? item.harga ?? item.harga_jual);
+      const normalizedQty = Number.isFinite(qty) ? qty : 1;
+      const normalizedAmount = Number.isFinite(amount) ? amount : 0;
+
+      return {
+        nama: String(
+          item.nama || item.description || item.nama_item || item.keterangan || "",
+        ),
+        qty: normalizedQty,
+        kategori_item: String(item.kategori_item || item.kategori || "Barang"),
+        uom: String(item.uom || item.satuan || "Unit"),
+        amount: normalizedAmount,
+        subtotal_item: normalizedQty * normalizedAmount,
+      };
+    });
+
+  return items.length ? items : [emptyInvoiceItem()];
+}
+
+function hasInvoiceItems(value: unknown) {
+  if (Array.isArray(value)) return value.length > 0;
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      Object.keys(value as Record<string, unknown>).length,
+  );
+}
+
 const sortedTermConditions = computed(() => {
   const terms = [...termconditionStore.getDataTermcondition];
   const selected = newInvoice.value.termCondition || [];
 
   // Yang dipilih mengikuti urutan saat dipilih
-  const selectedTerms = selected
-    .map((selectedItem: any) => {
-      return terms.find((term: any) =>
+  const selectedTerms = selected.map((selectedItem: any) => {
+    return (
+      terms.find((term: any) =>
         term.id
           ? term.id === selectedItem.id
           : term.nama_term === selectedItem.nama_term,
-      );
-    })
-    .filter(Boolean);
+      ) || selectedItem
+    );
+  });
 
   // Yang belum dipilih tetap mengikuti urutan asli
   const unselectedTerms = terms.filter(
@@ -1779,6 +1933,123 @@ const sortedTermConditions = computed(() => {
 });
 
 const newInvoice = ref<invoiceM>(emptyInvoice());
+
+const invoiceLocationOptions = [
+  "Batam", "Jakarta", "Lamongan", "Agats", "Ambon", "Amurang", "Atapupu",
+  "Bacan", "Bahodopi", "Bali", "Balikpapan", "Banjarmasin", "Banten",
+  "Batu Ampar", "Batulicin", "Bau-Bau", "Belawan", "Bengkalis", "Bengkulu",
+  "Benoa", "Berau", "Biak", "Bima", "Bintan", "Bitung", "Bontang",
+  "Boom Baru", "Celukan Bawang", "Cilegon", "Cilacap", "Cirebon", "Donggala",
+  "Dumai", "Ende", "Fakfak", "Garongkong", "Gilimanuk", "Gorontalo",
+  "Gresik", "Jayapura", "Kabil", "Kaimana", "Kendari", "Ketapang", "Kijing",
+  "Kolaka", "Kotabaru", "Kuala Tanjung", "Kumai", "Kupang", "Labuan Bajo",
+  "Lampung", "Lembar", "Lombok", "Makassar", "Manado", "Manokwari",
+  "Maumere", "Medan", "Merak", "Merauke", "Morowali", "Muntok", "Nabire",
+  "Namlea", "Nunukan", "Padang", "Padang Bai", "Palaran", "Palembang",
+  "Palopo", "Palu", "Pangkal Pinang", "Pangkalan Bun", "Panjang", "Pantoloan",
+  "Parepare", "Pekanbaru", "Pontianak", "Samarinda", "Sampit", "Sangatta",
+  "Sape", "Saumlaki", "Sekupang", "Selat Panjang", "Semarang", "Semayang",
+  "Serui", "Sibolga", "Soekarno Hatta Makassar", "Sorong", "Surabaya",
+  "Tanjung Balai Karimun", "Tanjung Emas", "Tanjung Intan", "Tanjung Pandan",
+  "Tanjung Perak", "Tanjung Pinang", "Tanjung Priok", "Tanjung Redeb",
+  "Tanjung Uban", "Tanjung Wangi", "Tarakan", "Teluk Bayur", "Tembilahan",
+  "Tenau", "Ternate", "Tidore", "Timika", "Tobelo", "Trisakti", "Tual",
+  "Tuban", "Waingapu",
+];
+
+const invoiceCompanies = computed(() =>
+  buildCompanyMaster(customerStore.getDataCustomer),
+);
+const assignedInvoiceCompanyId = computed(() =>
+  userStore.getIdPerusahaan.trim(),
+);
+const accessibleInvoiceCompanies = computed(() => {
+  if (!assignedInvoiceCompanyId.value) return invoiceCompanies.value;
+  return invoiceCompanies.value.filter(
+    (company) =>
+      company.id_customer === assignedInvoiceCompanyId.value ||
+      company.sourceIds.includes(assignedInvoiceCompanyId.value),
+  );
+});
+const invoiceCompanyOptions = computed(() => {
+  const options = accessibleInvoiceCompanies.value.map((company) => ({
+    ...company,
+    label: company.nama,
+    value: company.id_customer,
+  }));
+  const currentCompanyId = newInvoice.value.id_customer;
+  if (
+    currentCompanyId &&
+    newInvoice.value.nama_customer &&
+    !options.some((option) => option.value === currentCompanyId)
+  ) {
+    options.unshift({
+      id: currentCompanyId,
+      id_customer: currentCompanyId,
+      sourceIds: [currentCompanyId],
+      nama: newInvoice.value.nama_customer,
+      alamat: newInvoice.value.alamat_customer || "",
+      pic: newInvoice.value.pic || "",
+      no_telp: newInvoice.value.no_telp || "",
+      email: newInvoice.value.email || "",
+      vessel: newInvoice.value.vessel || "",
+      createdAt: newInvoice.value.createdAt || 0,
+      createdBy: newInvoice.value.createdBy || "",
+      label: newInvoice.value.nama_customer,
+      value: currentCompanyId,
+    });
+  }
+  return options;
+});
+const invoiceLegacyMasterPics = computed(() =>
+  buildLegacyMasterPics(customerStore.getDataCustomer, invoiceCompanies.value),
+);
+const invoiceMasterPics = computed(() =>
+  mergeMasterPics(
+    masterPicStore.getDataMasterPic,
+    invoiceLegacyMasterPics.value,
+    invoiceCompanies.value,
+  ),
+);
+const invoicePicOptions = computed(() => {
+  const options = invoiceMasterPics.value
+    .filter((pic) => pic.id_perusahaan === newInvoice.value.id_customer)
+    .map((pic) => ({
+      ...pic,
+      label: pic.pic,
+      value: pic.id_master_pic || pic.id,
+    }));
+  if (
+    newInvoice.value.pic &&
+    !options.some(
+      (option) =>
+        option.pic.trim().toLocaleLowerCase("id-ID") ===
+        newInvoice.value.pic.trim().toLocaleLowerCase("id-ID"),
+    )
+  ) {
+    const currentPicId =
+      newInvoice.value.id_pic ||
+      `invoice-current-${newInvoice.value.id || "pic"}`;
+    options.unshift({
+      id: currentPicId,
+      id_master_pic: currentPicId,
+      id_perusahaan: newInvoice.value.id_customer,
+      nama_perusahaan: newInvoice.value.nama_customer,
+      pic: newInvoice.value.pic,
+      no_telp: newInvoice.value.no_telp || "",
+      email: newInvoice.value.email || "",
+      createdAt: newInvoice.value.createdAt || 0,
+      createdBy: newInvoice.value.createdBy || "",
+      label: newInvoice.value.pic,
+      value: currentPicId,
+    });
+  }
+  return options;
+});
+const invoiceNumberDisplay = computed(() => {
+  if (!newInvoice.value.no_inv) return "Dibuat otomatis saat disimpan";
+  return `INV/DRM/${invoiceYear(newInvoice.value.tanggal)}/${newInvoice.value.no_inv}`;
+});
 
 function normalizeInvoiceCurrency(currency?: string): invoiceCurrencyM {
   return currency === "USD" || currency === "SGD" ? currency : "IDR";
@@ -2598,6 +2869,68 @@ async function tambahDokumenPo(event: Event) {
   }
 }
 
+function poDocumentExtension(document: invoicePoDocumentM) {
+  const fileName = String(document.name || "");
+  const extension = fileName.split(".").pop()?.toLowerCase() || "";
+  return extension === fileName.toLowerCase() ? "" : extension;
+}
+
+function poDocumentKind(
+  document: invoicePoDocumentM,
+): "image" | "pdf" | "document" {
+  const extension = poDocumentExtension(document);
+  const contentType = String(document.contentType || "").toLowerCase();
+  if (
+    contentType.startsWith("image/") ||
+    ["jpg", "jpeg", "png", "webp"].includes(extension)
+  ) {
+    return "image";
+  }
+  if (contentType === "application/pdf" || extension === "pdf") return "pdf";
+  return "document";
+}
+
+function poDocumentTypeLabel(document: invoicePoDocumentM) {
+  const extension = poDocumentExtension(document);
+  if (extension) return extension.toUpperCase();
+  if (poDocumentKind(document) === "image") return "GAMBAR";
+  if (poDocumentKind(document) === "pdf") return "PDF";
+  return "DOKUMEN";
+}
+
+function poDocumentIcon(document: invoicePoDocumentM) {
+  const kind = poDocumentKind(document);
+  if (kind === "pdf") return "mdi-file-pdf-box";
+  if (kind === "image") return "mdi-file-image-outline";
+  return "mdi-file-document-outline";
+}
+
+function formatPoFileSize(bytes = 0) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.ceil(value / 1024)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function openPoDocument(document: invoicePoDocumentM) {
+  if (!document.dataUrl) {
+    notificationStore.showError("Preview dokumen PO tidak tersedia");
+    return;
+  }
+
+  const link = window.document.createElement("a");
+  link.href = document.dataUrl;
+  if (poDocumentKind(document) === "document") {
+    link.download = document.name;
+  } else {
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+  }
+  window.document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 const subtotal_invoice = computed(() =>
   newInvoice.value.item_pekerjaan.reduce(
     (total, item) =>
@@ -2608,8 +2941,8 @@ const subtotal_invoice = computed(() =>
 const discountInvoice = computed(
   () => Number(newInvoice.value.discount_invoice) || 0,
 );
-const netSubtotal = computed(
-  () => subtotal_invoice.value - discountInvoice.value,
+const netSubtotal = computed(() =>
+  Math.max(0, subtotal_invoice.value - discountInvoice.value),
 );
 const dpNominal = computed(() =>
   Math.round(
@@ -2625,27 +2958,85 @@ const grandtotal_invoice = computed(
     ppnInvoice.value,
 );
 
+const discountPercentInvoice = computed({
+  get: () =>
+    subtotal_invoice.value > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            Number(
+              ((discountInvoice.value / subtotal_invoice.value) * 100).toFixed(2),
+            ),
+          ),
+        )
+      : 0,
+  set: (value: number) => {
+    const percentage = Math.min(100, Math.max(0, Number(value) || 0));
+    const amount = subtotal_invoice.value * (percentage / 100);
+    newInvoice.value.discount_invoice =
+      newInvoice.value.currency_inv === "IDR"
+        ? Math.round(amount)
+        : Math.round(amount * 100) / 100;
+  },
+});
+
+const syncingInvoiceClient = ref(false);
+
+function clearInvoicePic() {
+  newInvoice.value.id_pic = "";
+  newInvoice.value.pic = "";
+  newInvoice.value.no_telp = "";
+  newInvoice.value.email = "";
+}
+
+function applyInvoiceCompany(
+  company: CompanyMasterRow,
+  resetPic = false,
+) {
+  newInvoice.value.id_customer = company.id_customer || company.id || "";
+  newInvoice.value.nama_customer = company.nama;
+  newInvoice.value.alamat_customer = company.alamat || "";
+  if (resetPic) clearInvoicePic();
+}
+
+function applyInvoicePic(pic: masterPicM) {
+  newInvoice.value.id_pic = pic.id_master_pic || pic.id || "";
+  newInvoice.value.pic = pic.pic;
+  newInvoice.value.no_telp = pic.no_telp || "";
+  newInvoice.value.email = pic.email || "";
+}
+
 watch(
   () => newInvoice.value.id_customer,
   (idCustomer) => {
-    if (
-      data.invoiceAddEdit === "edit" &&
-      idCustomer === data.editOriginalCustomerId
-    ) {
+    if (syncingInvoiceClient.value) return;
+    if (!idCustomer) {
+      newInvoice.value.nama_customer = "";
+      newInvoice.value.alamat_customer = "";
+      clearInvoicePic();
       return;
     }
-    const customer = customerStore.getDataCustomer.find(
-      (item) => item.id === idCustomer,
+    const company = invoiceCompanies.value.find(
+      (item) =>
+        item.id_customer === idCustomer || item.sourceIds.includes(idCustomer),
     );
+    if (company) applyInvoiceCompany(company, true);
+  },
+);
 
-    if (!customer) return;
-    newInvoice.value.id_customer = customer.id ?? "";
-    newInvoice.value.nama_customer = customer.nama;
-    newInvoice.value.alamat_customer = customer.alamat;
-    newInvoice.value.pic = customer.pic;
-    newInvoice.value.vessel = customer.vessel;
-    newInvoice.value.no_telp = customer.no_telp;
-    newInvoice.value.email = customer.email;
+watch(
+  () => newInvoice.value.id_pic,
+  (idPic) => {
+    if (syncingInvoiceClient.value) return;
+    if (!idPic) {
+      clearInvoicePic();
+      return;
+    }
+    const pic = invoiceMasterPics.value.find(
+      (item) => (item.id_master_pic || item.id) === idPic,
+    );
+    if (pic) applyInvoicePic(pic);
   },
 );
 
@@ -2660,6 +3051,9 @@ onMounted(async () => {
     if (!customerStore.getDataCustomer.length) {
       initialRequests.push(customerStore.tarikDataCustomerAct());
     }
+    if (!masterPicStore.getDataMasterPic.length) {
+      initialRequests.push(masterPicStore.tarikDataMasterPicAct());
+    }
     if (needsInvoiceData) {
       initialRequests.push(invoiceStore.tarikDataInvoiceAct());
     }
@@ -2671,6 +3065,24 @@ onMounted(async () => {
 
   if (!termconditionStore.getDataTermcondition.length) {
     void termconditionStore.tarikDataTermconditionAct();
+  }
+
+  const requestedRevisionId = Array.isArray(route.query.revisi)
+    ? route.query.revisi[0]
+    : route.query.revisi;
+  if (requestedRevisionId) {
+    const requestedInvoice = invoiceStore.getDataInvoice.find(
+      (invoice) =>
+        (invoice.id || invoice.id_invoice) === String(requestedRevisionId),
+    );
+    if (requestedInvoice) {
+      openDialogEditInvoice(requestedInvoice);
+      const nextQuery = { ...route.query };
+      delete nextQuery.revisi;
+      void router.replace({ path: route.path, query: nextQuery });
+    } else {
+      notificationStore.showError("Invoice yang akan direvisi tidak ditemukan");
+    }
   }
 });
 
@@ -2973,45 +3385,138 @@ function statusColor(status: string) {
 function openDialogTambahInvoice() {
   data.invoiceAddEdit = "add";
   data.editOriginalCustomerId = "";
+  data.editOriginalInvoiceNumber = "";
+  data.editOriginalInvoiceInternalId = "";
   newInvoice.value = emptyInvoice();
+  const assignedCompany = accessibleInvoiceCompanies.value[0];
+  if (assignedInvoiceCompanyId.value && assignedCompany) {
+    applyInvoiceCompany(assignedCompany, true);
+  }
   data.dialogTambahInvoice = true;
 }
 
-function openDialogEditInvoice(item: invoiceM) {
-  const customer = customerStore.getDataCustomer.find(
-    (dataCustomer) =>
-      dataCustomer.id === item.id_customer ||
-      dataCustomer.nama === item.id_customer ||
-      dataCustomer.nama === item.nama_customer ||
-      dataCustomer.pic === item.pic ||
-      dataCustomer.vessel === item.vessel,
-  );
+async function loadInvoiceForEditor(item: invoiceM): Promise<invoiceM> {
+  const rowInvoice =
+    ((item as invoiceM & { raw?: invoiceM }).raw as invoiceM | undefined) ||
+    item;
+  const invoiceId = String(
+    rowInvoice.id || rowInvoice.id_invoice || rowInvoice.no_inv || "",
+  ).trim();
+  if (!invoiceId) return rowInvoice;
 
-  const invoice = {
-    ...emptyInvoice(),
-    ...JSON.parse(JSON.stringify(item)),
-  } as invoiceM;
-  if (customer?.id) {
-    invoice.id_customer = customer.id;
-    invoice.nama_customer = customer.nama;
+  const rootSnapshot = await getDoc(doc(db, "invoice", invoiceId));
+  const rootInvoice = rootSnapshot.exists()
+    ? (rootSnapshot.data() as invoiceM)
+    : null;
+  const quotationId = String(
+    rootInvoice?.id_penawaran || rowInvoice.id_penawaran || "",
+  ).trim();
+  let mirroredInvoice: invoiceM | null = null;
+
+  if (quotationId && quotationId !== "-") {
+    const mirroredSnapshot = await getDoc(
+      doc(db, "penawaran", quotationId, "invoice", invoiceId),
+    );
+    if (mirroredSnapshot.exists()) {
+      mirroredInvoice = mirroredSnapshot.data() as invoiceM;
+    }
   }
 
-  data.invoiceAddEdit = "edit";
-  data.editOriginalCustomerId = invoice.id_customer;
+  const itemSource = [
+    rootInvoice?.item_pekerjaan,
+    mirroredInvoice?.item_pekerjaan,
+    rowInvoice.item_pekerjaan,
+  ].find(hasInvoiceItems);
+
+  return {
+    ...rowInvoice,
+    ...(mirroredInvoice || {}),
+    ...(rootInvoice || {}),
+    id: invoiceId,
+    item_pekerjaan: normalizeInvoiceItems(itemSource),
+  } as invoiceM;
+}
+
+async function openDialogEditInvoice(item: invoiceM) {
+  let storedInvoice: invoiceM;
+  try {
+    storedInvoice = await loadInvoiceForEditor(item);
+  } catch (error) {
+    console.error("Gagal memuat detail invoice untuk diedit:", error);
+    notificationStore.showError(
+      "Detail dan item invoice gagal dimuat dari database",
+    );
+    return;
+  }
+
+  const company =
+    invoiceCompanies.value.find(
+      (candidate) =>
+        candidate.id_customer === storedInvoice.id_customer ||
+        candidate.sourceIds.includes(storedInvoice.id_customer),
+    ) ||
+    invoiceCompanies.value.find(
+      (candidate) =>
+        normalizeMasterCompanyName(candidate.nama) ===
+        normalizeMasterCompanyName(storedInvoice.nama_customer),
+    );
+
+  const sourceInvoice = JSON.parse(JSON.stringify(storedInvoice)) as Record<
+    string,
+    unknown
+  >;
+  const invoice = {
+    ...emptyInvoice(),
+    ...sourceInvoice,
+    // Data invoice lama bisa tidak memiliki array item atau menyimpan item
+    // kosong. Jangan biarkan nilai itu menimpa satu baris default form.
+    item_pekerjaan: normalizeInvoiceItems(sourceInvoice.item_pekerjaan),
+  } as invoiceM;
+
+  syncingInvoiceClient.value = true;
   newInvoice.value = invoice;
+  if (company) {
+    applyInvoiceCompany(company);
+    const selectedPic =
+      invoiceMasterPics.value.find(
+        (pic) => (pic.id_master_pic || pic.id) === storedInvoice.id_pic,
+      ) ||
+      invoiceMasterPics.value.find(
+        (pic) =>
+          pic.id_perusahaan === company.id_customer &&
+          pic.pic.trim().toLocaleLowerCase("id-ID") ===
+            String(storedInvoice.pic || "").trim().toLocaleLowerCase("id-ID"),
+      );
+    if (selectedPic) applyInvoicePic(selectedPic);
+  }
+  if (!newInvoice.value.id_pic && invoice.pic) {
+    newInvoice.value.id_pic =
+      invoice.id_pic || `invoice-current-${invoice.id || "pic"}`;
+  }
+  data.invoiceAddEdit = "edit";
+  data.editOriginalCustomerId = newInvoice.value.id_customer;
+  data.editOriginalInvoiceNumber = storedInvoice.no_inv;
+  data.editOriginalInvoiceInternalId =
+    storedInvoice.id_invoice || storedInvoice.id || "";
   data.dialogTambahInvoice = true;
+  void nextTick(() => {
+    syncingInvoiceClient.value = false;
+  });
 }
 
 function tambahBarisInvoice() {
-  newInvoice.value.item_pekerjaan.push({
-    nama: "",
-    // kode_barang: "",
-    amount: 0,
-    kategori_item: "",
-    uom: "",
-    qty: 0,
-    subtotal_item: 0,
-  });
+  if (!Array.isArray(newInvoice.value.item_pekerjaan)) {
+    newInvoice.value.item_pekerjaan = [];
+  }
+  newInvoice.value.item_pekerjaan.push(emptyInvoiceItem());
+}
+
+function setInvoiceItemCategory(
+  item: { kategori_item: string },
+  category: string,
+  checked: boolean,
+) {
+  if (checked) item.kategori_item = category;
 }
 
 function sameTermCondition(a: any, b: any) {
@@ -3038,14 +3543,28 @@ async function simpanInvoiceDialog() {
   if (!newInvoice.value.id_customer) {
     return notificationStore.showError("Customer belum dipilih");
   }
+  if (!(newInvoice.value.pic || "").trim()) {
+    return notificationStore.showError("PIC belum dipilih");
+  }
+  if (!(newInvoice.value.vessel || "").trim()) {
+    return notificationStore.showError("Vessel wajib diisi");
+  }
+  if (!(newInvoice.value.location || "").trim()) {
+    return notificationStore.showError("Location wajib diisi");
+  }
   if (
     !newInvoice.value.item_pekerjaan.length ||
     newInvoice.value.item_pekerjaan.some(
-      (item) => !item.nama || Number(item.qty) <= 0 || Number(item.amount) <= 0,
+      (item) =>
+        !item.nama ||
+        !item.kategori_item ||
+        !item.uom ||
+        Number(item.qty) <= 0 ||
+        Number(item.amount) <= 0,
     )
   ) {
     return notificationStore.showError(
-      "Setiap baris item harus punya description, qty, dan amount",
+      "Setiap item wajib memiliki description, category, Qty, UOM, dan harga",
     );
   }
   if (
@@ -3058,6 +3577,14 @@ async function simpanInvoiceDialog() {
       "Persentase termin harus antara 1 dan 100",
     );
   }
+  if (
+    Number(newInvoice.value.discount_invoice) < 0 ||
+    Number(newInvoice.value.discount_invoice) > subtotal_invoice.value
+  ) {
+    return notificationStore.showError(
+      "Discount tidak boleh negatif atau melebihi subtotal invoice",
+    );
+  }
 
   newInvoice.value.item_pekerjaan.forEach((item) => {
     item.subtotal_item = Number(item.qty) * Number(item.amount);
@@ -3066,6 +3593,12 @@ async function simpanInvoiceDialog() {
   newInvoice.value.subtotal_invoice = subtotal_invoice.value;
   newInvoice.value.ppn = ppnInvoice.value;
   newInvoice.value.grandtotal_invoice = grandtotal_invoice.value;
+  if (data.invoiceAddEdit === "edit") {
+    // Nomor invoice adalah identitas dokumen dan tidak boleh berubah melalui
+    // form revisi, termasuk bila value DOM dimanipulasi dari browser.
+    newInvoice.value.no_inv = data.editOriginalInvoiceNumber;
+    newInvoice.value.id_invoice = data.editOriginalInvoiceInternalId;
+  }
   if (
     new TextEncoder().encode(JSON.stringify(newInvoice.value)).byteLength >
     MAX_INVOICE_BYTES
@@ -3094,11 +3627,29 @@ async function simpanInvoiceDialog() {
       return notificationStore.showError("ID invoice tidak ditemukan");
     }
 
-    const updated = await invoiceStore.updateInvoiceAct(
-      newInvoice.value.id,
-      newInvoice.value,
+    const linkedToQuotation = Boolean(
+      newInvoice.value.id_penawaran && newInvoice.value.id_penawaran !== "-",
     );
-    if (!updated) return;
+    if (linkedToQuotation) {
+      const confirmed = await confirmationDialog.value?.show(
+        "Simpan Revisi Tersinkron",
+        "Perubahan data komersial akan diterapkan ke quotation dan seluruh invoice termin terkait. Status pembayaran, bukti bayar, SPK, dokumen, dan pengeluaran tetap dipertahankan. Lanjutkan?",
+        { confirmText: "Simpan & Sinkronkan", variant: "default" },
+      );
+      if (!confirmed) return;
+
+      const revised = await invoiceStore.reviseLinkedTransactionAct(
+        newInvoice.value.id,
+        newInvoice.value,
+      );
+      if (!revised) return;
+    } else {
+      const updated = await invoiceStore.updateInvoiceAct(
+        newInvoice.value.id,
+        newInvoice.value,
+      );
+      if (!updated) return;
+    }
 
     await invoiceStore.tarikDataInvoiceAct();
     data.dialogTambahInvoice = false;
@@ -4207,6 +4758,14 @@ async function refreshData() {
   gap: 12px;
   background: #f5f6f8;
 }
+.invoice-sync-notice {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.invoice-sync-notice strong {
+  display: block;
+  margin-bottom: 2px;
+}
 .invoice-form-section {
   padding: 16px;
   background: #ffffff;
@@ -4250,7 +4809,28 @@ async function refreshData() {
   font-size: 9px;
   text-align: right;
 }
-.invoice-client-picker,
+.invoice-document-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.invoice-client-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.invoice-client-master-actions {
+  display: flex;
+  margin: 3px 0 10px;
+  justify-content: flex-end;
+}
+.invoice-master-client-btn {
+  min-height: 30px !important;
+  padding-inline: 8px !important;
+  font-size: 10px !important;
+  letter-spacing: 0 !important;
+}
 .invoice-po-fields {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4258,9 +4838,9 @@ async function refreshData() {
 }
 .invoice-client-details {
   display: grid;
-  grid-template-columns: 1.8fr repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(220px, 1.7fr) repeat(2, minmax(140px, 1fr));
   gap: 1px;
-  margin: 12px 0 0;
+  margin: 0;
   overflow: hidden;
   background: #e2e6ea;
   border: 1px solid #e2e6ea;
@@ -4288,9 +4868,42 @@ async function refreshData() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.invoice-subject-field {
-  display: block;
-  margin-top: 12px;
+.invoice-operation-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.invoice-currency-section {
+  padding: 13px 18px;
+  background: #ffffff;
+  border: 1px solid #dfe3e8;
+  border-radius: 7px;
+}
+.invoice-currency-heading {
+  display: flex;
+  margin-bottom: 13px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.invoice-currency-heading > div:first-child {
+  min-width: 0;
+}
+.invoice-currency-heading h3 {
+  margin: 0;
+  color: #27313d;
+  font-size: 12px;
+  font-weight: 700;
+}
+.invoice-currency-heading p {
+  margin: 2px 0 0;
+  color: #8a939f;
+  font-size: 10px;
+}
+.invoice-currency-field {
+  flex: 0 0 160px;
+  width: 160px;
 }
 
 .invoice-items-section {
@@ -4335,15 +4948,65 @@ async function refreshData() {
 .invoice-item-description {
   margin-bottom: 9px;
 }
+.invoice-item-category {
+  display: flex;
+  margin: 10px 0 12px;
+  align-items: center;
+  gap: 18px;
+}
+.invoice-item-category > span {
+  color: #495057;
+  font-size: 11px;
+  font-weight: 600;
+}
+.invoice-item-category > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
 .invoice-item-fields {
   display: grid;
-  grid-template-columns: 1.05fr 0.65fr 0.8fr 1.1fr 1.1fr;
+  grid-template-columns:
+    minmax(66px, 0.55fr) minmax(90px, 0.75fr)
+    minmax(155px, 1.25fr) minmax(165px, 1.3fr);
   gap: 9px;
+}
+.invoice-add-row-secondary {
+  display: flex;
+  width: calc(100% - 28px);
+  min-height: 34px;
+  margin: 12px 14px 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #4f6377;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px dashed #b8c2cc;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.invoice-add-row-secondary:hover {
+  color: #245b8f;
+  background: #f7fafc;
+  border-color: #7f9db9;
+}
+.invoice-add-row-secondary:focus-visible {
+  outline: 2px solid rgba(24, 103, 192, 0.3);
+  outline-offset: 2px;
 }
 .invoice-sign-field {
   display: block;
   max-width: 360px;
-  margin: 12px 14px 0;
+  margin: 0;
+}
+.invoice-discount-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .invoice-term-table-wrap {
@@ -4509,45 +5172,178 @@ async function refreshData() {
   font-size: 8px;
 }
 
-.po-file-list {
+.po-selected-list {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.po-selected-file {
+  display: grid;
+  grid-template-columns: minmax(165px, 0.8fr) minmax(0, 1.2fr);
+  min-width: 0;
+  padding: 10px;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #dbe5f1;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.po-preview-frame {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 150px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background:
+    linear-gradient(45deg, #f8fafc 25%, transparent 25%) 0 0 / 14px 14px,
+    linear-gradient(-45deg, #f8fafc 25%, transparent 25%) 0 7px / 14px 14px,
+    #ffffff;
+}
+
+.po-preview-frame img,
+.po-preview-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.po-preview-frame img {
+  object-fit: contain;
+}
+
+.po-preview-frame iframe {
+  pointer-events: none;
+  background: #ffffff;
+}
+
+.po-preview-frame--document {
+  color: #315f8d;
+  background: #f8fafc;
+}
+
+.po-preview-placeholder {
+  display: flex;
+  align-items: center;
   flex-direction: column;
   gap: 6px;
 }
 
-.po-file-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 31px;
-  padding: 5px 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #fff;
+.po-preview-placeholder span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
-.po-file-name {
+.po-preview-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 3px 6px;
+  color: #334155;
+  font-size: 8px;
+  font-weight: 700;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.po-selected-details {
+  display: flex;
   min-width: 0;
+  padding: 5px 4px 4px 0;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.po-ready-label {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 7px;
+  padding: 3px 7px;
+  align-items: center;
+  gap: 4px;
+  color: #15803d;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #dcfce7;
+}
+
+.po-selected-name {
+  display: block;
+  max-width: 100%;
   overflow: hidden;
+  color: #1e293b;
+  font-size: 12px;
+  line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 9px;
-  color: #475569;
 }
 
-.po-file-remove {
-  flex-shrink: 0;
-  border: 0;
-  background: transparent;
-  color: #94a3b8;
-  font-size: 16px;
-  line-height: 1;
+.po-selected-meta {
+  display: flex;
+  margin-top: 3px;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.po-selected-details > small {
+  max-width: 280px;
+  margin-top: 7px;
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.po-file-actions {
+  display: flex;
+  margin-top: 11px;
+  align-items: center;
+  gap: 7px;
+}
+
+.po-file-action {
+  display: inline-flex;
+  margin: 0;
+  padding: 5px 8px;
+  align-items: center;
+  gap: 4px;
+  color: #315f8d;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
   cursor: pointer;
 }
 
-.po-file-remove:hover:not(:disabled) {
-  color: #dc2626;
+.po-file-action:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.po-file-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.po-file-action--remove {
+  color: #b91c1c;
+}
+
+.po-file-action--remove:hover:not(:disabled) {
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
 .service-report-dialog {
@@ -4951,6 +5747,11 @@ async function refreshData() {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .invoice-document-fields,
+  .invoice-operation-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .invoice-client-details {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5153,14 +5954,41 @@ async function refreshData() {
   }
 
   .invoice-client-picker,
+  .invoice-document-fields,
   .invoice-po-fields,
   .invoice-client-details,
-  .invoice-item-fields {
+  .invoice-operation-fields,
+  .invoice-item-fields,
+  .invoice-discount-fields {
     grid-template-columns: 1fr;
   }
 
   .invoice-client-address {
     grid-column: auto;
+  }
+
+  .invoice-client-master-actions {
+    margin-top: 4px;
+    justify-content: stretch;
+  }
+
+  .invoice-master-client-btn {
+    width: 100%;
+  }
+
+  .invoice-currency-section {
+    padding: 13px 14px;
+  }
+
+  .invoice-currency-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .invoice-currency-field {
+    width: 100%;
+    flex-basis: auto;
   }
 
   .po-upload-row {
@@ -5173,6 +6001,15 @@ async function refreshData() {
     width: 100%;
   }
 
+  .po-selected-file {
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 11px;
+  }
+
+  .po-preview-frame {
+    height: 136px;
+  }
+
   .invoice-items-header {
     padding: 13px 14px;
   }
@@ -5182,9 +6019,20 @@ async function refreshData() {
     padding: 12px;
   }
 
+  .invoice-item-category {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .invoice-add-row-secondary {
+    width: calc(100% - 20px);
+    margin: 10px;
+  }
+
   .invoice-sign-field {
     max-width: none;
-    margin: 10px 10px 0;
+    margin: 0;
   }
 
   .invoice-term-table-wrap {

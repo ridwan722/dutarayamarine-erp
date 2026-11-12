@@ -360,7 +360,19 @@ watch(
 );
 
 function openRevisionDialog() {
-  if (detailpenawaran.value.status !== "Draft") return;
+  if (detailpenawaran.value.status === "Cancel") return;
+
+  // Setelah invoice ada, invoice menjadi pintu revisi supaya satu tindakan
+  // memperbarui quotation, invoice utama, mirror, dan seluruh termin sekaligus.
+  const linkedInvoice = invoiceLinks.value[0];
+  if (linkedInvoice) {
+    void router.push({
+      path: "/admin/invoice",
+      query: { revisi: linkedInvoice.id },
+    });
+    return;
+  }
+
   void dialogPenawaran.value?.openRevision(detailpenawaran.value);
 }
 
@@ -535,8 +547,9 @@ const hasSpkDocument = computed(() => {
 });
 const canCreateInvoice = computed(
   () =>
-    hasSpkDocument.value &&
-    ["SPK", "INVOICE"].includes(String(detailpenawaran.value?.status || "")),
+    ["Draft", "SPK", "INVOICE"].includes(
+      String(detailpenawaran.value?.status || ""),
+    ),
 );
 const invoiceActionDisabled = computed(
   () =>
@@ -958,11 +971,6 @@ const data = reactive({
 
 async function opendialogaddinv() {
   if (invoiceLinksLoading.value) return;
-  if (!canCreateInvoice.value) {
-    return useNotificationStore().showError(
-      "Upload dokumen SPK sebelum membuat invoice",
-    );
-  }
   if (detailpenawaran.value.status === "Cancel") {
     return useNotificationStore().showError(
       "Quotation berstatus Cancel tidak dapat dibuatkan invoice",
@@ -1542,128 +1550,166 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div
-                  v-else-if="!canCreateInvoice"
+                  v-else-if="!hasSpkDocument"
                   class="spk-required-notice"
                   role="status"
                 >
-                  <v-icon size="16">mdi-alert-circle-outline</v-icon>
-                  <span>Upload SPK untuk membuka akses pembuatan invoice.</span>
+                  <v-icon size="16">mdi-information-outline</v-icon>
+                  <span>
+                    SPK belum dilampirkan. Invoice tetap dapat dibuat dan SPK
+                    bisa diunggah nanti
+                  </span>
                 </div>
 
                 <div class="action-card-grid">
-                  <v-btn
+                  <div
                     v-if="detailpenawaran.status !== 'Cancel'"
-                    variant="flat"
-                    class="corporate-btn action-card--revision"
-                    :disabled="detailpenawaran.status !== 'Draft'"
-                    @click="openRevisionDialog"
+                    class="action-card-item"
                   >
-                    <v-icon
-                      v-if="detailpenawaran.status != 'Draft'"
-                      class="action-card-lock"
-                      icon="mdi-lock-outline"
-                      aria-hidden="true"
-                    />
-                    <span class="action-card-icon">
-                      <v-icon icon="mdi-file-edit-outline" />
-                    </span>
-                    <span class="action-card-label">Revisi Quotation</span>
-                  </v-btn>
+                    <v-btn
+                      variant="flat"
+                      class="corporate-btn action-card--revision"
+                      :disabled="invoiceLinksLoading"
+                      :loading="invoiceLinksLoading"
+                      @click="openRevisionDialog"
+                    >
+                      <span class="action-card-icon">
+                        <v-icon icon="mdi-file-sync-outline" />
+                      </span>
+                      <span class="action-card-label">
+                        {{ invoiceLinks.length ? "Revisi Transaksi" : "Revisi Quotation" }}
+                      </span>
+                    </v-btn>
+                    <small>
+                      {{
+                        invoiceLinks.length
+                          ? "Merevisi invoice dan quotation bersama tanpa mereset pembayaran"
+                          : "Membuat versi baru tanpa menghapus versi sebelumnya"
+                      }}
+                    </small>
+                  </div>
 
-                  <v-btn
+                  <div
                     v-if="
                       ['Draft', 'SPK', 'INVOICE'].includes(
                         detailpenawaran.status,
                       )
                     "
-                    variant="flat"
-                    class="corporate-btn action-card--spk"
-                    @click="openSpkDialog"
+                    class="action-card-item"
                   >
-                    <span class="action-card-icon">
-                      <v-icon
-                        :icon="
-                          hasSpkDocument ? 'mdi-file-replace-outline' : 'mdi-handshake'
-                        "
-                      />
-                    </span>
-                    <span class="action-card-label">
-                      {{ hasSpkDocument ? "Ganti SPK" : "Upload SPK" }}
-                    </span>
-                  </v-btn>
-
-                  <v-btn
-                    variant="flat"
-                    class="corporate-btn action-card--invoice"
-                    :disabled="invoiceActionDisabled"
-                    :loading="invoiceLinksLoading"
-                    @click="opendialogaddinv"
-                  >
-                    <v-icon
-                      v-if="invoiceActionDisabled"
-                      class="action-card-lock"
-                      icon="mdi-lock-outline"
-                      aria-hidden="true"
-                    />
-                    <span class="action-card-icon">
-                      <v-icon icon="mdi-file-document-plus-outline" />
-                    </span>
-                    <span class="action-card-label">Buat Invoice</span>
-                  </v-btn>
-
-                  <v-btn
-                    variant="flat"
-                    class="corporate-btn action-card--po"
-                    @click="data.dialogPurchaseOrder = true"
-                  >
-                    <span class="action-card-icon">
-                      <v-icon
-                        :icon="
-                          hasPurchaseOrder
-                            ? 'mdi-check-circle-outline'
-                            : 'mdi-dolly'
-                        "
-                      />
-                    </span>
-                    <span class="action-card-label">
-                      {{ hasPurchaseOrder ? "Edit PO" : "Buat PO" }}
-                    </span>
-                  </v-btn>
-
-                  <v-btn
-                    v-if="detailpenawaran.status !== 'Cancel'"
-                    variant="flat"
-                    class="corporate-btn action-card--service-report"
-                    @click="openServiceReportPage"
-                  >
-                    <span class="action-card-icon">
-                      <v-icon
-                        :icon="
-                          quotationServiceReport
-                            ? 'mdi-hammer-screwdriver'
-                            : 'mdi-hammer-screwdriver'
-                        "
-                      />
-                    </span>
-                    <span class="action-card-label">
+                    <v-btn
+                      variant="flat"
+                      class="corporate-btn action-card--spk"
+                      @click="openSpkDialog"
+                    >
+                      <span class="action-card-icon">
+                        <v-icon
+                          :icon="
+                            hasSpkDocument ? 'mdi-file-replace-outline' : 'mdi-handshake'
+                          "
+                        />
+                      </span>
+                      <span class="action-card-label">
+                        {{ hasSpkDocument ? "Ganti SPK" : "Upload SPK" }}
+                      </span>
+                    </v-btn>
+                    <small>
                       {{
-                        quotationServiceReport
-                          ? "Edit Service Report"
-                          : "Buat Service Report"
+                        hasSpkDocument
+                          ? "Mengganti lampiran SPK tanpa mengubah progres transaksi"
+                          : "Melampirkan SPK sekarang atau nanti setelah invoice dibuat"
                       }}
-                    </span>
-                  </v-btn>
+                    </small>
+                  </div>
 
-                  <v-btn
-                    :to="`/admin/penawaran/${encodeURIComponent(String(route.params.id))}/pengeluaran`"
-                    variant="flat"
-                    class="corporate-btn action-card--expense"
+                  <div class="action-card-item">
+                    <v-btn
+                      variant="flat"
+                      class="corporate-btn action-card--invoice"
+                      :disabled="invoiceActionDisabled"
+                      :loading="invoiceLinksLoading"
+                      @click="opendialogaddinv"
+                    >
+                      <v-icon
+                        v-if="invoiceActionDisabled"
+                        class="action-card-lock"
+                        icon="mdi-lock-outline"
+                        aria-hidden="true"
+                      />
+                      <span class="action-card-icon">
+                        <v-icon icon="mdi-file-document-plus-outline" />
+                      </span>
+                      <span class="action-card-label">Buat Invoice</span>
+                    </v-btn>
+                    <small>
+                      Membuat tagihan dari quotation aktif
+                    </small>
+                  </div>
+
+                  <div class="action-card-item">
+                    <v-btn
+                      variant="flat"
+                      class="corporate-btn action-card--po"
+                      @click="data.dialogPurchaseOrder = true"
+                    >
+                      <span class="action-card-icon">
+                        <v-icon
+                          :icon="
+                            hasPurchaseOrder
+                              ? 'mdi-check-circle-outline'
+                              : 'mdi-dolly'
+                          "
+                        />
+                      </span>
+                      <span class="action-card-label">
+                        {{ hasPurchaseOrder ? "Edit PO" : "Buat PO" }}
+                      </span>
+                    </v-btn>
+                    <small>
+                      {{ hasPurchaseOrder ? "Memperbarui dokumen pembelian project" : "Membuat dokumen pembelian untuk project ini" }}
+                    </small>
+                  </div>
+
+                  <div
+                    v-if="detailpenawaran.status !== 'Cancel'"
+                    class="action-card-item"
                   >
-                    <span class="action-card-icon">
-                      <v-icon icon="mdi-cash-multiple" />
-                    </span>
-                    <span class="action-card-label"> Catatan Pengeluaran </span>
-                  </v-btn>
+                    <v-btn
+                      variant="flat"
+                      class="corporate-btn action-card--service-report"
+                      @click="openServiceReportPage"
+                    >
+                      <span class="action-card-icon">
+                        <v-icon icon="mdi-hammer-screwdriver" />
+                      </span>
+                      <span class="action-card-label">
+                        {{
+                          quotationServiceReport
+                            ? "Edit Service Report"
+                            : "Buat Service Report"
+                        }}
+                      </span>
+                    </v-btn>
+                    <small>
+                      Mencatat hasil pekerjaan lapangan yang terkait transaksi ini
+                    </small>
+                  </div>
+
+                  <div class="action-card-item">
+                    <v-btn
+                      :to="`/admin/penawaran/${encodeURIComponent(String(route.params.id))}/pengeluaran`"
+                      variant="flat"
+                      class="corporate-btn action-card--expense"
+                    >
+                      <span class="action-card-icon">
+                        <v-icon icon="mdi-cash-multiple" />
+                      </span>
+                      <span class="action-card-label"> Catatan Pengeluaran </span>
+                    </v-btn>
+                    <small>
+                      Membuka biaya project dan pembagian biaya ke invoice terkait
+                    </small>
+                  </div>
                 </div>
               </div>
               <div
@@ -2642,17 +2688,33 @@ onBeforeUnmount(() => {
   gap: 7px;
 }
 
-.action-card-grid > .corporate-btn {
+.action-card-grid > .action-card-item {
   grid-column: span 2;
 }
 
-.action-card-grid > .corporate-btn:last-child:nth-child(3n + 1) {
+.action-card-grid > .action-card-item:last-child:nth-child(3n + 1) {
   grid-column: 1 / -1;
 }
 
-.action-card-grid > .corporate-btn:nth-last-child(2):nth-child(3n + 1),
-.action-card-grid > .corporate-btn:last-child:nth-child(3n + 2) {
+.action-card-grid > .action-card-item:nth-last-child(2):nth-child(3n + 1),
+.action-card-grid > .action-card-item:last-child:nth-child(3n + 2) {
   grid-column: span 3;
+}
+
+.action-card-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.action-card-item > small {
+  display: block;
+  padding: 0 2px;
+  color: #64748b;
+  font-size: 8px;
+  line-height: 1.35;
+  text-align: left;
 }
 
 .spk-dialog-card {

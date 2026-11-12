@@ -502,9 +502,9 @@
               /> -->
               <v-list-item
                 v-if="item.status !== 'Cancel'"
-                :disabled="item.status !== 'Draft'"
-                prepend-icon="mdi-file-document-plus-outline"
-                title="Revisi"
+                prepend-icon="mdi-file-sync-outline"
+                title="Revisi transaksi"
+                subtitle="Quotation dan invoice terkait tetap sinkron"
                 @click="openDialogRevisiPenawaran(item)"
               />
               <v-divider class="my-1" />
@@ -1416,8 +1416,30 @@ function openDialogEditPenawaran(item: penawaranM) {
   void dialogPenawaran.value?.openEdit(item);
 }
 
-function openDialogRevisiPenawaran(item: penawaranM) {
-  if (item.status !== "Draft") return;
+async function openDialogRevisiPenawaran(item: penawaranM) {
+  if (item.status === "Cancel") return;
+
+  const rootId = quotationRootId(item);
+  if (item.status === "INVOICE") {
+    try {
+      const invoices = (await queryambilid(
+        `penawaran/${rootId}/invoice`,
+      )) as invoiceM[];
+      const linkedInvoice = invoices[0];
+      if (linkedInvoice?.id) {
+        await navigateTo({
+          path: "/admin/invoice",
+          query: { revisi: linkedInvoice.id },
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("Gagal membuka revisi invoice terkait:", error);
+      notificationStore.showError("Invoice terkait gagal dimuat");
+      return;
+    }
+  }
+
   void dialogPenawaran.value?.openRevision(item);
 }
 

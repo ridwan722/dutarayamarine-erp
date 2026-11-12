@@ -123,6 +123,7 @@ export interface invoiceM {
   no_inv: string;
 
   id_customer: string;
+  id_pic?: string;
   nama_customer: string;
   alamat_customer: string;
   vessel: string;
@@ -137,6 +138,13 @@ export interface invoiceM {
   id_revisi_penawaran?: string;
   nomor_revisi_penawaran?: number;
   tanggal_penawaran?: string;
+
+  // Audit revisi invoice. Field ini tidak mengubah status workflow/pembayaran.
+  invoice_revision_count?: number;
+  invoice_revision_number?: number;
+  invoice_revision_id?: string;
+  invoice_revision_at?: number;
+  invoice_revision_by?: string;
 
   tanggal: string;
   currency_inv?: invoiceCurrencyM;

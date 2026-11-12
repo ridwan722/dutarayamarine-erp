@@ -583,6 +583,23 @@
         </div>
 
         <div class="invoice-overview-actions">
+          <div class="invoice-revision-action-group">
+            <v-btn
+              color="indigo-darken-1"
+              variant="tonal"
+              size="small"
+              prepend-icon="mdi-file-sync-outline"
+              class="invoice-revision-action text-none"
+              @click="openInvoiceRevision"
+            >
+              Revisi Invoice
+            </v-btn>
+            <small>
+              Ubah data tanpa mereset status atau pembayaran; quotation terkait
+              ikut disinkronkan otomatis.
+            </small>
+          </div>
+
           <v-btn
             v-if="serviceReportQuotation && !effectiveServiceReport"
             color="teal-darken-1"
@@ -1150,6 +1167,13 @@ function openServiceReportPage() {
       invoiceId: String(invoiceDetail.value.id || route.params.id),
       mode: "buat",
     },
+  });
+}
+
+function openInvoiceRevision() {
+  void router.push({
+    path: "/admin/invoice",
+    query: { revisi: String(invoiceDetail.value.id || route.params.id) },
   });
 }
 const invoiceYear = computed(() => invoiceDetail.value.tanggal?.slice(0, 4));
@@ -2147,6 +2171,22 @@ async function ubahStatusSelesai() {
   gap: 13px;
 }
 
+.invoice-revision-action-group {
+  display: flex;
+  max-width: 300px;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.invoice-revision-action-group small {
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.invoice-revision-action,
 .invoice-payment-action,
 .invoice-service-report-action {
   font-size: 11px;
@@ -2735,6 +2775,17 @@ async function ubahStatusSelesai() {
     gap: 10px;
   }
 
+  .invoice-revision-action-group {
+    width: 100%;
+    max-width: none;
+    align-items: stretch;
+  }
+
+  .invoice-revision-action-group small {
+    text-align: left;
+  }
+
+  .invoice-revision-action,
   .invoice-payment-action,
   .invoice-service-report-action {
     width: 100%;
