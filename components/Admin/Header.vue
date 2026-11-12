@@ -2418,7 +2418,11 @@ const logout = async () => {
   .logo-box {
     width: 56px;
     height: 56px;
-    border-radius: 13px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .logo-img {
@@ -2427,12 +2431,13 @@ const logout = async () => {
   }
 
   .company-name {
-    max-width: 185px;
-    overflow: hidden;
+    max-width: none;
+    overflow: visible;
     font-size: 13px;
     line-height: 1.05;
     letter-spacing: 0.01em;
-    text-overflow: ellipsis;
+    text-overflow: clip;
+    white-space: nowrap;
   }
 
   .company-subtitle {
@@ -2480,8 +2485,12 @@ const logout = async () => {
   }
 
   .company-name {
-    max-width: 96px;
-    font-size: 12.5px;
+    max-width: none;
+    font-size: 12px;
+  }
+
+  .company-info {
+    max-width: none;
   }
 
   .company-subtitle {
@@ -2517,7 +2526,12 @@ const logout = async () => {
   }
 
   .company-name {
-    max-width: 76px;
+    max-width: none;
+    font-size: 11px;
+  }
+
+  .company-info {
+    max-width: none;
   }
 }
 </style>

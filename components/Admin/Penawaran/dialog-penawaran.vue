@@ -76,7 +76,7 @@
   <!-- Dialog Tambah / Edit Quotation -->
   <v-dialog
     v-model="data.dialogTambahPenawaran"
-    max-width="1040"
+    max-width="1120"
     scrollable
     :fullscreen="display.xs.value"
     :persistent="quotationDialogPersistent"
@@ -125,15 +125,49 @@
         </div>
       </header>
 
-      <v-card-text class="quotation-dialog-body">
+      <v-card-text class="quotation-dialog-workspace">
+        <nav class="quotation-dialog-menu" aria-label="Menu form quotation">
+          <p class="quotation-dialog-menu-label">Menu Pengisian</p>
+          <button
+            v-for="section in quotationFormSections"
+            :key="section.id"
+            type="button"
+            class="quotation-dialog-menu-item"
+            :class="{
+              'quotation-dialog-menu-item--active':
+                activeQuotationSection === section.id,
+            }"
+            :aria-current="
+              activeQuotationSection === section.id ? 'step' : undefined
+            "
+            @click="activeQuotationSection = section.id"
+          >
+            <span class="quotation-dialog-menu-number">{{ section.number }}</span>
+            <span class="quotation-dialog-menu-copy">
+              <strong>{{ section.title }}</strong>
+              <small>{{ section.description }}</small>
+            </span>
+            <v-icon
+              class="quotation-dialog-menu-arrow"
+              icon="mdi-chevron-right"
+              size="18"
+            />
+          </button>
+        </nav>
+
+        <div class="quotation-dialog-body">
+        <div
+          v-show="activeQuotationSection === 'client'"
+          class="quotation-dialog-panel"
+        >
         <section class="quotation-form-section">
-          <div class="quotation-section-header">
+          <!-- <div class="quotation-section-header">
             <div>
               <span class="quotation-section-index">01</span>
               <h3>Client Information</h3>
             </div>
             <p>Pilih perusahaan dan PIC, lalu isi vessel untuk penawaran ini.</p>
-          </div>
+          </div> -->
 
           <div class="quotation-client-picker">
             <a-date-picker-new
@@ -359,24 +393,13 @@
             />
           </div>
         </section>
+        </div>
 
-        <section class="quotation-form-section quotation-items-section">
-          <div class="quotation-section-header quotation-items-header">
-            <div>
-              <span class="quotation-section-index">02</span>
-              <h3>Quotation Items</h3>
-            </div>
-            <!-- <v-btn
-              size="small"
-              variant="outlined"
-              color="primary"
-              prepend-icon="mdi-plus"
-              class="quotation-add-row-btn text-none"
-              @click="tambahBarisPenawaran"
-            >
-              Add Item
-            </v-btn> -->
-          </div>
+        <section
+          v-show="activeQuotationSection === 'items'"
+          class="quotation-form-section quotation-items-section"
+        >
+
 
           <div
             ref="quotationItemsSortableContainer"
@@ -404,7 +427,7 @@
                   <span class="quotation-line-number">
                     {{ String(index + 1).padStart(2, "0") }}
                   </span>
-                  <span class="quotation-line-title">Item detail</span>
+
                 </div>
                 <v-btn
                   size="small"
@@ -578,12 +601,15 @@
           </button>
         </section>
 
-        <div class="quotation-commercial-grid">
+        <div
+          v-show="activeQuotationSection === 'commercial'"
+          class="quotation-commercial-grid"
+        >
           <section class="quotation-form-section quotation-summary-section">
             <div class="quotation-section-header">
               <div>
-                <span class="quotation-section-index">03</span>
-                <h3>Commercial Summary</h3>
+                <!-- <span class="quotation-section-index">03</span> -->
+                <h3>Quotation Summary</h3>
               </div>
               <p>Nilai quotation dan diskon.</p>
             </div>
@@ -647,8 +673,8 @@
           <section class="quotation-form-section quotation-sign-section">
             <div class="quotation-section-header">
               <div>
-                <span class="quotation-section-index">04</span>
-                <h3>Authorization</h3>
+                <!-- <span class="quotation-section-index">04</span> -->
+                <!-- <h3>Authorization</h3> -->
               </div>
               <p>Penandatangan quotation.</p>
             </div>
@@ -708,8 +734,11 @@
           </section>
         </div>
 
-        <section class="quotation-form-section quotation-terms-section">
-          <div class="quotation-section-header quotation-terms-header">
+        <section
+          v-show="activeQuotationSection === 'terms'"
+          class="quotation-form-section quotation-terms-section"
+        >
+          <!-- <div class="quotation-section-header quotation-terms-header">
             <div>
               <span class="quotation-section-index">05</span>
               <h3>T&amp;C</h3>
@@ -717,7 +746,7 @@
             <span class="quotation-selected-count">
               {{ (newPenawaran.termCondition ?? []).length }} selected
             </span>
-          </div>
+          </div> -->
 
           <div class="quotation-term-controls">
             <div class="quotation-term-search">
@@ -872,6 +901,7 @@
             </div>
           </div>
         </section>
+        </div>
       </v-card-text>
 
       <footer class="quotation-dialog-footer">
@@ -940,6 +970,43 @@ import {
 } from "~/utils/customer-master";
 
 type PenawaranDialogMode = "add" | "edit" | "revision";
+type QuotationFormSection =
+  | "client"
+  | "items"
+  | "commercial"
+  | "terms";
+
+const quotationFormSections = [
+  {
+    id: "client",
+    number: "01",
+    title: "Client & Subject",
+    description: "Client dan informasi quotation",
+  },
+  {
+    id: "items",
+    number: "02",
+    title: "Quotation Items",
+    description: "Item, Qty, UOM, dan harga",
+  },
+  {
+    id: "commercial",
+    number: "03",
+    title: "Quotation Summary",
+    description: "Total dan penandatangan quotation",
+  },
+  {
+    id: "terms",
+    number: "04",
+    title: "Terms & Conditions",
+    description: "Ketentuan quotation",
+  },
+] as const satisfies ReadonlyArray<{
+  id: QuotationFormSection;
+  number: string;
+  title: string;
+  description: string;
+}>;
 
 const emit = defineEmits<{
   saved: [quotation: penawaranM, mode: PenawaranDialogMode];
@@ -960,6 +1027,7 @@ const confirmationDialog = ref<InstanceType<typeof ConfirmationDialog> | null>(
 );
 const activeSuggestionIndex = ref<number | null>(null);
 const savingCustomer = ref(false);
+const activeQuotationSection = ref<QuotationFormSection>("client");
 
 const data = reactive({
   dialogTambahPenawaran: false,
@@ -1701,6 +1769,7 @@ watch(
 );
 function openDialogTambahPenawaran() {
   data.penawaranAddEdit = "add";
+  activeQuotationSection.value = "client";
   revisionSourcePenawaran.value = null;
   data.editOriginalTermconditionId = "";
   termConditionSearch.value = "";
@@ -1716,6 +1785,7 @@ function openDialogTambahPenawaran() {
 
 function openDialogEditPenawaran(item: penawaranM) {
   revisionSourcePenawaran.value = null;
+  activeQuotationSection.value = "client";
   const company =
     companies.value.find(
       (candidate) =>
@@ -2148,11 +2218,131 @@ defineExpose({
 
 /* Quotation form dialog */
 .quotation-dialog-card {
+  display: flex;
+  height: 92vh;
+  height: 92dvh;
+  min-height: 92vh;
+  min-height: 92dvh;
+  max-height: 92vh;
+  max-height: 92dvh;
+  flex-direction: column;
   color: #1f2937;
   background: #f5f6f8;
   border: 1px solid #d9dee5;
   border-radius: 10px !important;
   overflow: hidden;
+}
+
+.quotation-dialog-workspace {
+  display: flex !important;
+  min-height: 0;
+  padding: 0 !important;
+  overflow: hidden !important;
+  flex: 1 1 auto;
+  background: #f5f6f8;
+}
+
+.quotation-dialog-menu {
+  display: flex;
+  flex: 0 0 238px;
+  width: 238px;
+  padding: 18px 12px;
+  flex-direction: column;
+  gap: 6px;
+  background: #fbfcfd;
+  border-right: 1px solid #dce2e8;
+}
+
+.quotation-dialog-menu-label {
+  margin: 0 8px 8px;
+  color: #8793a0;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.quotation-dialog-menu-item {
+  position: relative;
+  display: grid;
+  min-height: 48px;
+  padding: 8px;
+  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 7px;
+  color: #657382;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    background-color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.quotation-dialog-menu-item:hover {
+  color: #354b60;
+  background: #f2f6f9;
+}
+
+.quotation-dialog-menu-item--active {
+  color: #255d91;
+  background: #edf4fa;
+  border-color: #d5e3ef;
+}
+
+.quotation-dialog-menu-item--active::before {
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: -13px;
+  width: 3px;
+  background: #2f6fa8;
+  border-radius: 0 3px 3px 0;
+  content: "";
+}
+
+.quotation-dialog-menu-number {
+  color: #96a1ab;
+  font-size: 9px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-dialog-menu-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.quotation-dialog-menu-copy strong,
+.quotation-dialog-menu-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quotation-dialog-menu-copy strong {
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.quotation-dialog-menu-copy small {
+  margin-top: 2px;
+  color: #909aa4;
+  font-size: 8px;
+}
+
+.quotation-dialog-menu-arrow {
+  color: #a4adb6;
+}
+
+.quotation-dialog-menu-item--active .quotation-dialog-menu-arrow {
+  color: #4f7ca6;
 }
 
 .quotation-dialog-header {
@@ -2242,17 +2432,27 @@ defineExpose({
 
 .quotation-dialog-body {
   display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 14px;
   padding: 18px !important;
-  background: #f5f6f8;
+  background: #ffffff;
+}
+
+.quotation-dialog-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .quotation-form-section {
-  padding: 18px;
-  background: #ffffff;
-  border: 1px solid #dfe3e8;
-  border-radius: 7px;
+  padding: 22px 24px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 
 .quotation-section-header {
@@ -2377,10 +2577,12 @@ defineExpose({
 }
 
 .quotation-currency-section {
-  padding: 13px 18px;
-  background: #ffffff;
-  border: 1px solid #dfe3e8;
-  border-radius: 7px;
+  margin: 0 24px;
+  padding: 20px 0 4px;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #e3e7eb;
+  border-radius: 0;
 }
 
 .quotation-currency-heading {
@@ -2439,11 +2641,12 @@ defineExpose({
 }
 
 .quotation-line-item {
-  margin: 14px 18px 0;
-  padding: 14px;
-  background: #fbfcfd;
-  border: 1px solid #dfe3e8;
-  border-radius: 6px;
+  margin: 0 24px;
+  padding: 20px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #e3e7eb;
+  border-radius: 0;
 }
 
 .quotation-line-item-header {
@@ -2700,14 +2903,14 @@ defineExpose({
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: calc(100% - 36px);
-  min-height: 34px;
-  margin: 12px 18px 16px;
+  width: calc(100% - 48px);
+  min-height: 38px;
+  margin: 14px 24px 22px;
   color: #4f6377;
   font: inherit;
   font-size: 11px;
   font-weight: 600;
-  background: #ffffff;
+  background: #f9fbfc;
   border: 1px dashed #b8c2cc;
   border-radius: 5px;
   cursor: pointer;
@@ -2721,7 +2924,7 @@ defineExpose({
 
 .quotation-commercial-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
 }
@@ -3057,6 +3260,19 @@ defineExpose({
 }
 
 @media (max-width: 959px) {
+  .quotation-dialog-menu {
+    flex-basis: 214px;
+    width: 214px;
+  }
+
+  .quotation-dialog-menu-item {
+    grid-template-columns: 23px minmax(0, 1fr);
+  }
+
+  .quotation-dialog-menu-arrow {
+    display: none;
+  }
+
   .quotation-dialog-body {
     padding: 14px !important;
   }
@@ -3080,6 +3296,12 @@ defineExpose({
 
 @media (max-width: 599px) {
   .quotation-dialog-card {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     border: 0;
     border-radius: 0 !important;
   }
@@ -3108,13 +3330,74 @@ defineExpose({
     display: none;
   }
 
+  .quotation-dialog-workspace {
+    flex-direction: column;
+  }
+
+  .quotation-dialog-menu {
+    display: flex;
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 6px 8px;
+    overflow-x: auto;
+    flex-direction: row;
+    gap: 4px;
+    background: #ffffff;
+    border-right: 0;
+    border-bottom: 1px solid #dce2e8;
+    scrollbar-width: none;
+  }
+
+  .quotation-dialog-menu::-webkit-scrollbar {
+    display: none;
+  }
+
+  .quotation-dialog-menu-label {
+    display: none;
+  }
+
+  .quotation-dialog-menu-item {
+    display: flex;
+    flex: 0 0 auto;
+    width: max-content;
+    min-width: 0;
+    min-height: 40px;
+    padding: 6px 10px;
+    gap: 0;
+  }
+
+  .quotation-dialog-menu-item--active::before {
+    top: auto;
+    right: 10px;
+    bottom: -7px;
+    left: 10px;
+    width: auto;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+  }
+
+  .quotation-dialog-menu-number,
+  .quotation-dialog-menu-copy small,
+  .quotation-dialog-menu-arrow {
+    display: none;
+  }
+
+  .quotation-dialog-menu-copy strong {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
   .quotation-dialog-body {
     gap: 10px;
     padding: 10px !important;
   }
 
   .quotation-form-section {
-    padding: 14px;
+    padding: 18px 16px;
+  }
+
+  .quotation-items-section {
+    padding: 0;
   }
 
   .quotation-section-header {
@@ -3155,7 +3438,8 @@ defineExpose({
   }
 
   .quotation-currency-section {
-    padding: 13px 14px;
+    margin: 0 16px;
+    padding: 18px 0 2px;
   }
 
   .quotation-currency-heading {
@@ -3174,12 +3458,12 @@ defineExpose({
   }
 
   .quotation-items-header {
-    padding: 13px 14px;
+    padding: 16px;
   }
 
   .quotation-line-item {
-    margin: 10px 10px 0;
-    padding: 12px;
+    margin: 0 16px;
+    padding: 18px 0;
   }
 
   .quotation-category {
@@ -3193,8 +3477,8 @@ defineExpose({
   }
 
   .quotation-add-row-secondary {
-    width: calc(100% - 20px);
-    margin: 10px;
+    width: calc(100% - 32px);
+    margin: 12px 16px 18px;
   }
 
   .quotation-term-controls {

@@ -2288,6 +2288,34 @@ async function refreshData() {
 }
 
 @media (max-width: 599px) {
+  .quotation-page-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .quotation-page-title {
+    width: 100%;
+  }
+
+  .quotation-page-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .quotation-create-btn {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .quotation-page-refresh-btn {
+    width: auto;
+    min-width: max-content !important;
+  }
+
   .quotation-filter-panel,
   .quotation-filter-divider,
   .quotation-filter-toggle {
