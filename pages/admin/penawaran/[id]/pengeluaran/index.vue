@@ -1770,162 +1770,241 @@ const previewImage = (dataUrl: string) => {
          EDIT DIALOG
     ================================================== -->
 
-    <div v-if="editDialog" class="edit-modal-overlay" @click.self="closeEdit">
-      <div class="edit-modal-card">
-        <div class="edit-modal-header">
+    <div v-if="editDialog" class="edit-modal-overlay">
+      <div
+        class="edit-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-expense-title"
+      >
+        <header class="edit-modal-header">
           <div class="edit-title-group">
-            <v-icon color="primary" size="18"
-              >mdi-file-document-edit-outline</v-icon
-            >
-            <span class="edit-modal-title">Edit Pengeluaran</span>
+            <span class="edit-modal-icon" aria-hidden="true">
+              <v-icon icon="mdi-cash-edit" size="21" />
+            </span>
+            <div class="edit-heading-copy">
+              <h2 id="edit-expense-title" class="edit-modal-title">
+                Edit Pengeluaran
+              </h2>
+              <p class="edit-modal-subtitle">
+                {{ detailPenawaran?.perihal || "Perbarui rincian pengeluaran" }}
+              </p>
+            </div>
           </div>
           <button
+            type="button"
             class="edit-btn-close"
             :disabled="savingEdit"
+            aria-label="Tutup dialog"
             @click="closeEdit"
           >
-            &times;
+            <v-icon icon="mdi-close" size="20" />
           </button>
-        </div>
+        </header>
 
         <div class="edit-modal-body">
-          <a-select-new
-            v-if="invoiceOptions.length > 1"
-            v-model="editForm.invoice_out"
-            label="Invoice Pengeluaran"
-            placeholder="Pilih invoice"
-            :items="invoiceSelectItems"
-            :disabled="savingEdit"
-            class="mb-2"
-          />
-          <a-date-picker-new
-            v-model="editForm.tanggal_pengeluaran"
-            label="Tanggal Pengeluaran"
-            :disabled="savingEdit"
-            class="mb-2"
-          />
-          <a-text-field-new
-            v-model="editForm.dikeluarkan_oleh"
-            label="Dikeluarkan Oleh"
-            placeholder="Nama"
-            :disabled="savingEdit"
-            class="my-2"
-          />
-          <a-textarea-new
-            v-model="editForm.keterangan"
-            label="Keterangan"
-            :disabled="savingEdit"
-          />
-          <div class="edit-form-grid">
-            <a-text-field-new
-              v-model="editForm.qty"
-              label="Qty"
-              :disabled="savingEdit"
-            />
-            <a-select-new
-              v-model="editForm.satuan"
-              label="Satuan"
-              :disabled="savingEdit"
-              :items="['Unit', 'Pcs', 'Kg', 'Lot']"
-            />
-            <a-field-number-new
-              v-model="editForm.nominal"
-              label="Nominal"
-              :disabled="savingEdit"
-            />
-          </div>
+          <section class="edit-section">
+            <div class="edit-section-heading">
+              <div>
+                <span class="edit-section-eyebrow">RINCIAN TRANSAKSI</span>
+                <h3>Informasi Pengeluaran</h3>
+              </div>
+              <p>Perbarui tanggal, penanggung jawab, dan nilai transaksi.</p>
+            </div>
 
-          <div class="edit-section-title mt-3">Informasi Vendor</div>
-          <div class="edit-form-grid">
-            <a-text-field-new
-              v-model="editForm.nama_vendor"
-              label="Nama Vendor"
-              :disabled="savingEdit"
-            />
-            <a-text-field-new
-              v-model="editForm.no_telp_vendor"
-              label="No. Telepon Vendor"
-              :disabled="savingEdit"
-            />
-            <a-text-field-new
-              v-model="editForm.lokasi_vendor"
-              label="Lokasi Vendor"
-              :disabled="savingEdit"
-            />
-          </div>
+            <div class="edit-fields">
+              <a-select-new
+                v-if="invoiceOptions.length > 1"
+                v-model="editForm.invoice_out"
+                class="edit-horizontal-field"
+                label="Invoice Pengeluaran"
+                placeholder="Pilih invoice"
+                :items="invoiceSelectItems"
+                :disabled="savingEdit"
+              />
+              <a-date-picker-new
+                v-model="editForm.tanggal_pengeluaran"
+                class="edit-horizontal-field"
+                label="Tanggal Pengeluaran"
+                :disabled="savingEdit"
+              />
+              <a-text-field-new
+                v-model="editForm.dikeluarkan_oleh"
+                class="edit-horizontal-field"
+                label="Dikeluarkan Oleh"
+                placeholder="Nama penanggung jawab"
+                :disabled="savingEdit"
+              />
+              <a-textarea-new
+                v-model="editForm.keterangan"
+                class="edit-horizontal-field edit-textarea-field"
+                label="Keterangan"
+                placeholder="Jelaskan keperluan pengeluaran"
+                :disabled="savingEdit"
+                :rows="2"
+              />
+              <a-field-number-new
+                v-model="editForm.qty"
+                class="edit-horizontal-field"
+                label="Qty"
+                :disabled="savingEdit"
+              />
+              <a-select-new
+                v-model="editForm.satuan"
+                class="edit-horizontal-field"
+                label="Satuan"
+                :disabled="savingEdit"
+                :items="['Unit', 'Pcs', 'Kg', 'Lot']"
+              />
+              <a-field-number-new
+                v-model="editForm.nominal"
+                class="edit-horizontal-field"
+                label="Nominal"
+                placeholder="Masukkan nominal"
+                :disabled="savingEdit"
+              />
+              <a-select-new
+                v-model="editForm.status_pengeluaran"
+                class="edit-horizontal-field"
+                :items="['Hutang', 'Lunas']"
+                label="Status"
+                :disabled="savingEdit"
+              />
+            </div>
+          </section>
 
-          <v-divider class="my-2" />
-          <div class="edit-upload-row">
-            <div class="edit-upload-wrapper">
-              <label for="edit-upload-bukti" class="edit-upload-label"
-                >Bill Upload</label
-              >
-              <div class="edit-upload-box">
-                <input
-                  id="edit-upload-bukti"
-                  type="file"
-                  multiple
-                  class="edit-file-input"
-                  :disabled="savingEdit"
-                  @change="addEditFile"
-                />
-                <div class="edit-upload-icon">↑</div>
-                <div>
-                  <div class="edit-upload-title">Pilih File</div>
-                  <div class="edit-upload-info">Ukuran file bebas</div>
+          <section class="edit-section edit-vendor-section">
+            <div class="edit-section-heading">
+              <div>
+                <h3>Informasi Vendor</h3>
+              </div>
+              <p>Data vendor dapat dilengkapi jika tersedia.</p>
+            </div>
+
+            <div class="edit-fields edit-vendor-fields">
+              <a-text-field-new
+                v-model="editForm.nama_vendor"
+                class="edit-horizontal-field"
+                label="Nama Vendor"
+                placeholder="Nama vendor"
+                :disabled="savingEdit"
+              />
+              <a-text-field-new
+                v-model="editForm.no_telp_vendor"
+                class="edit-horizontal-field"
+                label="No. Telepon Vendor"
+                placeholder="Nomor telepon vendor"
+                :disabled="savingEdit"
+              />
+              <a-text-field-new
+                v-model="editForm.lokasi_vendor"
+                class="edit-horizontal-field"
+                label="Lokasi Vendor"
+                placeholder="Alamat atau lokasi vendor"
+                :disabled="savingEdit"
+              />
+            </div>
+          </section>
+
+          <section class="edit-section edit-attachment-section">
+            <div class="edit-section-heading">
+              <div>
+                <h3>Bukti Pengeluaran</h3>
+              </div>
+              <p>Kelola bukti transaksi yang tersimpan dan tambahkan file.</p>
+            </div>
+
+            <div class="edit-upload-field">
+              <label for="edit-upload-bukti" class="edit-upload-label">
+                Lampiran
+              </label>
+              <div class="edit-upload-content">
+                <div class="edit-upload-box">
+                  <input
+                    id="edit-upload-bukti"
+                    type="file"
+                    multiple
+                    class="edit-file-input"
+                    :disabled="savingEdit"
+                    @change="addEditFile"
+                  />
+                  <span class="edit-upload-icon" aria-hidden="true">
+                    <v-icon icon="mdi-tray-arrow-up" size="20" />
+                  </span>
+                  <span class="edit-upload-copy">
+                    <strong>Pilih file untuk diunggah</strong>
+                    <small>Klik area ini untuk memilih file</small>
+                  </span>
+                </div>
+
+                <div
+                  v-if="editForm.doc_pengeluaran.length || editFiles.length"
+                  class="edit-files-panel"
+                >
+                  <div class="edit-files-heading">
+                    <span>File terpilih</span>
+                    <span class="edit-file-count">
+                      {{ editForm.doc_pengeluaran.length + editFiles.length }} file
+                    </span>
+                  </div>
+                  <div class="edit-file-list">
+                    <div
+                      v-for="(file, index) in editForm.doc_pengeluaran"
+                      :key="`${file.name}-${index}`"
+                      class="edit-file-item"
+                    >
+                      <span class="edit-file-main">
+                        <v-icon icon="mdi-file-outline" size="18" />
+                        <span class="edit-file-name">{{ file.name }}</span>
+                      </span>
+                      <button
+                        type="button"
+                        class="edit-file-remove"
+                        :disabled="savingEdit"
+                        :aria-label="`Hapus ${file.name}`"
+                        @click="editForm.doc_pengeluaran.splice(index, 1)"
+                      >
+                        <v-icon icon="mdi-close" size="17" />
+                      </button>
+                    </div>
+                    <div
+                      v-for="(file, index) in editFiles"
+                      :key="`${file.name}-${file.lastModified}-${index}`"
+                      class="edit-file-item"
+                    >
+                      <span class="edit-file-main">
+                        <v-icon icon="mdi-file-outline" size="18" />
+                        <span class="edit-file-name">{{ file.name }}</span>
+                      </span>
+                      <button
+                        type="button"
+                        class="edit-file-remove"
+                        :disabled="savingEdit"
+                        :aria-label="`Hapus ${file.name}`"
+                        @click="editFiles.splice(index, 1)"
+                      >
+                        <v-icon icon="mdi-close" size="17" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="edit-files-empty">
+                  <span class="edit-files-empty-icon" aria-hidden="true">
+                    <v-icon icon="mdi-file-multiple-outline" size="19" />
+                  </span>
+                  <span class="edit-files-empty-copy">
+                    <strong>Belum ada file</strong>
+                    <small>File yang dipilih akan tampil di sini.</small>
+                  </span>
                 </div>
               </div>
             </div>
-            <div
-              v-if="editForm.doc_pengeluaran.length || editFiles.length"
-              class="edit-files-wrapper"
-            >
-              <div class="edit-upload-label">File Terpilih</div>
-              <div class="edit-file-list">
-                <div
-                  v-for="(file, index) in editForm.doc_pengeluaran"
-                  :key="`${file.name}-${index}`"
-                  class="edit-file-item"
-                >
-                  <div class="edit-file-name">📄 {{ file.name }}</div>
-                  <button
-                    type="button"
-                    class="edit-file-remove"
-                    :disabled="savingEdit"
-                    @click="editForm.doc_pengeluaran.splice(index, 1)"
-                  >
-                    &times;
-                  </button>
-                </div>
-                <div
-                  v-for="(file, index) in editFiles"
-                  :key="`${file.name}-${file.lastModified}-${index}`"
-                  class="edit-file-item"
-                >
-                  <div class="edit-file-name">📄 {{ file.name }}</div>
-                  <button
-                    type="button"
-                    class="edit-file-remove"
-                    :disabled="savingEdit"
-                    @click="editFiles.splice(index, 1)"
-                  >
-                    &times;
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <a-select-new
-            v-model="editForm.status_pengeluaran"
-            :items="['Hutang', 'Lunas']"
-            label="Status"
-            :disabled="savingEdit"
-            class="mt-2"
-          />
+          </section>
         </div>
 
-        <div class="edit-modal-footer">
+        <footer class="edit-modal-footer">
           <button
+            type="button"
             class="edit-btn edit-btn-secondary"
             :disabled="savingEdit"
             @click="closeEdit"
@@ -1933,13 +2012,14 @@ const previewImage = (dataUrl: string) => {
             Batal
           </button>
           <button
+            type="button"
             class="edit-btn edit-btn-primary"
             :disabled="savingEdit"
             @click="saveEdit"
           >
             {{ savingEdit ? "Memproses..." : "Simpan Pengeluaran" }}
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   </v-container>
@@ -2467,9 +2547,11 @@ const previewImage = (dataUrl: string) => {
 .attachment-thumbnail,
 .attachment-thumbnail-placeholder {
   display: block;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
 }
 
 .attachment-thumbnail {
@@ -2481,8 +2563,8 @@ const previewImage = (dataUrl: string) => {
 }
 
 .attachment-thumbnail-mobile {
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
 }
 
 /* =====================================================
@@ -3145,6 +3227,628 @@ const previewImage = (dataUrl: string) => {
 @media (max-width: 380px) {
   .table-actions {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Edit expense dialog, aligned with the create dialog */
+.edit-modal-overlay {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(3px);
+}
+
+.edit-modal-card {
+  width: min(900px, 100%);
+  max-width: 900px;
+  max-height: min(92vh, 980px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.edit-modal-header,
+.edit-modal-footer {
+  flex: 0 0 auto;
+  background: #fff;
+}
+
+.edit-modal-header {
+  min-height: 82px;
+  padding: 18px 28px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.edit-title-group {
+  min-width: 0;
+  gap: 14px;
+}
+
+.edit-modal-icon {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.edit-heading-copy {
+  min-width: 0;
+}
+
+.edit-modal-title {
+  margin: 0;
+  color: #202939;
+  font-size: 18px;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.edit-modal-subtitle {
+  max-width: 650px;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #788397;
+  font-size: 12px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-btn-close {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #64748b;
+}
+
+.edit-btn-close:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.edit-modal-body {
+  padding: 6px 30px 18px;
+  background: #fff;
+  overflow-y: auto;
+}
+
+.edit-section {
+  padding: 21px 0 24px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.edit-section:last-child {
+  padding-bottom: 12px;
+  border-bottom: 0;
+}
+
+.edit-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.edit-section-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #8b95a5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.edit-section-heading h3 {
+  margin: 0;
+  color: #202939;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.edit-section-heading p {
+  margin: 0 0 1px;
+  color: #8791a1;
+  font-size: 12px;
+  text-align: right;
+}
+
+.edit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.edit-fields :deep(.edit-horizontal-field) {
+  display: grid !important;
+  grid-template-columns: minmax(165px, 205px) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 24px;
+  row-gap: 6px;
+  width: 100%;
+  margin: 0;
+}
+
+.edit-fields :deep(.edit-horizontal-field > .input-label) {
+  grid-column: 1;
+  grid-row: 1;
+  color: #687385;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.edit-fields :deep(.edit-horizontal-field > .input-wrapper),
+.edit-fields :deep(.edit-horizontal-field > .select-wrapper),
+.edit-fields :deep(.edit-horizontal-field > .date-input-wrapper) {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.edit-fields :deep(.edit-horizontal-field > .hint-message),
+.edit-fields :deep(.edit-horizontal-field > .error-message) {
+  grid-column: 2;
+  margin: 0;
+}
+
+.edit-fields :deep(.edit-horizontal-field .input-field) {
+  width: 100%;
+  min-height: 48px;
+  height: 48px;
+  padding: 10px 14px;
+  border: 1px solid #e1e6ed;
+  border-radius: 11px;
+  background-color: #fff;
+  color: #202939;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.edit-fields :deep(.edit-horizontal-field .input-field::placeholder) {
+  color: #a1a9b6;
+}
+
+.edit-fields :deep(.edit-horizontal-field .input-field:hover:not(:disabled)) {
+  border-color: #cbd5e1;
+}
+
+.edit-fields :deep(.edit-horizontal-field .input-field:focus) {
+  border-color: #76a8f7;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  outline: none;
+}
+
+.edit-fields :deep(.edit-horizontal-field .input-field:disabled) {
+  border-color: #e5e9ef;
+  background: #f8fafc;
+  color: #8490a0;
+}
+
+.edit-fields :deep(.edit-horizontal-field .select-field) {
+  padding-right: 40px;
+}
+
+.edit-fields :deep(.edit-horizontal-field .select-arrow) {
+  right: 15px;
+  color: #8b95a5;
+}
+
+.edit-fields :deep(.edit-horizontal-field .date-input) {
+  padding-right: 42px;
+}
+
+.edit-fields :deep(.edit-horizontal-field .calendar-icon) {
+  right: 14px;
+  color: #8791a1;
+}
+
+.edit-fields :deep(.edit-horizontal-field .spinner) {
+  right: 8px;
+}
+
+.edit-fields :deep(.edit-textarea-field .input-wrapper) {
+  align-self: start;
+}
+
+.edit-fields :deep(.edit-textarea-field .textarea-field) {
+  min-height: 78px;
+  height: auto;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.edit-fields :deep(.edit-textarea-field > .input-label) {
+  align-self: start;
+  padding-top: 14px;
+}
+
+.edit-vendor-section {
+  padding-top: 16px;
+  padding-bottom: 18px;
+}
+
+.edit-vendor-fields {
+  gap: 10px;
+}
+
+.edit-vendor-fields :deep(.edit-horizontal-field > .input-label) {
+  font-size: 13px;
+}
+
+.edit-vendor-fields :deep(.edit-horizontal-field .input-field) {
+  min-height: 40px;
+  height: 40px;
+  padding: 8px 13px;
+  font-size: 13px;
+}
+
+.edit-upload-field {
+  display: block;
+}
+
+.edit-upload-label {
+  display: block;
+  margin-bottom: 10px;
+  color: #687385;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.edit-upload-content {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.9fr) minmax(0, 1.1fr);
+  align-items: stretch;
+  gap: 16px;
+  min-width: 0;
+}
+
+.edit-upload-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 116px;
+  padding: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 11px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.edit-upload-box:hover {
+  border-color: #8baee6;
+  background: #f4f8ff;
+}
+
+.edit-file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.edit-upload-icon,
+.edit-files-empty-icon {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #e5eaf1;
+  border-radius: 10px;
+  background: #fff;
+  color: #5278b5;
+}
+
+.edit-upload-copy,
+.edit-files-empty-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.edit-upload-copy strong {
+  color: #344054;
+  font-size: 13px;
+}
+
+.edit-upload-copy small,
+.edit-files-empty-copy small {
+  color: #929bad;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.edit-files-panel,
+.edit-files-empty {
+  min-height: 116px;
+  min-width: 0;
+  border: 1px solid #e7ebf0;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.edit-files-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+.edit-files-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  color: #798496;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.edit-file-count {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.edit-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 116px;
+  overflow-y: auto;
+}
+
+.edit-file-item {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 1px solid #e7ebf0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.edit-file-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #64748b;
+}
+
+.edit-file-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #475569;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-file-remove {
+  display: grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #8893a3;
+  cursor: pointer;
+}
+
+.edit-file-remove:hover:not(:disabled) {
+  background: #fff1f2;
+  color: #dc2626;
+}
+
+.edit-files-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  background: #fbfcfe;
+}
+
+.edit-files-empty-icon {
+  color: #8994a5;
+}
+
+.edit-files-empty-copy strong {
+  color: #596579;
+  font-size: 12px;
+}
+
+.edit-modal-footer {
+  min-height: 76px;
+  padding: 14px 30px;
+  border-top: 1px solid #edf0f4;
+}
+
+.edit-btn {
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.edit-btn-secondary {
+  border-color: #e1e6ed;
+  color: #475467;
+}
+
+.edit-btn-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.edit-btn-primary {
+  background: #2563eb;
+}
+
+.edit-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.edit-btn:disabled,
+.edit-btn-close:disabled,
+.edit-file-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 700px) {
+  .edit-modal-overlay {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .edit-modal-card {
+    max-height: 96vh;
+    border-radius: 16px 16px 12px 12px;
+  }
+
+  .edit-modal-header {
+    min-height: 72px;
+    padding: 14px 18px;
+  }
+
+  .edit-modal-icon {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
+  }
+
+  .edit-modal-title {
+    font-size: 16px;
+  }
+
+  .edit-modal-subtitle {
+    max-width: calc(100vw - 120px);
+    font-size: 11px;
+  }
+
+  .edit-modal-body {
+    padding: 4px 18px 14px;
+  }
+
+  .edit-section {
+    padding: 19px 0 21px;
+  }
+
+  .edit-section-heading {
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  .edit-section-heading p {
+    margin-top: 5px;
+    text-align: left;
+  }
+
+  .edit-fields {
+    gap: 15px;
+  }
+
+  .edit-fields :deep(.edit-horizontal-field) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 7px;
+  }
+
+  .edit-fields :deep(.edit-horizontal-field > .input-label),
+  .edit-fields :deep(.edit-horizontal-field > .input-wrapper),
+  .edit-fields :deep(.edit-horizontal-field > .select-wrapper),
+  .edit-fields :deep(.edit-horizontal-field > .date-input-wrapper),
+  .edit-fields :deep(.edit-horizontal-field > .hint-message),
+  .edit-fields :deep(.edit-horizontal-field > .error-message) {
+    grid-column: 1;
+  }
+
+  .edit-fields :deep(.edit-horizontal-field > .input-label) {
+    grid-row: 1;
+    font-size: 13px;
+  }
+
+  .edit-fields :deep(.edit-horizontal-field > .input-wrapper),
+  .edit-fields :deep(.edit-horizontal-field > .select-wrapper),
+  .edit-fields :deep(.edit-horizontal-field > .date-input-wrapper) {
+    grid-row: 2;
+  }
+
+  .edit-fields :deep(.edit-textarea-field > .input-label) {
+    padding-top: 0;
+  }
+
+  .edit-vendor-section {
+    padding-top: 15px;
+    padding-bottom: 17px;
+  }
+
+  .edit-vendor-fields {
+    gap: 11px;
+  }
+
+  .edit-vendor-fields :deep(.edit-horizontal-field .input-field) {
+    min-height: 42px;
+    height: 42px;
+  }
+
+  .edit-upload-content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .edit-upload-label {
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+
+  .edit-upload-box,
+  .edit-files-panel,
+  .edit-files-empty {
+    min-height: 82px;
+  }
+
+  .edit-upload-box,
+  .edit-files-empty {
+    padding: 12px;
+  }
+
+  .edit-file-list {
+    max-height: 180px;
+  }
+
+  .edit-modal-footer {
+    min-height: 68px;
+    padding: 12px 18px;
   }
 }
 </style>

@@ -450,18 +450,34 @@ function formatRevisionDate(quotation: penawaranM) {
   }).format(date);
 }
 
-// Tautan invoice bukan data utama halaman, jadi muat independen di background
-// tanpa menahan preview quotation atau menampilkan loader global.
-void queryambilid(`penawaran/${penawaranId}/invoice`)
-  .then((invoices) => {
+// Invoice dimuat ulang setelah dialog membuat invoice agar ringkasan dan status
+// halaman langsung memakai data terbaru. Nomor permintaan mencegah respons lama
+// menimpa hasil refresh yang lebih baru.
+let invoiceLinksRequestId = 0;
+async function refreshInvoiceLinks() {
+  const requestId = ++invoiceLinksRequestId;
+  invoiceLinksLoading.value = true;
+
+  try {
+    const invoices = await queryambilid(`penawaran/${penawaranId}/invoice`);
+    if (requestId !== invoiceLinksRequestId) return;
     invoiceLinks.value = invoices as (invoiceM & { id: string })[];
-  })
-  .catch((error) => {
-    console.error("Gagal memuat tautan invoice:", error);
-  })
-  .finally(() => {
-    invoiceLinksLoading.value = false;
-  });
+  } catch (error) {
+    if (requestId === invoiceLinksRequestId) {
+      console.error("Gagal memuat tautan invoice:", error);
+    }
+  } finally {
+    if (requestId === invoiceLinksRequestId) {
+      invoiceLinksLoading.value = false;
+    }
+  }
+}
+
+function handleInvoiceSaved() {
+  void refreshInvoiceLinks();
+}
+
+void refreshInvoiceLinks();
 
 void queryambilid(`penawaran/${penawaranId}/purchaseorder`)
   .then((purchaseOrders) => {
@@ -1149,7 +1165,11 @@ onBeforeUnmount(() => {
   <DialogPenawaran ref="dialogPenawaran" @saved="handlePenawaranDialogSaved" />
 
   <!-- DIALOG BUAT INVOICE -->
-  <dialog-buat-invoice v-model="data.dialogAdd" :penawaran="detailpenawaran" />
+  <dialog-buat-invoice
+    v-model="data.dialogAdd"
+    :penawaran="detailpenawaran"
+    @saved="handleInvoiceSaved"
+  />
   <!-- @saved="navigateTo('/admin/invoice')" -->
 
   <dialog-buat-pengeluaran
