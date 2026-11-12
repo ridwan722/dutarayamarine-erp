@@ -45,6 +45,7 @@ let photoDraftSequence = 0;
 let photoSortable: Sortable | null = null;
 
 type ProjectLanguage = "id" | "en";
+type ProjectFormSection = "main" | "narrative" | "gallery" | "closing";
 
 interface TranslationResponse {
   translatedText: string;
@@ -69,6 +70,43 @@ const data = reactive({
   dialogDetail: false,
   formMode: "add" as "add" | "edit",
 });
+const activeFormSection = ref<ProjectFormSection>("main");
+const projectFormSections = [
+  {
+    id: "main",
+    number: "01",
+    title: "Informasi Utama",
+    description: "Judul dan subjudul",
+    icon: "mdi-card-text-outline",
+  },
+  {
+    id: "narrative",
+    number: "02",
+    title: "Narasi Project",
+    description: "Konten dua bahasa",
+    icon: "mdi-text-box-multiple-outline",
+  },
+  {
+    id: "gallery",
+    number: "03",
+    title: "Galeri Foto",
+    description: "Foto dan urutan cover",
+    icon: "mdi-image-multiple-outline",
+  },
+  {
+    id: "closing",
+    number: "04",
+    title: "Paragraf Penutup",
+    description: "Kesimpulan project",
+    icon: "mdi-text-box-check-outline",
+  },
+] as const satisfies ReadonlyArray<{
+  id: ProjectFormSection;
+  number: string;
+  title: string;
+  description: string;
+  icon: string;
+}>;
 
 const projectHeaders = [
   { title: "No.", value: "no", sortable: false, width: "52px" },
@@ -576,6 +614,7 @@ function openDialogAddProject() {
   resetTranslationState();
   resetPendingFiles();
   data.formMode = "add";
+  activeFormSection.value = "main";
   projectForm.value = emptyProject();
   initializePhotoDrafts();
   data.dialogForm = true;
@@ -585,6 +624,7 @@ function openDialogEditProject(project: projectWebM) {
   resetTranslationState();
   resetPendingFiles();
   data.formMode = "edit";
+  activeFormSection.value = "main";
   projectForm.value = cloneProject(project);
   initializePhotoDrafts();
   if (!projectForm.value.paragraf.length) projectForm.value.paragraf = [""];
@@ -1174,7 +1214,7 @@ async function deleteProject(project: projectWebM) {
 
     <v-dialog
       v-model="data.dialogForm"
-      max-width="860"
+      max-width="1120"
       :fullscreen="$vuetify.display.smAndDown"
       persistent
     >
@@ -1182,7 +1222,13 @@ async function deleteProject(project: projectWebM) {
         <header class="dialog-header">
           <div class="dialog-heading">
             <span class="dialog-icon"
-              ><v-icon icon="mdi-briefcase-edit-outline" size="20"
+              ><v-icon
+                :icon="
+                  data.formMode === 'add'
+                    ? 'mdi-briefcase-plus-outline'
+                    : 'mdi-briefcase-edit-outline'
+                "
+                size="22"
             /></span>
             <div>
               <h2>
@@ -1206,8 +1252,36 @@ async function deleteProject(project: projectWebM) {
           </button>
         </header>
 
-        <div class="dialog-body">
-          <section class="dialog-section">
+        <div class="dialog-workspace">
+          <nav class="dialog-menu" aria-label="Tahapan form project">
+            <p class="dialog-menu-label">Menu Pengisian</p>
+            <button
+              v-for="section in projectFormSections"
+              :key="section.id"
+              type="button"
+              class="dialog-menu-item"
+              :class="{ 'dialog-menu-item--active': activeFormSection === section.id }"
+              :aria-current="activeFormSection === section.id ? 'step' : undefined"
+              @click="activeFormSection = section.id"
+            >
+              <span class="dialog-menu-number">{{ section.number }}</span>
+              <span class="dialog-menu-icon">
+                <v-icon :icon="section.icon" size="18" />
+              </span>
+              <span class="dialog-menu-copy">
+                <strong>{{ section.title }}</strong>
+                <small>{{ section.description }}</small>
+              </span>
+              <v-icon
+                class="dialog-menu-arrow"
+                icon="mdi-chevron-right"
+                size="18"
+              />
+            </button>
+          </nav>
+
+          <div class="dialog-body">
+          <section v-show="activeFormSection === 'main'" class="dialog-section">
             <div class="dialog-section-heading">
               <span>01</span>
               <div>
@@ -1229,19 +1303,16 @@ async function deleteProject(project: projectWebM) {
             </div>
           </section>
 
-          <section class="dialog-section">
+          <section v-show="activeFormSection === 'narrative'" class="dialog-section">
             <div class="dialog-section-heading section-heading-action">
               <span>02</span>
               <div>
-                <h3>Isi Project</h3>
+                <h3>Narasi Project</h3>
                 <p>
                   Isi salah satu bahasa; kolom pasangannya diterjemahkan
                   otomatis.
                 </p>
               </div>
-              <button type="button" class="add-inline" @click="addParagraph">
-                <v-icon icon="mdi-plus" size="15" /> Tambah Paragraf
-              </button>
             </div>
             <div class="paragraph-list">
               <div
@@ -1292,16 +1363,19 @@ async function deleteProject(project: projectWebM) {
                 </button>
               </div>
             </div>
+             <button type="button" class="add-inline" @click="addParagraph">
+                <v-icon icon="mdi-plus" size="15" /> Tambah Paragraf
+              </button>
           </section>
 
-          <section class="dialog-section">
+          <section v-show="activeFormSection === 'gallery'" class="dialog-section">
             <div class="dialog-section-heading">
               <span>03</span>
               <div>
                 <h3>Galeri Foto</h3>
                 <p>
                   Maksimal 12 foto. Geser tombol nomor untuk mengatur urutan;
-                  foto pertama menjadi cover.
+                  <strong>foto pertama menjadi cover.</strong>
                 </p>
               </div>
             </div>
@@ -1317,8 +1391,12 @@ async function deleteProject(project: projectWebM) {
               /></span>
               <span
                 ><strong>Pilih foto project</strong
-                ><small>JPG, PNG, WEBP, atau format gambar lainnya</small></span
+                ><small
+                  >JPG, PNG, atau WEBP · maksimal 10 MB per foto ·
+                  {{ photoDrafts.length }}/12 foto</small
+                ></span
               >
+              <span class="upload-cta">Pilih File</span>
             </label>
 
             <div v-if="photoDrafts.length" ref="photoGrid" class="photo-grid">
@@ -1358,14 +1436,13 @@ async function deleteProject(project: projectWebM) {
             </div>
           </section>
 
-          <section class="dialog-section">
+          <section v-show="activeFormSection === 'closing'" class="dialog-section">
             <div class="dialog-section-heading">
               <span>04</span>
               <div>
                 <h3>Paragraf Penutup</h3>
                 <p>
-                  Isi salah satu bahasa; kolom pasangannya diterjemahkan
-                  otomatis.
+                  Tambahkan kesimpulan project dalam dua bahasa.
                 </p>
               </div>
             </div>
@@ -1398,11 +1475,16 @@ async function deleteProject(project: projectWebM) {
               />
             </div>
           </section>
+          </div>
         </div>
 
         <footer class="dialog-footer">
-          <p v-if="isTranslating">Menerjemahkan konten project...</p>
+          <p v-if="isTranslating">
+            <v-icon icon="mdi-translate" size="16" />
+            Menerjemahkan konten project...
+          </p>
           <p v-else-if="isSaving && pendingFiles.length">
+            <v-icon icon="mdi-image-sync-outline" size="16" />
             {{
               photoProcessingProgress
                 ? `Menyiapkan foto ${photoProcessingProgress}%`
@@ -1410,6 +1492,7 @@ async function deleteProject(project: projectWebM) {
             }}
           </p>
           <p v-else>
+            <v-icon icon="mdi-information-outline" size="16" />
             Pastikan urutan paragraf dan foto sudah sesuai sebelum disimpan.
           </p>
           <div>
@@ -2712,6 +2795,426 @@ async function deleteProject(project: projectWebM) {
   }
   .detail-language-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Corporate create/edit dialog refresh */
+.project-dialog {
+  height: min(90vh, 780px);
+  max-height: min(94vh, 920px);
+  background: #f4f6f8;
+  border-color: #d6dde4;
+  border-radius: 12px;
+}
+.dialog-workspace {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  background: #f4f6f8;
+}
+.dialog-menu {
+  display: flex;
+  flex: 0 0 246px;
+  width: 246px;
+  padding: 18px 12px;
+  flex-direction: column;
+  gap: 6px;
+  background: #fbfcfd;
+  border-right: 1px solid #dce2e8;
+}
+.dialog-menu-label {
+  margin: 0 8px 8px;
+  color: #8793a0;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.dialog-menu-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 25px 32px minmax(0, 1fr) 18px;
+  min-height: 58px;
+  padding: 8px 8px;
+  align-items: center;
+  gap: 7px;
+  color: #657382;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    background-color 0.16s ease,
+    border-color 0.16s ease;
+}
+.dialog-menu-item:hover {
+  color: #354b60;
+  background: #f2f6f9;
+}
+.dialog-menu-item--active {
+  color: #255d91;
+  background: #edf4fa;
+  border-color: #d5e3ef;
+}
+.dialog-menu-item--active::before {
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: -13px;
+  width: 3px;
+  background: #2f6fa8;
+  border-radius: 0 3px 3px 0;
+  content: "";
+}
+.dialog-menu-number {
+  color: #96a1ab;
+  font-size: 9px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.dialog-menu-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: #6c7e8f;
+  background: #f0f3f6;
+  border-radius: 6px;
+}
+.dialog-menu-item--active .dialog-menu-icon {
+  color: #28669d;
+  background: #dfeaf4;
+}
+.dialog-menu-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.dialog-menu-copy strong {
+  overflow: hidden;
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dialog-menu-copy small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #909aa4;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dialog-menu-arrow {
+  color: #a4adb6;
+}
+.dialog-menu-item--active .dialog-menu-arrow {
+  color: #4f7ca6;
+}
+.project-dialog .dialog-header {
+  min-height: 78px;
+  padding: 15px 20px;
+}
+.dialog-heading {
+  gap: 12px;
+}
+.dialog-icon {
+  flex-basis: 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+}
+.project-dialog .dialog-heading h2 {
+  font-size: 18px;
+}
+.dialog-heading p {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.project-dialog .dialog-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+}
+.project-dialog .dialog-body {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 14px;
+  gap: 11px;
+}
+.project-dialog .dialog-section {
+  min-height: 100%;
+  padding: 19px;
+  border-color: #dce3e9;
+  border-radius: 8px;
+}
+.dialog-section-heading {
+  margin-bottom: 16px;
+  gap: 10px;
+}
+.dialog-section-heading > span {
+  flex-basis: 30px;
+  width: 30px;
+  height: 28px;
+  color: #516a82;
+  font-size: 9px;
+  background: #edf3f8;
+  border-color: #d9e4ed;
+  border-radius: 6px;
+}
+.dialog-section-heading h3 {
+  font-size: 14px;
+}
+.dialog-section-heading p {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.form-grid,
+.translation-fields {
+  gap: 16px;
+}
+.paragraph-list {
+  gap: 11px;
+}
+.paragraph-item {
+  grid-template-columns: 28px minmax(0, 1fr) 34px;
+  padding: 13px;
+  gap: 10px;
+  background: #fafbfd;
+  border: 1px solid #e2e7ec;
+  border-radius: 8px;
+}
+.paragraph-number {
+  width: 28px;
+  height: 28px;
+  margin-top: 4px;
+  color: #48647d;
+  font-size: 10px;
+  background: #eaf1f6;
+  border-radius: 6px;
+}
+.remove-item {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+.add-inline {
+  min-height: 34px;
+  margin-top: 11px;
+  padding: 0 11px;
+  gap: 5px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+.photo-uploader {
+  position: relative;
+  min-height: 92px;
+  padding: 16px 18px;
+  justify-content: flex-start;
+  border-radius: 8px;
+}
+.upload-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+}
+.photo-uploader > span:nth-child(3) {
+  min-width: 0;
+  flex: 1;
+}
+.photo-uploader strong {
+  font-size: 12px;
+}
+.photo-uploader small {
+  margin-top: 4px;
+  font-size: 10px;
+}
+.upload-cta {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  color: #315f8c;
+  font-size: 10px;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid #ccdae6;
+  border-radius: 6px;
+}
+.photo-grid {
+  gap: 10px;
+  margin-top: 12px;
+}
+.photo-preview {
+  border-radius: 7px;
+}
+.photo-preview img {
+  height: 124px;
+}
+.photo-preview figcaption {
+  padding: 7px 9px;
+  font-size: 10px;
+}
+.new-badge,
+.cover-badge {
+  padding: 3px 7px;
+  font-size: 8px;
+}
+.cover-badge {
+  bottom: 33px;
+}
+.project-dialog .dialog-footer {
+  min-height: 70px;
+  padding: 12px 18px;
+}
+.dialog-footer p {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+.dialog-footer > div {
+  gap: 9px;
+}
+.dialog-cancel,
+.dialog-save {
+  min-width: 105px;
+  height: 38px !important;
+  font-size: 11px !important;
+  border-radius: 6px !important;
+}
+.dialog-save {
+  min-width: 154px;
+}
+@media (max-width: 960px) {
+  .dialog-menu {
+    flex-basis: 220px;
+    width: 220px;
+  }
+  .dialog-menu-item {
+    grid-template-columns: 24px 30px minmax(0, 1fr);
+  }
+  .dialog-menu-arrow {
+    display: none;
+  }
+  .photo-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .project-dialog {
+    height: 100%;
+    max-height: none;
+  }
+  .dialog-workspace {
+    flex-direction: column;
+  }
+  .dialog-menu {
+    display: flex;
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 8px;
+    overflow-x: auto;
+    flex-direction: row;
+    gap: 6px;
+    background: #fff;
+    border-right: 0;
+    border-bottom: 1px solid #dce2e8;
+    scrollbar-width: none;
+  }
+  .dialog-menu::-webkit-scrollbar {
+    display: none;
+  }
+  .dialog-menu-label {
+    display: none;
+  }
+  .dialog-menu-item {
+    display: flex;
+    flex: 0 0 auto;
+    min-width: 142px;
+    min-height: 46px;
+    padding: 6px 8px;
+  }
+  .dialog-menu-item--active::before {
+    top: auto;
+    right: 10px;
+    bottom: -9px;
+    left: 10px;
+    width: auto;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+  }
+  .dialog-menu-number,
+  .dialog-menu-copy small,
+  .dialog-menu-arrow {
+    display: none;
+  }
+  .dialog-menu-copy strong {
+    font-size: 10px;
+  }
+  .dialog-menu-icon {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+  }
+  .dialog-header {
+    min-height: 72px;
+    padding: 13px 14px;
+  }
+  .dialog-icon {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
+  }
+  .dialog-heading h2 {
+    font-size: 15px;
+  }
+  .dialog-heading p {
+    font-size: 9px;
+  }
+  .dialog-body {
+    padding: 9px;
+    gap: 8px;
+  }
+  .dialog-section {
+    padding: 14px;
+  }
+  .dialog-section-heading {
+    margin-bottom: 13px;
+  }
+  .dialog-section-heading h3 {
+    font-size: 13px;
+  }
+  .paragraph-item {
+    grid-template-columns: 28px minmax(0, 1fr) 32px;
+    padding: 9px;
+    gap: 7px;
+  }
+  .translation-fields {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .photo-uploader {
+    padding: 14px;
+  }
+  .upload-cta {
+    display: none;
+  }
+  .photo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .photo-preview img {
+    height: 105px;
+  }
+  .dialog-footer {
+    min-height: 72px;
+    padding: 10px;
+  }
+  .dialog-footer > div {
+    width: 100%;
   }
 }
 </style>

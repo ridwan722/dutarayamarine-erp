@@ -79,7 +79,7 @@
     max-width="1040"
     scrollable
     :fullscreen="display.xs.value"
-    persistent
+    :persistent="quotationDialogPersistent"
     class="quotation-dialog-overlay"
   >
     <v-card class="quotation-dialog-card" elevation="0">
@@ -1220,6 +1220,35 @@ function generateNoPenawaran(): string {
 }
 
 const newPenawaran = ref<penawaranM>(emptyPenawaran());
+
+const quotationItemsHaveContent = computed(() => {
+  const items = newPenawaran.value.penawaran_item || [];
+  if (items.length > 1) return true;
+
+  return items.some((item) => {
+    const description = String(item.nama || "").trim();
+    const qty = Number(item.qty);
+    const amount = Number(item.amount);
+    const cost = Number(item.harga_hpp);
+    const uom = String(item.uom || "").trim();
+    const category = String(item.kategori_item || "").trim();
+
+    return Boolean(
+      description ||
+        (Number.isFinite(qty) && qty !== 1) ||
+        (Number.isFinite(amount) && amount > 0) ||
+        (Number.isFinite(cost) && cost > 0)
+    );
+  });
+});
+
+const quotationDialogPersistent = computed(() => {
+  // Edit dan revisi selalu membawa data tersimpan, sehingga perilaku lama
+  // tetap dipertahankan. Pada Create, kunci dialog hanya setelah item mulai
+  // diisi agar dialog kosong tetap mudah ditutup.
+  if (data.penawaranAddEdit !== "add") return true;
+  return quotationItemsHaveContent.value;
+});
 const revisionSourcePenawaran = ref<penawaranM | null>(null);
 const termConditionSearch = ref("");
 const savingTermCondition = ref(false);

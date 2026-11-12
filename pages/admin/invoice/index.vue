@@ -1335,7 +1335,12 @@
               <v-list-item
                 prepend-icon="mdi-file-sync-outline"
                 title="Revisi invoice"
-                subtitle="Sinkronkan dengan quotation tanpa mengubah status pembayaran"
+                :subtitle="
+                  isInvoiceRevisionLocked(item)
+                    ? 'Invoice selesai tidak dapat direvisi'
+                    : 'Sinkronkan dengan quotation tanpa mengubah status pembayaran'
+                "
+                :disabled="isInvoiceRevisionLocked(item)"
                 @click="openDialogEditInvoice(item)"
               />
               <template v-if="item.status === 'Draft'">
@@ -2269,6 +2274,10 @@ function isInvoicePaid(invoice: invoiceM) {
       .trim()
       .toLocaleLowerCase("id-ID"),
   );
+}
+
+function isInvoiceRevisionLocked(invoice: invoiceM) {
+  return isInvoicePaid(invoice);
 }
 
 function isSoaInvoiceSelected(invoice: SoaInvoiceOption) {
@@ -3438,6 +3447,13 @@ async function loadInvoiceForEditor(item: invoiceM): Promise<invoiceM> {
 }
 
 async function openDialogEditInvoice(item: invoiceM) {
+  if (isInvoiceRevisionLocked(item)) {
+    notificationStore.showError(
+      "Invoice yang sudah selesai tidak dapat direvisi",
+    );
+    return;
+  }
+
   let storedInvoice: invoiceM;
   try {
     storedInvoice = await loadInvoiceForEditor(item);

@@ -1454,7 +1454,7 @@ onBeforeUnmount(() => {
 
             <div class="quotation-number-box">
               <div class="quotation-number-heading">
-                <div class="field-label">Duta Raya Marine</div>
+                <div class="field-label">-</div>
                 <div class="quotation-status-row">
                   <v-chip
                     size="x-small"
@@ -1665,9 +1665,9 @@ onBeforeUnmount(() => {
                         {{ hasPurchaseOrder ? "Edit PO" : "Buat PO" }}
                       </span>
                     </v-btn>
-                    <small>
+                    <!-- <small>
                       {{ hasPurchaseOrder ? "Memperbarui dokumen pembelian project" : "Membuat dokumen pembelian untuk project ini" }}
-                    </small>
+                    </small> -->
                   </div>
 
                   <div
@@ -1691,7 +1691,7 @@ onBeforeUnmount(() => {
                       </span>
                     </v-btn>
                     <small>
-                      Mencatat hasil pekerjaan lapangan yang terkait transaksi ini
+                      Mencatat hasil pekerjaan lapangan yang terkait Projek ini
                     </small>
                   </div>
 
