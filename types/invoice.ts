@@ -51,6 +51,7 @@ export interface serviceReportImageM {
   dataUrl: string;
   size: number;
   contentType: string;
+  isPlaceholder?: boolean;
   storagePath?: string;
   firestoreImageId?: string;
 }

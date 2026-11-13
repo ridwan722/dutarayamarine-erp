@@ -269,39 +269,14 @@
                 </p>
               </div>
             </div>
-            <label
-              class="sr-upload"
-              :class="{ 'sr-upload--busy': imageProcessing }"
-            >
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                :disabled="imageProcessing"
-                @change="addImages"
-              />
-              <v-progress-circular
-                v-if="imageProcessing"
-                indeterminate
-                size="27"
-                width="3"
-                color="primary"
-              />
-              <v-icon
-                v-else
-                icon="mdi-cloud-upload-outline"
-                size="27"
-                color="primary"
-              />
-              <strong>{{
-                loadingStoredImages
-                  ? "Memuat foto tersimpan..."
-                  : readingImages
-                    ? "Memproses foto..."
-                    : "Pilih foto dokumentasi"
-              }}</strong>
-              <small>JPG, PNG, atau WEBP · dikompres otomatis</small>
-            </label>
+            <input
+              ref="imageInput"
+              class="sr-upload-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              @change="addImages"
+            />
             <div v-if="form.images.length" ref="photoGrid" class="sr-images">
               <figure
                 v-for="(image, imageIndex) in form.images"
@@ -311,10 +286,15 @@
               >
                 <div class="sr-image-preview">
                   <img
+                    v-if="!image.isPlaceholder"
                     :src="image.dataUrl"
                     :alt="image.description || image.name"
                     draggable="false"
                   />
+                  <div v-else class="sr-image-placeholder" aria-hidden="true">
+                    <v-icon icon="mdi-file-outline" size="30" />
+                    <span>Dokumen kosong</span>
+                  </div>
                   <figcaption>
                     {{ imageIndex + 1 }}. {{ image.name }}
                   </figcaption>
@@ -337,6 +317,7 @@
                   />
                 </div>
                 <v-text-field
+                  v-if="!image.isPlaceholder"
                   v-model="image.description"
                   placeholder="Deskripsi gambar"
                   variant="outlined"
@@ -344,7 +325,51 @@
                   hide-details
                   class="sr-image-description"
                 />
+                <div v-else class="sr-image-placeholder-note">
+                  Slot kosong ini tetap tampil putih pada dokumen.
+                </div>
               </figure>
+            </div>
+            <div class="sr-photo-actions">
+              <button
+                type="button"
+                class="sr-upload-primary"
+                :class="{ 'sr-upload-primary--busy': imageProcessing }"
+                :disabled="imageProcessing"
+                @click="openImagePicker"
+              >
+                <v-progress-circular
+                  v-if="imageProcessing"
+                  indeterminate
+                  size="22"
+                  width="3"
+                />
+                <span>{{
+                  loadingStoredImages
+                    ? "Memuat foto..."
+                    : readingImages
+                      ? "Memproses foto..."
+                      : "Upload Foto"
+                }}</span>
+              </button>
+              <small class="sr-upload-hint">
+                JPG, PNG, atau WEBP · jumlah foto tidak dibatasi
+              </small>
+              <button
+                type="button"
+                class="sr-placeholder-button"
+                :disabled="imageProcessing"
+                @click="addEmptyDocument"
+              >
+                <v-icon icon="mdi-view-grid-plus-outline" size="18" />
+                <span>Tambah Slot Kosong</span>
+              </button>
+              <div class="sr-photo-tip">
+                <v-icon icon="mdi-drag" size="14" />
+                <span>
+                  Slot kosong dapat ditarik ke posisi mana pun seperti foto.
+                </span>
+              </div>
             </div>
           </section>
 
@@ -403,12 +428,18 @@
                     {{ sectionForBlock(block)?.sub || "Tanpa subjudul" }}
                   </small>
                   <div v-else class="sr-content-order-photos">
-                    <img
+                    <span
                       v-for="image in imagesForBlock(block)"
                       :key="image.id"
-                      :src="image.dataUrl"
-                      :alt="image.name"
-                    />
+                      class="sr-content-order-photo"
+                    >
+                      <img
+                        v-if="!image.isPlaceholder"
+                        :src="image.dataUrl"
+                        :alt="image.name"
+                      />
+                      <v-icon v-else icon="mdi-file-outline" size="14" />
+                    </span>
                   </div>
                 </div>
 
@@ -416,7 +447,7 @@
                   {{
                     block.type === "section"
                       ? "Point"
-                      : `${block.imageIds.length}/2 foto · ${normalizeImageRowHeight(block.height)}px`
+                      : `${block.imageIds.length}/2 slot · ${normalizeImageRowHeight(block.height)}px`
                   }}
                 </span>
               </article>
@@ -496,6 +527,7 @@ const saving = ref(false);
 const readingImages = ref(false);
 const loadingStoredImages = ref(false);
 const loadingNumber = ref(false);
+const imageInput = ref<HTMLInputElement | null>(null);
 const photoGrid = ref<HTMLElement | null>(null);
 const pointList = ref<HTMLElement | null>(null);
 const contentBlocksContainer = ref<HTMLElement | null>(null);
@@ -509,6 +541,13 @@ const imageProcessing = computed(
 const DEFAULT_IMAGE_ROW_HEIGHT = 230;
 const MIN_IMAGE_ROW_HEIGHT = 100;
 const MAX_IMAGE_ROW_HEIGHT = 520;
+const MAX_IMAGE_EDGE = 800;
+const MAX_IMAGE_FILE_SIZE = 15 * 1024 * 1024;
+const SUPPORTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 function uid(prefix: string) {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`;
@@ -1003,6 +1042,21 @@ async function removeImage(index: number) {
   initializePhotoSortable();
 }
 
+async function addEmptyDocument() {
+  form.value.images.push({
+    id: uid("blank"),
+    name: "Dokumen kosong",
+    description: "",
+    dataUrl: "",
+    size: 0,
+    contentType: "",
+    isPlaceholder: true,
+  });
+  syncImageRowsWithImages();
+  await nextTick();
+  initializePhotoSortable();
+}
+
 function blobToDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -1015,7 +1069,34 @@ function blobToDataUrl(blob: Blob) {
   });
 }
 
-async function compressImage(file: File): Promise<serviceReportImageM> {
+function openImagePicker() {
+  if (!imageProcessing.value) imageInput.value?.click();
+}
+
+type ImageSource = {
+  drawable: CanvasImageSource;
+  width: number;
+  height: number;
+  release: () => void;
+};
+
+async function decodeImage(file: File): Promise<ImageSource> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+      });
+      return {
+        drawable: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        release: () => bitmap.close(),
+      };
+    } catch {
+      // Safari versi lama dapat gagal pada createImageBitmap meski <img> bisa.
+    }
+  }
+
   const objectUrl = URL.createObjectURL(file);
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -1025,18 +1106,43 @@ async function compressImage(file: File): Promise<serviceReportImageM> {
         reject(new Error(`Foto ${file.name} tidak dapat dibuka`));
       element.src = objectUrl;
     });
+    return {
+      drawable: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      release: () => {
+        image.src = "";
+        URL.revokeObjectURL(objectUrl);
+      },
+    };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+}
+
+async function compressImage(file: File): Promise<serviceReportImageM> {
+  const source = await decodeImage(file);
+  let sourceReleased = false;
+  const releaseSource = () => {
+    if (sourceReleased) return;
+    sourceReleased = true;
+    source.release();
+  };
+  try {
     const scale = Math.min(
       1,
-      1000 / Math.max(image.naturalWidth, image.naturalHeight),
+      MAX_IMAGE_EDGE / Math.max(source.width, source.height),
     );
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Kompresi foto tidak didukung");
     context.fillStyle = "#fff";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    context.drawImage(source.drawable, 0, 0, canvas.width, canvas.height);
+    releaseSource();
     const toBlob = (quality: number) =>
       new Promise<Blob>((resolve, reject) =>
         canvas.toBlob(
@@ -1060,7 +1166,7 @@ async function compressImage(file: File): Promise<serviceReportImageM> {
       contentType: "image/jpeg",
     };
   } finally {
-    URL.revokeObjectURL(objectUrl);
+    releaseSource();
   }
 }
 
@@ -1069,8 +1175,20 @@ async function addImages(event: Event) {
   const files = Array.from(input.files || []);
   input.value = "";
   if (!files.length || imageProcessing.value) return;
-  if (files.some((file) => !file.type.startsWith("image/")))
-    return notificationStore.showError("Semua file harus berupa gambar");
+  const unsupportedFile = files.find(
+    (file) => !SUPPORTED_IMAGE_TYPES.has(file.type.toLowerCase()),
+  );
+  if (unsupportedFile) {
+    return notificationStore.showError(
+      `${unsupportedFile.name} bukan JPG, PNG, atau WEBP`,
+    );
+  }
+  const oversizedFile = files.find((file) => file.size > MAX_IMAGE_FILE_SIZE);
+  if (oversizedFile) {
+    return notificationStore.showError(
+      `${oversizedFile.name} terlalu besar. Maksimal 15 MB per foto`,
+    );
+  }
   readingImages.value = true;
   try {
     const images: serviceReportImageM[] = [];
@@ -1081,7 +1199,9 @@ async function addImages(event: Event) {
     initializePhotoSortable();
   } catch (error) {
     console.error("Gagal memproses foto Service Report:", error);
-    notificationStore.showError("Foto tidak dapat diproses");
+    notificationStore.showError(
+      error instanceof Error ? error.message : "Foto tidak dapat diproses",
+    );
   } finally {
     readingImages.value = false;
   }
@@ -1447,35 +1567,112 @@ async function save() {
   margin: 5px 0 -4px 18px;
   font-size: 9px !important;
 }
-.sr-upload {
-  display: flex;
-  min-height: 92px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 3px;
-  border: 1px dashed #aebdce;
-  border-radius: 8px;
-  background: #f8fbff;
-  cursor: pointer;
-}
-.sr-upload input {
-  position: absolute;
+.sr-upload-input {
+  position: fixed;
   width: 1px;
   height: 1px;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
-.sr-upload strong {
-  color: #41566e;
-  font-size: 10px;
+.sr-photo-actions {
+  display: flex;
+  margin-top: 10px;
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
 }
-.sr-upload small {
-  color: #8b96a5;
-  font-size: 8px;
+.sr-upload-primary {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  padding: 5px 22px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  font: inherit;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 0;
+  border-radius: 20px;
+  background: linear-gradient(100deg, #a147f5 0%, #8438f4 100%);
+  box-shadow:
+    0 7px 15px rgba(132, 56, 244, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    filter 160ms ease;
 }
-.sr-upload--busy {
-  opacity: 0.7;
+.sr-upload-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 20px rgba(132, 56, 244, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.sr-upload-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+.sr-upload-primary:focus-visible,
+.sr-placeholder-button:focus-visible {
+  outline: 3px solid rgba(132, 56, 244, 0.28);
+  outline-offset: 2px;
+}
+.sr-upload-primary:disabled,
+.sr-placeholder-button:disabled {
+  opacity: 0.6;
   cursor: wait;
+}
+.sr-upload-hint {
+  color: #6f7e90;
+  font-size: 8px;
+  line-height: 1.3;
+  text-align: center;
+}
+.sr-upload-primary--busy {
+  transform: none !important;
+}
+.sr-placeholder-button {
+  display: inline-flex;
+  min-height: 38px;
+  padding: 8px 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  color: #7532d2;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid #d8c0f4;
+  border-radius: 999px;
+  background: #fbf8ff;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+.sr-placeholder-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #a875e3;
+  background: #f4ebff;
+}
+.sr-photo-tip {
+  display: flex;
+  padding: 1px 4px 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #7b8797;
+  font-size: 8px;
+  line-height: 1.35;
+  text-align: center;
 }
 .sr-images {
   display: grid;
@@ -1504,6 +1701,21 @@ async function save() {
   -webkit-user-drag: none;
   user-select: none;
 }
+.sr-image-placeholder {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  color: #94a3b8;
+  background: #fff;
+}
+.sr-image-placeholder span {
+  font-size: 9px;
+  font-weight: 700;
+}
 .sr-images figcaption {
   position: absolute;
   right: 0;
@@ -1519,6 +1731,14 @@ async function save() {
 }
 .sr-image-description {
   padding: 7px;
+}
+.sr-image-placeholder-note {
+  min-height: 54px;
+  padding: 10px 8px;
+  color: #7b8797;
+  font-size: 8px;
+  line-height: 1.35;
+  text-align: center;
 }
 .sr-image-description :deep(.v-field) {
   font-size: 10px;
@@ -1621,12 +1841,21 @@ async function save() {
   align-items: center;
   gap: 4px;
 }
-.sr-content-order-photos img {
+.sr-content-order-photo {
+  display: grid;
   width: 34px;
   height: 24px;
-  object-fit: cover;
+  place-items: center;
+  overflow: hidden;
+  color: #94a3b8;
   border: 1px solid #d7dee7;
   border-radius: 4px;
+  background: #fff;
+}
+.sr-content-order-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .sr-content-order-badge {
   padding: 3px 6px;
@@ -1752,6 +1981,11 @@ async function save() {
   }
   .sr-action-btn {
     padding-inline: 8px;
+  }
+  .sr-upload-primary {
+    min-height: 54px;
+    font-size: 15px;
+    border-radius: 17px;
   }
 }
 @media (max-width: 380px) {

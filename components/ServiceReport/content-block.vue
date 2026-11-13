@@ -21,10 +21,13 @@
       class="report-photo"
       :class="{ 'report-photo--first-column': imageIndex % 2 === 0 }"
     >
-      <img
-        :src="image.dataUrl"
-        :alt="image.description || image.name || `Foto ${imageIndex + 1}`"
-      />
+      <div class="report-photo-image-frame">
+        <img
+          v-if="!image.isPlaceholder"
+          :src="image.dataUrl"
+          :alt="image.description || image.name || `Foto ${imageIndex + 1}`"
+        />
+      </div>
       <figcaption class="report-photo-caption">
         {{ image.description || "" }}
       </figcaption>
@@ -162,13 +165,24 @@ function itemLabel(index: number) {
   white-space: nowrap;
 }
 
-.report-photo img {
-  display: block;
+.report-photo-image-frame {
+  display: flex;
   width: 100%;
   height: 0;
   flex: 1 1 0;
   min-height: 0;
-  object-fit: cover;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #fff;
+}
+
+.report-photo img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .report-signatures {
