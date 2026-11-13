@@ -48,6 +48,30 @@
 
       <div class="sr-content">
         <aside class="sr-editor">
+          <nav class="sr-editor-menu" aria-label="Menu editor service report">
+            <button
+              type="button"
+              class="sr-editor-menu-item"
+              :class="{ 'sr-editor-menu-item--active': activeEditorMenu === 'report' }"
+              :aria-pressed="activeEditorMenu === 'report'"
+              @click="activeEditorMenu = 'report'"
+            >
+              <v-icon icon="mdi-file-document-edit-outline" size="16" />
+              <span>Isi Report</span>
+            </button>
+            <button
+              type="button"
+              class="sr-editor-menu-item"
+              :class="{ 'sr-editor-menu-item--active': activeEditorMenu === 'order' }"
+              :aria-pressed="activeEditorMenu === 'order'"
+              @click="activeEditorMenu = 'order'"
+            >
+              <v-icon icon="mdi-order-bool-ascending" size="16" />
+              <span>Layers</span>
+            </button>
+          </nav>
+
+          <div v-show="activeEditorMenu === 'report'" class="sr-editor-panel">
           <section class="sr-section">
             <div class="sr-section-title">
               <span><v-icon icon="mdi-table-edit" size="17" /></span>
@@ -124,9 +148,6 @@
               <span><v-icon icon="mdi-signature-freehand" size="17" /></span>
               <div>
                 <h3>Tanda Tangan</h3>
-                <p>
-                  Nama dan jabatan teknisi ditampilkan di sisi kiri dokumen.
-                </p>
               </div>
             </div>
             <div class="sr-field-grid">
@@ -152,7 +173,6 @@
               <span><v-icon icon="mdi-format-list-numbered" size="17" /></span>
               <div>
                 <h3>Point Report</h3>
-                <p>Point, subjudul, dan daftar pekerjaan.</p>
               </div>
             </div>
 
@@ -212,7 +232,7 @@
                     >
                     <v-textarea
                       v-model="section.items[itemIndex]"
-                      :placeholder="`Isi item ${itemIndex + 1}`"
+                      :placeholder="`Isi item`"
                       :ref="
                         (element) =>
                           setItemTextareaRef(section.id, itemIndex, element)
@@ -264,9 +284,6 @@
               /></span>
               <div>
                 <h3>Dokumentasi Foto</h3>
-                <p>
-                  Tarik nomor foto untuk mengubah urutan · dua kolom per baris.
-                </p>
               </div>
             </div>
             <input
@@ -372,16 +389,16 @@
               </div>
             </div>
           </section>
+          </div>
 
-          <section class="sr-section">
+          <section
+            v-show="activeEditorMenu === 'order'"
+            class="sr-section sr-editor-panel"
+          >
             <div class="sr-section-title">
               <span><v-icon icon="mdi-order-bool-ascending" size="17" /></span>
               <div>
-                <h3>Susunan Konten</h3>
-                <p>
-                  Tarik blok Point atau baris foto untuk menentukan urutan di
-                  dokumen.
-                </p>
+                <h3>Layers</h3>
               </div>
             </div>
 
@@ -400,22 +417,6 @@
                 >
                   <v-icon icon="mdi-drag-vertical" size="18" />
                 </button>
-
-                <span
-                  class="sr-content-order-icon"
-                  :class="{
-                    'sr-content-order-icon--photo': block.type === 'image-row',
-                  }"
-                >
-                  <v-icon
-                    :icon="
-                      block.type === 'section'
-                        ? 'mdi-format-list-numbered'
-                        : 'mdi-image-multiple-outline'
-                    "
-                    size="17"
-                  />
-                </span>
 
                 <div class="sr-content-order-copy">
                   <strong v-if="block.type === 'section'">
@@ -527,6 +528,7 @@ const saving = ref(false);
 const readingImages = ref(false);
 const loadingStoredImages = ref(false);
 const loadingNumber = ref(false);
+const activeEditorMenu = ref<"report" | "order">("report");
 const imageInput = ref<HTMLInputElement | null>(null);
 const photoGrid = ref<HTMLElement | null>(null);
 const pointList = ref<HTMLElement | null>(null);
@@ -1451,6 +1453,41 @@ async function save() {
   overflow-y: auto;
   border-right: 1px solid #e1e7ee;
 }
+.sr-editor-menu {
+  display: grid;
+  margin-bottom: 12px;
+  padding: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid #dfe6ee;
+  border-radius: 10px;
+  background: #f1f5f9;
+}
+.sr-editor-menu-item {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+}
+.sr-editor-menu-item:hover {
+  color: #214f82;
+  background: rgba(255, 255, 255, 0.65);
+}
+.sr-editor-menu-item--active {
+  color: #214f82;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
 .sr-section {
   margin-bottom: 12px;
   padding: 14px;
@@ -1777,7 +1814,7 @@ async function save() {
 }
 .sr-content-order-item {
   display: grid;
-  grid-template-columns: 30px 32px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   min-height: 54px;
   padding: 7px 9px 7px 6px;
   align-items: center;
@@ -1802,19 +1839,6 @@ async function save() {
   color: #214f82;
   background: #eaf1fb;
 }
-.sr-content-order-icon {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  color: #315f8d;
-  border-radius: 7px;
-  background: #eaf1fb;
-}
-.sr-content-order-icon--photo {
-  color: #047857;
-  background: #d1fae5;
-}
 .sr-content-order-copy {
   display: flex;
   min-width: 0;
@@ -1823,9 +1847,7 @@ async function save() {
 }
 .sr-content-order-copy > strong,
 .sr-content-order-copy > small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .sr-content-order-copy > strong {
   color: #334155;
@@ -1858,6 +1880,7 @@ async function save() {
   object-fit: cover;
 }
 .sr-content-order-badge {
+  justify-self: end;
   padding: 3px 6px;
   color: #64748b;
   font-size: 8px;

@@ -1115,6 +1115,14 @@ async function save() {
     );
   }
 
+  const rootPenawaranId =
+    props.penawaran.root_penawaran_id ||
+    props.penawaran.id ||
+    props.penawaran.id_penawaran;
+  if (!rootPenawaranId) {
+    return notificationStore.showError("ID penawaran tidak ditemukan");
+  }
+
   form.value.item_pekerjaan.forEach((item) => {
     item.subtotal_item = itemSubtotal(item);
   });
@@ -1125,10 +1133,7 @@ async function save() {
     ppn: ppn.value,
     status: "Draft",
     grandtotal_invoice: grandTotal.value,
-    id_penawaran:
-      props.penawaran.root_penawaran_id ||
-      props.penawaran.id ||
-      props.penawaran.id_penawaran,
+    id_penawaran: rootPenawaranId,
     no_penawaran: props.penawaran.no_penawaran,
     id_revisi_penawaran:
       props.penawaran.id_revisi || props.penawaran.active_revision_id,
@@ -1175,25 +1180,22 @@ async function save() {
     }
     payload.doc_preorder = documents;
 
+    // Firestore menolak nilai undefined dan dapat bermasalah dengan nested
+    // Vue proxies. Serialisasi juga memberi satu sumber data untuk pengecekan
+    // ukuran dan proses penyimpanan.
+    const serializedPayload = JSON.stringify(payload);
     if (
-      new TextEncoder().encode(JSON.stringify(payload)).byteLength >
-      MAX_INVOICE_BYTES
+      new TextEncoder().encode(serializedPayload).byteLength > MAX_INVOICE_BYTES
     ) {
       return notificationStore.showError(
         "Ukuran invoice beserta file PO terlalu besar. Kurangi ukuran atau jumlah file PO.",
       );
     }
 
-    const result = await createInvoicePenawaran(payload);
+    const persistablePayload = JSON.parse(serializedPayload) as invoiceM;
+    const result = await createInvoicePenawaran(persistablePayload);
     if (!result) return;
 
-    const rootPenawaranId =
-      props.penawaran.root_penawaran_id ||
-      props.penawaran.id ||
-      props.penawaran.id_penawaran;
-    if (!rootPenawaranId) {
-      return notificationStore.showError("ID penawaran tidak ditemukan");
-    }
     const penawaranUpdated = await penawaranStore.updatePenawaranStatusAct(
       rootPenawaranId,
       "INVOICE",
@@ -1204,13 +1206,34 @@ async function save() {
     emit("saved");
   } catch (error) {
     console.error("Gagal menyimpan invoice atau membaca file PO:", error);
-    notificationStore.showError(
-      "Gagal menyimpan invoice atau membaca file PO. Silakan coba lagi.",
-    );
+    notificationStore.showError(invoiceSaveErrorMessage(error));
   } finally {
     saving.value = false;
     useloadingStore().setLoading(false);
   }
+}
+
+function invoiceSaveErrorMessage(error: unknown) {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String(error.code)
+      : "";
+  const message = error instanceof Error ? error.message : String(error || "");
+
+  if (code.includes("permission-denied")) {
+    return "Akun ini tidak memiliki izin untuk menyimpan invoice.";
+  }
+  if (/file po|pembacaan file/i.test(message)) {
+    return "File PO tidak dapat dibaca. Pilih ulang file lalu coba lagi.";
+  }
+  if (/too large|maximum size|resource-exhausted/i.test(message)) {
+    return "Data invoice terlalu besar untuk disimpan. Kurangi ukuran file PO.";
+  }
+  if (/penawaran.*tidak ditemukan|not-found/i.test(message)) {
+    return "Data penawaran tidak ditemukan. Muat ulang halaman lalu coba lagi.";
+  }
+
+  return "Gagal menyimpan invoice. Silakan coba lagi.";
 }
 
 function readPoFile(file: File): Promise<string> {
