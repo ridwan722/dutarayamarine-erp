@@ -949,7 +949,7 @@ const logout = async () => {
                 aria-hidden="true"
               />
               <NuxtLink v-if="item.to && index < breadcrumbs.length - 1" :to="item.to">
-                V25.4 | {{ item.title }}
+                {{ item.title }}
               </NuxtLink>
               <span v-else :aria-current="index === breadcrumbs.length - 1 ? 'page' : undefined">
                 {{ item.title }}
@@ -959,6 +959,10 @@ const logout = async () => {
         </nav>
       </div>
     </template>
+
+    <div v-if="mdAndUp" class="header-version" aria-label="Versi aplikasi 25.5.0">
+      Versi 25.5.0
+    </div>
 
     <v-spacer />
 
@@ -1445,7 +1449,26 @@ const logout = async () => {
 }
 
 .app-bar-border :deep(.v-toolbar__content) {
+  position: relative;
   padding: 0 18px !important;
+}
+
+.header-version {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  padding: 5px 10px;
+  transform: translate(-50%, -50%);
+  color: #7a8798;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  white-space: nowrap;
+  border: 1px solid #e1e7ee;
+  border-radius: 999px;
+  background: #f8fafc;
+  pointer-events: none;
 }
 
 .app-bar-border :deep(.v-toolbar__extension) {
@@ -1850,6 +1873,12 @@ const logout = async () => {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+@media (max-width: 959px) {
+  .header-version {
+    display: none;
+  }
 }
 
 .header-utility-divider {

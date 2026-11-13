@@ -2363,6 +2363,7 @@ onBeforeUnmount(() => {
     min-height: calc(100vh - 120px);
     min-height: calc(100svh - 120px);
     overflow: visible;
+    touch-action: pan-y;
   }
 
   .top-sticky-container {
@@ -2390,6 +2391,7 @@ onBeforeUnmount(() => {
     height: auto;
     max-height: none;
     overflow-y: visible;
+    overscroll-behavior-y: auto;
     border-right: 1px solid #e6eaf0;
     border-bottom: 0;
   }
@@ -2404,6 +2406,7 @@ onBeforeUnmount(() => {
     min-height: 0;
     width: 100%;
     overflow: visible;
+    overscroll-behavior-y: auto;
   }
 
   .preview-document-content {
@@ -2475,6 +2478,50 @@ onBeforeUnmount(() => {
 
   .paper-container {
     padding: 10px;
+    overflow-x: hidden;
+    touch-action: pan-y;
+  }
+
+  .penawaran-wrapper,
+  .po-wrapper,
+  .preview-document-content {
+    touch-action: pan-y;
+  }
+}
+
+/*
+ * Perangkat sentuh dapat melaporkan viewport lebih lebar dari breakpoint
+ * mobile (misalnya tablet atau ponsel landscape). Hindari dua nested scroll
+ * area pada kondisi tersebut agar gesture selalu diteruskan ke halaman.
+ */
+@media (hover: none) and (pointer: coarse) {
+  .quotation-page {
+    height: auto;
+    min-height: calc(100vh - 120px);
+    min-height: calc(100svh - 120px);
+    overflow: visible;
+    touch-action: pan-y;
+  }
+
+  .grid-wrapper {
+    min-height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .quotation-grid {
+    height: auto;
+    min-height: 0;
+    align-items: start;
+  }
+
+  .quotation-sidebar,
+  .quotation-preview {
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: auto;
   }
 }
 
