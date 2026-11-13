@@ -105,45 +105,42 @@ const expenseShare = computed(() => {
     <div class="dashboard-inner">
       <DashboardQuickLinks />
 
-      <div v-if="!ready" class="loading-state">
-        <v-progress-circular indeterminate color="primary" size="35" /><span
-          >Memuat analitik ERP...</span
-        >
+      <div v-if="ready && errors.length" class="warning" role="status">
+        <v-icon icon="mdi-alert-circle-outline" size="21" />
+        <div>
+          <strong>Sebagian data belum tersedia.</strong
+          ><span
+            >Gagal memuat: {{ errors.join(", ") }}. Angka terkait ditandai
+            “—”; coba perbarui.</span
+          >
+        </div>
       </div>
-      <template v-else>
-        <div v-if="errors.length" class="warning" role="status">
-          <v-icon icon="mdi-alert-circle-outline" size="21" />
-          <div>
-            <strong>Sebagian data belum tersedia.</strong
-            ><span
-              >Gagal memuat: {{ errors.join(", ") }}. Angka terkait ditandai
-              “—”; coba perbarui.</span
-            >
-          </div>
-        </div>
 
-        <div class="section-line">
-          <div>
-            <!-- <h2>Performa & alur</h2> -->
-          </div>
+      <div class="section-line">
+        <div>
+          <!-- <h2>Performa & alur</h2> -->
         </div>
-        <div class="dashboard-grid grid-performance">
-          <DashboardTrend
-            :rows="monthly"
-            :year="selectedYear"
-            :available="allCoreAvailable"
-          /><DashboardStatus
-            :statuses="invoiceStatuses"
-            :quotation-count="
-              available.penawaran ? summary.quotationCount : null
-            "
-            :linked-quotation-count="
-              allCoreAvailable ? summary.quotedProjectsWithInvoice : null
-            "
-            :available="available.invoice"
-          />
-        </div>
+      </div>
+      <div class="dashboard-grid grid-performance">
+        <DashboardTrend
+          :rows="monthly"
+          :year="selectedYear"
+          :available="allCoreAvailable"
+          :pending="!ready"
+        /><DashboardStatus
+          :statuses="invoiceStatuses"
+          :quotation-count="
+            available.penawaran ? summary.quotationCount : null
+          "
+          :linked-quotation-count="
+            allCoreAvailable ? summary.quotedProjectsWithInvoice : null
+          "
+          :available="available.invoice"
+          :pending="!ready"
+        />
+      </div>
 
+      <template v-if="ready">
         <div class="section-line">
           <div>
             <!-- <h2>Angka penting</h2> -->
@@ -379,16 +376,6 @@ const expenseShare = computed(() => {
 .warning span {
   line-height: 1.5;
   overflow-wrap: anywhere;
-}
-.loading-state {
-  min-height: 55vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  color: #6d8997;
-  font-size: 13px;
 }
 .section-line {
   display: flex;
