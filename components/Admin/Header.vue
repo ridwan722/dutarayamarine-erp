@@ -949,7 +949,7 @@ const logout = async () => {
                 aria-hidden="true"
               />
               <NuxtLink v-if="item.to && index < breadcrumbs.length - 1" :to="item.to">
-                V25.3 | {{ item.title }}
+                V25.4 | {{ item.title }}
               </NuxtLink>
               <span v-else :aria-current="index === breadcrumbs.length - 1 ? 'page' : undefined">
                 {{ item.title }}
