@@ -105,10 +105,75 @@ const expenseShare = computed(() => {
     <div class="dashboard-inner">
       <DashboardQuickLinks />
 
-      <div class="toolbar">
+      <div v-if="!ready" class="loading-state">
+        <v-progress-circular indeterminate color="primary" size="35" /><span
+          >Memuat analitik ERP...</span
+        >
+      </div>
+      <template v-else>
+        <div v-if="errors.length" class="warning" role="status">
+          <v-icon icon="mdi-alert-circle-outline" size="21" />
+          <div>
+            <strong>Sebagian data belum tersedia.</strong
+            ><span
+              >Gagal memuat: {{ errors.join(", ") }}. Angka terkait ditandai
+              “—”; coba perbarui.</span
+            >
+          </div>
+        </div>
+
+        <div class="section-line">
+          <div>
+            <!-- <h2>Performa & alur</h2> -->
+          </div>
+        </div>
+        <div class="dashboard-grid grid-performance">
+          <DashboardTrend
+            :rows="monthly"
+            :year="selectedYear"
+            :available="allCoreAvailable"
+          /><DashboardStatus
+            :statuses="invoiceStatuses"
+            :quotation-count="
+              available.penawaran ? summary.quotationCount : null
+            "
+            :linked-quotation-count="
+              allCoreAvailable ? summary.quotedProjectsWithInvoice : null
+            "
+            :available="available.invoice"
+          />
+        </div>
+
+        <div class="section-line">
+          <div>
+            <!-- <h2>Angka penting</h2> -->
+          </div>
+          <span class="section-caption"
+            >Periode
+            {{ selectedYear === 0 ? "semua tahun" : selectedYear }}</span
+          >
+        </div>
+        <DashboardMetricGrid :cards="metricCards" />
+        <div class="insight-strip">
+          <span class="insight-icon"
+            ><v-icon icon="mdi-information-outline" size="19"
+          /></span>
+          <p>
+            <strong>Pembacaan data:</strong> invoice selesai dipakai sebagai
+            indikasi pembayaran, sedangkan nilai invoice adalah tagihan yang
+            diterbitkan. Pengeluaran proyek hanya berasal dari pengeluaran penawaran;
+            keuangan kantor dicatat terpisah.<template
+              v-if="expenseShare !== null"
+            >
+              Rasio biaya tercatat terhadap nilai invoice periode ini
+              <strong>{{ expenseShare }}%</strong>.</template
+            >
+          </p>
+        </div>
+
+        <div class="toolbar">
         <div class="toolbar-label">
-          <span class="toolbar-dot" /> BUSINESS OVERVIEW
-          <span class="toolbar-separator">/</span> ANALYTICS
+          <span class="toolbar-dot" /> OVERVIEW
         </div>
         <div class="toolbar-actions">
           <label class="year-filter"
@@ -136,7 +201,8 @@ const expenseShare = computed(() => {
         </div>
       </div>
 
-      <DashboardHero
+
+        <DashboardHero
         :loading="!ready || loading"
         :year="selectedYear"
         :invoice-value="available.invoice ? summary.invoiceValue : null"
@@ -146,75 +212,10 @@ const expenseShare = computed(() => {
         :last-updated="lastUpdated"
       />
 
-      <div v-if="!ready" class="loading-state">
-        <v-progress-circular indeterminate color="primary" size="35" /><span
-          >Memuat analitik ERP...</span
-        >
-      </div>
-      <template v-else>
-        <div v-if="errors.length" class="warning" role="status">
-          <v-icon icon="mdi-alert-circle-outline" size="21" />
-          <div>
-            <strong>Sebagian data belum tersedia.</strong
-            ><span
-              >Gagal memuat: {{ errors.join(", ") }}. Angka terkait ditandai
-              “—”; coba perbarui.</span
-            >
-          </div>
-        </div>
+
         <div class="section-line">
           <div>
-            <span>01 / BUSINESS SNAPSHOT</span>
-            <h2>Angka penting</h2>
-          </div>
-          <span class="section-caption"
-            >Periode
-            {{ selectedYear === 0 ? "semua tahun" : selectedYear }}</span
-          >
-        </div>
-        <DashboardMetricGrid :cards="metricCards" />
-        <div class="insight-strip">
-          <span class="insight-icon"
-            ><v-icon icon="mdi-information-outline" size="19"
-          /></span>
-          <p>
-            <strong>Pembacaan data:</strong> invoice selesai dipakai sebagai
-            indikasi pembayaran, sedangkan nilai invoice adalah tagihan yang
-            diterbitkan. Pengeluaran proyek hanya berasal dari pengeluaran penawaran;
-            keuangan kantor dicatat terpisah.<template
-              v-if="expenseShare !== null"
-            >
-              Rasio biaya tercatat terhadap nilai invoice periode ini
-              <strong>{{ expenseShare }}%</strong>.</template
-            >
-          </p>
-        </div>
-        <div class="section-line">
-          <div>
-            <span>02 / PERFORMANCE</span>
-            <h2>Performa & alur</h2>
-          </div>
-        </div>
-        <div class="dashboard-grid grid-performance">
-          <DashboardTrend
-            :rows="monthly"
-            :year="selectedYear"
-            :available="allCoreAvailable"
-          /><DashboardStatus
-            :statuses="invoiceStatuses"
-            :quotation-count="
-              available.penawaran ? summary.quotationCount : null
-            "
-            :linked-quotation-count="
-              allCoreAvailable ? summary.quotedProjectsWithInvoice : null
-            "
-            :available="available.invoice"
-          />
-        </div>
-        <div class="section-line">
-          <div>
-            <span>03 / PROJECTS & RELATIONSHIPS</span>
-            <h2>Detail bisnis</h2>
+            <!-- <h2>Detail bisnis</h2> -->
           </div>
         </div>
         <div class="dashboard-grid grid-details">
@@ -245,7 +246,7 @@ const expenseShare = computed(() => {
         />
         <div class="section-line">
           <div>
-            <span>04 / LIVE OPERATIONS</span>
+            <!-- <span>04 / LIVE OPERATIONS</span> -->
             <!-- <h2>Aktivitas terbaru</h2> -->
           </div>
         </div>
@@ -265,6 +266,7 @@ const expenseShare = computed(() => {
           >
         </footer>
       </template>
+      
     </div>
   </div>
 </template>
@@ -392,7 +394,7 @@ const expenseShare = computed(() => {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin: 31px 0 14px;
+  margin: 1px 0 14px;
 }
 .section-line span:first-child {
   font-size: 10px;
@@ -416,6 +418,7 @@ const expenseShare = computed(() => {
   align-items: flex-start;
   gap: 11px;
   margin-top: 14px;
+  margin-bottom: 14px;
   padding: 13px 16px;
   border-radius: 12px;
   border: 1px solid #d9eaf0;

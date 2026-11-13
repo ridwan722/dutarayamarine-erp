@@ -28,7 +28,7 @@ const rows = computed(() => [
 
 <template>
   <section class="panel status">
-    <div class="overline">ALUR DOKUMEN</div><h2>Status invoice</h2><p>Distribusi dokumen pada periode terpilih.</p>
+    <h2>Status invoice</h2><p>Distribusi dokumen pada periode terpilih.</p>
     <div v-if="!available" class="empty">Data invoice belum dapat dimuat.</div>
     <template v-else>
       <div class="status-main"><div class="donut" :style="{background:donut}"><div class="donut-center"><strong>{{ total }}</strong><span>invoice</span></div></div><div class="status-list"><div v-for="row in rows" :key="row.label" class="status-row"><span><i :style="{background:row.color}" />{{ row.label }}</span><strong>{{ row.value }}</strong></div></div></div>

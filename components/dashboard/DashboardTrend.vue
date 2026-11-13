@@ -26,7 +26,7 @@ const hasData = computed(() => props.rows.some((row) => row.invoice || row.paid 
 
 <template>
   <section class="panel trend">
-    <div class="panel-head"><div><div class="overline">PERFORMA KEUANGAN</div><h2>Tren 12 bulan</h2><p>Nilai dokumen dan biaya tercatat per bulan{{ year === 0 ? ' (12 bulan terakhir)' : ` pada ${year}` }}.</p></div><span class="head-icon"><v-icon icon="mdi-chart-line" size="21" /></span></div>
+    <div class="panel-head"><div><h2>Tren 12 bulan</h2><p>Nilai dokumen dan biaya tercatat per bulan{{ year === 0 ? ' (12 bulan terakhir)' : ` pada ${year}` }}.</p></div><span class="head-icon"><v-icon icon="mdi-chart-line" size="21" /></span></div>
     <div v-if="!available" class="empty">Data invoice atau penawaran belum dapat dimuat.</div>
     <div v-else-if="!hasData" class="empty">Belum ada transaksi pada periode ini.</div>
     <div v-else class="chart-wrap">

@@ -11,7 +11,7 @@ defineProps<{
 
 <template>
   <section class="panel clients">
-    <div class="overline">RELASI BISNIS</div>
+
     <h2>Client utama</h2>
     <p>Berdasarkan nilai invoice pada periode terpilih.</p>
     <div class="master-stats">

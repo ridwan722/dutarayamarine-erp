@@ -10,7 +10,7 @@ defineProps<{
 
 <template>
   <section class="panel costs">
-    <div class="panel-head"><div><div class="overline">REKAP PER INVOICE</div><h2>Pengeluaran terkait invoice</h2><p>Biaya penawaran dipasangkan ke invoice melalui <code>invoice_out</code>.</p></div><NuxtLink to="/admin/invoice" class="view-all">Semua invoice <v-icon icon="mdi-arrow-right" size="15" /></NuxtLink></div>
+    <div class="panel-head"><div><h2>Pengeluaran terkait invoice</h2><p>Biaya penawaran dipasangkan ke invoice melalui <code>invoice_out</code>.</p></div><NuxtLink to="/admin/invoice" class="view-all">Semua invoice <v-icon icon="mdi-arrow-right" size="15" /></NuxtLink></div>
     <div v-if="!available" class="empty">Data invoice atau pengeluaran belum dapat dimuat.</div>
     <div v-else-if="!rows.length" class="empty">Belum ada pengeluaran yang terhubung dengan invoice pada periode ini.</div>
     <div v-else class="cost-table"><div class="table-head"><span>Invoice / Client</span><span>Nilai invoice</span><span>Biaya tercatat</span></div><NuxtLink v-for="row in rows" :key="row.id" :to="`/admin/invoice/${encodeURIComponent(row.id)}`" class="cost-row"><div><strong>#{{ row.number }}</strong><small>{{ row.client }} · {{ row.status }}</small></div><span>{{ formatDashboardCompactMoney(row.invoiceValue) }}</span><strong class="cost-value">{{ formatDashboardCompactMoney(row.expenseValue) }}</strong></NuxtLink></div>

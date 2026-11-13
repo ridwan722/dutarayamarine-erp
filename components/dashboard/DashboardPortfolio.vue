@@ -11,7 +11,7 @@ defineProps<{
 
 <template>
   <section class="panel portfolio">
-    <div class="panel-head"><div><div class="overline">PORTOFOLIO PROYEK</div><h2>Proyek teratas</h2><p>Perbandingan nilai invoice dan pengeluaran yang tercatat.</p></div><NuxtLink to="/admin/penawaran" class="view-all">Semua proyek <v-icon icon="mdi-arrow-right" size="15" /></NuxtLink></div>
+    <div class="panel-head"><div><h2>Proyek teratas</h2><p>Perbandingan nilai invoice dan pengeluaran yang tercatat.</p></div><NuxtLink to="/admin/penawaran" class="view-all">Semua proyek <v-icon icon="mdi-arrow-right" size="15" /></NuxtLink></div>
     <div v-if="!available" class="empty">Data proyek belum dapat dimuat.</div>
     <div v-else-if="!rows.length" class="empty">Belum ada proyek dengan invoice atau pengeluaran pada periode ini.</div>
     <div v-else class="project-list"><NuxtLink v-for="(row,index) in rows" :key="row.id" :to="`/admin/penawaran/${encodeURIComponent(row.id)}`" class="project-row"><span class="rank">{{ String(index+1).padStart(2,'0') }}</span><div class="project-name"><strong>{{ row.name }}</strong><span>{{ row.client }} · {{ row.invoiceCount }} invoice</span></div><div class="project-amount"><strong>{{ formatDashboardCompactMoney(row.invoiceValue) }}</strong><span>Pengeluaran proyek : {{ formatDashboardCompactMoney(row.expenseValue) }}</span></div><v-icon icon="mdi-chevron-right" size="17" class="chevron" /></NuxtLink></div>
