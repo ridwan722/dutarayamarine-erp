@@ -5,7 +5,7 @@
         <div class="sr-heading">
           <span><v-icon icon="mdi-hammer-screwdriver" size="21" /></span>
           <div>
-            <h2>{{ hasExistingReport ? "Edit" : "Buat" }} Service Report</h2>
+            <h2>{{ hasExistingReport ? "Revisi" : "Buat" }} Service Report</h2>
             <p>
               {{ penawaran.nama_perusahaan || "Client" }} ·
               {{ penawaran.no_penawaran || "Quotation" }}

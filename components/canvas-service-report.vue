@@ -173,6 +173,7 @@ type ReportPage = {
 type PdfTextFragment = {
   text: string;
   left: number;
+  width: number;
   baseline: number;
   fontSizePx: number;
   fontWeight: number;
@@ -594,6 +595,7 @@ function extractPdfTextFragments(root: HTMLElement): PdfTextFragment[] {
           ) {
             lastVisible -= 1;
           }
+
           if (firstVisible >= 0 && lastVisible >= firstVisible) {
             const visible = currentLine.slice(firstVisible, lastVisible + 1);
             const lineTop = Math.min(...visible.map(({ rect }) => rect.top));
@@ -612,6 +614,7 @@ function extractPdfTextFragments(root: HTMLElement): PdfTextFragment[] {
                 : alignment === "center"
                   ? (firstRect.left + lastRect.right) / 2 - rootRect.left
                   : firstRect.left - rootRect.left;
+
             fragments.push({
               text: applyTextTransform(
                 visible
@@ -621,6 +624,7 @@ function extractPdfTextFragments(root: HTMLElement): PdfTextFragment[] {
                 style.textTransform,
               ),
               left,
+              width: lastRect.right - firstRect.left,
               baseline: lineTop - rootRect.top + (lineBottom - lineTop) * 0.8,
               fontSizePx,
               fontWeight: Number.parseInt(style.fontWeight, 10) || 400,
@@ -629,6 +633,7 @@ function extractPdfTextFragments(root: HTMLElement): PdfTextFragment[] {
               alignment,
             });
           }
+
           currentLine = [];
           currentTop = null;
         };
@@ -762,11 +767,16 @@ async function createServiceReportPdf() {
         pdf.setFont("helvetica", fontStyle);
         pdf.setFontSize(fragment.fontSizePx * mmPerCssPixel * (72 / 25.4));
         pdf.setTextColor(...fragment.color);
+
+        const targetWidth = fragment.width * mmPerCssPixel;
+        const pdfTextWidth = pdf.getTextWidth(fragment.text);
+        const horizontalScale = pdfTextWidth > 0 ? targetWidth / pdfTextWidth : 1;
+
         pdf.text(
           fragment.text,
           fragment.left * mmPerCssPixel,
           fragment.baseline * mmPerCssPixel,
-          { align: fragment.alignment },
+          { align: fragment.alignment, horizontalScale },
         );
       });
     }

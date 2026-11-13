@@ -1685,7 +1685,7 @@ onBeforeUnmount(() => {
                       <span class="action-card-label">
                         {{
                           quotationServiceReport
-                            ? "Edit Service Report"
+                            ? "Revisi Service Report"
                             : "Buat Service Report"
                         }}
                       </span>
