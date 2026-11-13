@@ -199,7 +199,7 @@ async function hapusVendor(id: string) {
       </v-btn>
     </header>
 
-    <section class="vendor-summary" aria-label="Ringkasan vendor">
+    <!-- <section class="vendor-summary" aria-label="Ringkasan vendor">
       <article class="summary-card summary-card--primary">
         <span class="summary-icon">
           <v-icon icon="mdi-storefront-outline" size="20" />
@@ -230,7 +230,7 @@ async function hapusVendor(id: string) {
           <span>Kontak penanggung jawab</span>
         </div>
       </article>
-    </section>
+    </section> -->
 
     <section class="vendor-directory">
       <header class="directory-header">
@@ -613,14 +613,14 @@ async function hapusVendor(id: string) {
 
 .vendor-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 10px;
 }
 
 .summary-card {
   display: flex;
-  min-height: 96px;
+  min-height: 76px;
   padding: 15px 17px;
   align-items: center;
   gap: 13px;

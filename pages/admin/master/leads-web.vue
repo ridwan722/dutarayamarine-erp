@@ -223,7 +223,7 @@ async function hapusLeads(id?: string) {
     <section class="leads-directory">
       <header class="directory-header">
         <div>
-          <span class="section-kicker">Website Leads Directory</span>
+          <!-- <span class="section-kicker">Website Leads Directory</span> -->
           <div class="directory-title-row"><h2>Daftar Leads</h2><span>{{ filteredLeads.length }} data</span></div>
         </div>
         <label class="leads-search">

@@ -1741,14 +1741,14 @@ const data = reactive({
       sortable: false,
     },
     { title: "Date", value: "tanggal", sortable: true, width: "116px" },
-    { title: "Invoice Ref", value: "no_inv", sortable: true, width: "150px" },
-    { title: "Client", value: "nama_customer", sortable: true, width: "210px" },
     {
       title: "Based On",
       value: "no_penawaran",
       sortable: true,
       width: "150px",
     },
+    { title: "Invoice Ref", value: "no_inv", sortable: true, width: "150px" },
+    { title: "Client", value: "nama_customer", sortable: true, width: "210px" },
     { title: "Subject", value: "perihal", sortable: true, width: "220px" },
     {
       title: "Total Amount",

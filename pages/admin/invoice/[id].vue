@@ -711,9 +711,9 @@
             </div>
           </dl>
 
-          <p class="invoice-information-description">
+          <!-- <p class="invoice-information-description">
             Tambahkan dokumen Purchase Order
-          </p>
+          </p> -->
 
           <v-btn
             variant="outlined"
@@ -859,7 +859,7 @@
         </div>
 
         <div class="invoice-financial-item invoice-financial-item--balance">
-          <span>Sisa Saldo Invoice</span>
+          <span>Sisa Saldo Invoice / Keuntungan</span>
           <strong>
             {{
               formatInvoiceCurrency(
