@@ -142,7 +142,6 @@
             "
             @click="activeQuotationSection = section.id"
           >
-            <span class="quotation-dialog-menu-number"></span>
             <span class="quotation-dialog-menu-copy">
               <strong>{{ section.title }}</strong>
               <!-- <small>{{ section.description }}</small> -->
@@ -160,94 +159,109 @@
           v-show="activeQuotationSection === 'client'"
           class="quotation-dialog-panel"
         >
-        <section class="quotation-form-section">
-          <!-- <div class="quotation-section-header">
-            <div>
-              <span class="quotation-section-index">01</span>
-              <h3>Client Information</h3>
-            </div>
-            <p>Pilih perusahaan dan PIC, lalu isi vessel untuk penawaran ini.</p>
-          </div> -->
+          <section class="quotation-form-section quotation-client-section">
+            <header class="quotation-client-heading">
+              <div>
+                <span>Client information</span>
+                <h3>Client &amp; quotation details</h3>
+              </div>
+              <p>Pilih client dan PIC, lalu lengkapi subject quotation.</p>
+            </header>
 
-          <div class="quotation-client-picker">
-            <a-date-picker-new
-              class="quotation-date-field"
-              v-model="newPenawaran.tanggal_penawaran"
-              label="Quotation Date"
-            />
-            <a-autocomplete-new
-              class="quotation-client-select"
-              v-model="newPenawaran.id_perusahaan"
-              label="Perusahaan"
-              placeholder="Pilih perusahaan"
-              item-title="label"
-              item-value="value"
-              :items="companyOptions"
-              :disabled="hasCompanyScope"
-            />
-            <a-select-new
-              class="quotation-client-select"
-              v-model="newPenawaran.id_pic"
-              label="PIC"
-              placeholder="Pilih PIC"
-              item-title="label"
-              item-value="value"
-              :items="picOptionsForCompany"
-              :disabled="!newPenawaran.id_perusahaan"
-            />
-          </div>
+            <div class="quotation-client-workspace">
+              <div class="quotation-client-form-column">
+                <div class="quotation-client-picker">
+                  <a-autocomplete-new
+                    class="quotation-client-select quotation-company-field"
+                    v-model="newPenawaran.id_perusahaan"
+                    label="Perusahaan"
+                    placeholder="Pilih perusahaan"
+                    item-title="label"
+                    item-value="value"
+                    :items="companyOptions"
+                    :disabled="hasCompanyScope"
+                  />
+                  <a-select-new
+                    class="quotation-client-select"
+                    v-model="newPenawaran.id_pic"
+                    label="PIC"
+                    placeholder="Pilih PIC"
+                    item-title="label"
+                    item-value="value"
+                    :items="picOptionsForCompany"
+                    :disabled="!newPenawaran.id_perusahaan"
+                  />
+                  <a-date-picker-new
+                    class="quotation-date-field"
+                    v-model="newPenawaran.tanggal_penawaran"
+                    label="Quotation Date"
+                  />
+                </div>
 
-          <div v-if="!hasCompanyScope" class="quotation-client-master-actions">
-            <v-btn
-              class="quotation-add-client-btn text-none"
-              variant="outlined"
-              color="primary"
-              prepend-icon="mdi-domain-plus"
-              @click="opendialogTambahMasterPerusahaan"
-            >
-              Tambah Perusahaan
-            </v-btn>
-            <v-btn
-              class="quotation-add-client-btn text-none"
-              variant="text"
-              color="grey-darken-1"
-              prepend-icon="mdi-account-cog-outline"
-              @click="router.push('/admin/master/client')"
-            >
-              Kelola Master PIC
-            </v-btn>
-          </div>
+                <div
+                  v-if="!hasCompanyScope"
+                  class="quotation-client-master-actions"
+                >
+                  <v-btn
+                    class="quotation-add-client-btn text-none"
+                    variant="outlined"
+                    color="primary"
+                    prepend-icon="mdi-domain-plus"
+                    @click="opendialogTambahMasterPerusahaan"
+                  >
+                    Tambah Perusahaan
+                  </v-btn>
+                  <v-btn
+                    class="quotation-add-client-btn text-none"
+                    variant="text"
+                    color="grey-darken-1"
+                    prepend-icon="mdi-account-cog-outline"
+                    @click="router.push('/admin/master/client')"
+                  >
+                    Kelola Master PIC
+                  </v-btn>
+                </div>
 
-          <dl class="quotation-client-details">
-            <div class="quotation-client-detail quotation-client-address">
-              <dt>Address</dt>
-              <dd>{{ newPenawaran.alamat_perusahaan || "—" }}</dd>
-            </div>
-            <div class="quotation-client-detail">
-              <dt>Phone Number</dt>
-              <dd>{{ newPenawaran.no_telp || "—" }}</dd>
-            </div>
-            <div class="quotation-client-detail">
-              <dt>Email</dt>
-              <dd>{{ newPenawaran.email || "—" }}</dd>
-            </div>
-          </dl>
+                <div class="quotation-subject-grid">
+                  <a-textarea-new
+                    class="quotation-subject-field"
+                    v-model="newPenawaran.perihal"
+                    label="Subject"
+                    placeholder="Tuliskan subject quotation"
+                    rows="2"
+                  />
+                  <a-select-new
+                    class="quotation-currency-field"
+                    v-model="newPenawaran.currency"
+                    label="Currency"
+                    :items="[
+                      { title: 'IDR', value: 'IDR' },
+                      { title: 'USD', value: 'USD' },
+                      { title: 'SGD', value: 'SGD' },
+                    ]"
+                  />
+                </div>
 
-          <div class="quotation-operation-fields">
-            <a-text-field-new
-              class="quotation-client-select"
-              v-model="newPenawaran.vessel"
-              label="Vessel"
-              placeholder="vessel name"
-            />
-            <a-autocomplete-new
-              class="quotation-client-select"
-              v-model="newPenawaran.location"
-              label="Location"
-              placeholder="Select location"
-              item-title="label"
-              item-value="id_customer"
-              :items="[
+                <div class="quotation-operation-block">
+                  <div class="quotation-operation-heading">
+                    <strong>Operational details</strong>
+                    <span>Opsional, isi jika quotation terkait vessel.</span>
+                  </div>
+                  <div class="quotation-operation-fields">
+                    <a-text-field-new
+                      class="quotation-client-select"
+                      v-model="newPenawaran.vessel"
+                      label="Vessel"
+                      placeholder="Nama vessel"
+                    />
+                    <a-autocomplete-new
+                      class="quotation-client-select"
+                      v-model="newPenawaran.location"
+                      label="Location"
+                      placeholder="Pilih lokasi"
+                      item-title="label"
+                      item-value="id_customer"
+                      :items="[
   'Batam',
   'Jakarta',
   'Lamongan',
@@ -364,35 +378,41 @@
   'Tuban',
   'Waingapu'
 ]"
-            />
-          </div>
-        </section>
+                    />
+                  </div>
+                </div>
+              </div>
 
-        <section class="quotation-currency-section">
-          <div class="quotation-currency-heading">
-            <div>
-              <h3>Transaction Currency</h3>
-              <p>Currency dan subject yang digunakan pada quotation.</p>
+              <aside class="quotation-client-summary" aria-label="Ringkasan client">
+                <div class="quotation-client-summary-heading">
+                  <span aria-hidden="true">CL</span>
+                  <div>
+                    <small>Selected client</small>
+                    <strong>{{ newPenawaran.nama_perusahaan || "Belum dipilih" }}</strong>
+                  </div>
+                </div>
+
+                <dl class="quotation-client-details">
+                  <div class="quotation-client-detail quotation-client-address">
+                    <dt>Address</dt>
+                    <dd>{{ newPenawaran.alamat_perusahaan || "—" }}</dd>
+                  </div>
+                  <div class="quotation-client-detail">
+                    <dt>PIC</dt>
+                    <dd>{{ newPenawaran.pic || "—" }}</dd>
+                  </div>
+                  <div class="quotation-client-detail">
+                    <dt>Phone Number</dt>
+                    <dd>{{ newPenawaran.no_telp || "—" }}</dd>
+                  </div>
+                  <div class="quotation-client-detail">
+                    <dt>Email</dt>
+                    <dd>{{ newPenawaran.email || "—" }}</dd>
+                  </div>
+                </dl>
+              </aside>
             </div>
-            <a-select-new
-              class="quotation-currency-field"
-              v-model="newPenawaran.currency"
-              :items="[
-                { title: 'IDR', value: 'IDR' },
-                { title: 'USD', value: 'USD' },
-                { title: 'SGD', value: 'SGD' },
-              ]"
-            />
-          </div>
-          <div class="quotation-currency-fields">
-            <a-textarea-new
-              v-model="newPenawaran.perihal"
-              label="Subject"
-              placeholder="Quotation subject"
-              rows="2"
-            />
-          </div>
-        </section>
+          </section>
         </div>
 
         <section
@@ -513,12 +533,13 @@
                     'Lot',
                     'Set',
                     'Meter',
-                    'Rol',
+                    'Roll',
                     'Box',
                     'Liter',
                     'Jerigen',
                     'Can',
                     'Pail',
+                    'Pack',
                   ]"
                   v-model="item.uom"
                   label="UOM"
@@ -981,13 +1002,13 @@ const quotationFormSections = [
   {
     id: "items",
     number: "02",
-    title: "Quotation Items",
+    title: "Items",
     description: "Item, Qty, UOM, dan harga",
   },
   {
     id: "commercial",
     number: "03",
-    title: "Quotation Summary",
+    title: "Summary",
     description: "Total dan penandatangan quotation",
   },
   {
@@ -2262,7 +2283,7 @@ defineExpose({
   display: grid;
   min-height: 38px;
   padding: 8px;
-  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  grid-template-columns: minmax(0, 1fr) 18px;
   align-items: center;
   gap: 7px;
   color: #657382;
@@ -2298,13 +2319,6 @@ defineExpose({
   background: #2f6fa8;
   border-radius: 0 3px 3px 0;
   content: "";
-}
-
-.quotation-dialog-menu-number {
-  color: #96a1ab;
-  font-size: 9px;
-  font-weight: 750;
-  font-variant-numeric: tabular-nums;
 }
 
 .quotation-dialog-menu-copy {
@@ -2493,12 +2507,67 @@ defineExpose({
   border-radius: 4px;
 }
 
+.quotation-client-section {
+  padding-bottom: 26px;
+}
+
+.quotation-client-heading {
+  display: flex;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #e6e9ed;
+}
+
+.quotation-client-heading > div {
+  min-width: 0;
+}
+
+.quotation-client-heading span {
+  display: block;
+  margin-bottom: 4px;
+  color: #8a939f;
+  font-size: 8.5px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.quotation-client-heading h3 {
+  margin: 0;
+  color: #27313d;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.quotation-client-heading p {
+  max-width: 320px;
+  margin: 0;
+  color: #87919d;
+  font-size: 10px;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.quotation-client-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  align-items: start;
+  gap: 20px;
+}
+
+.quotation-client-form-column {
+  min-width: 0;
+}
+
 .quotation-client-picker {
   display: grid;
-  grid-template-columns: 180px repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(180px, 1.2fr) minmax(150px, 0.9fr) 164px;
   align-items: flex-end;
   gap: 10px;
-  margin-bottom: 9px;
 }
 
 .quotation-date-field {
@@ -2521,35 +2590,128 @@ defineExpose({
 
 .quotation-client-master-actions {
   display: flex;
-  margin-bottom: 12px;
+  margin: 7px 0 16px;
   align-items: center;
   gap: 4px;
+}
+
+.quotation-subject-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 145px;
+  align-items: start;
+  gap: 10px;
+}
+
+.quotation-subject-field {
+  min-width: 0;
+}
+
+.quotation-operation-block {
+  margin-top: 18px;
+  padding-top: 15px;
+  border-top: 1px solid #e7eaee;
+}
+
+.quotation-operation-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.quotation-operation-heading strong {
+  color: #3d4855;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.quotation-operation-heading span {
+  color: #929ba6;
+  font-size: 9px;
+  line-height: 1.4;
+  text-align: right;
 }
 
 .quotation-operation-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 9px;
+}
+
+.quotation-client-summary {
+  overflow: hidden;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.quotation-client-summary-heading {
+  display: flex;
+  min-height: 62px;
+  padding: 12px 13px;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #e5e8ec;
+  background: #ffffff;
+}
+
+.quotation-client-summary-heading > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: 1px solid #dce3e9;
+  border-radius: 7px;
+  background: #f0f4f7;
+  color: #4d6072;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.quotation-client-summary-heading > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quotation-client-summary-heading small {
+  color: #8b95a0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.quotation-client-summary-heading strong {
+  overflow: hidden;
+  color: #2f3945;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quotation-client-details {
-  display: grid;
-  grid-template-columns: minmax(220px, 1.7fr) repeat(2, minmax(140px, 1fr));
-  gap: 1px;
+  display: block;
   margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: #dfe3e8;
-  border: 1px solid #dfe3e8;
-  border-radius: 5px;
+  padding: 2px 13px;
 }
 
 .quotation-client-detail {
   min-width: 0;
-  min-height: 52px;
-  padding: 8px 11px;
-  background: #fafbfc;
+  min-height: 0;
+  padding: 10px 0;
+  background: transparent;
+  border-bottom: 1px solid #e8ebee;
+}
+
+.quotation-client-detail:last-child {
+  border-bottom: 0;
 }
 
 .quotation-client-detail dt {
@@ -2566,7 +2728,7 @@ defineExpose({
   margin: 0;
   overflow-wrap: anywhere;
   color: #354150;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -2612,8 +2774,8 @@ defineExpose({
 }
 
 .quotation-currency-field {
-  flex: 0 0 160px;
-  width: 160px;
+  min-width: 0;
+  width: 100%;
 }
 
 .quotation-items-section {
@@ -3261,7 +3423,7 @@ defineExpose({
   }
 
   .quotation-dialog-menu-item {
-    grid-template-columns: 23px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .quotation-dialog-menu-arrow {
@@ -3276,12 +3438,51 @@ defineExpose({
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .quotation-client-details {
+  .quotation-client-workspace {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .quotation-client-picker {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quotation-company-field {
+    grid-column: 1 / -1;
+  }
+
+  .quotation-client-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: 13px;
   }
 
   .quotation-client-address {
     grid-column: 1 / -1;
+  }
+
+  .quotation-client-detail {
+    padding-inline: 10px;
+    border-bottom: 1px solid #e8ebee;
+  }
+
+  .quotation-client-detail:first-child {
+    padding-inline: 0;
+  }
+
+  .quotation-client-detail:last-child {
+    grid-column: 1 / -1;
+    padding-inline: 0;
+    border-bottom: 0;
+  }
+
+  .quotation-client-detail:nth-child(2) {
+    padding-left: 0;
+    border-right: 1px solid #e8ebee;
+  }
+
+  .quotation-client-detail:nth-child(3) {
+    padding-right: 0;
   }
 
   .quotation-commercial-grid {
@@ -3371,7 +3572,6 @@ defineExpose({
     border-radius: 3px 3px 0 0;
   }
 
-  .quotation-dialog-menu-number,
   .quotation-dialog-menu-copy small,
   .quotation-dialog-menu-arrow {
     display: none;
@@ -3409,6 +3609,18 @@ defineExpose({
     grid-template-columns: 1fr;
   }
 
+  .quotation-client-heading {
+    margin-bottom: 16px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .quotation-client-heading p {
+    max-width: none;
+    text-align: left;
+  }
+
   .quotation-subject-field,
   .quotation-client-address {
     grid-column: auto;
@@ -3417,6 +3629,14 @@ defineExpose({
   .quotation-client-picker {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .quotation-company-field {
+    grid-column: auto;
+  }
+
+  .quotation-subject-grid {
+    grid-template-columns: 1fr;
   }
 
   .quotation-operation-fields {
@@ -3430,6 +3650,31 @@ defineExpose({
 
   .quotation-client-master-actions .v-btn {
     width: 100%;
+  }
+
+  .quotation-client-detail,
+  .quotation-client-detail:first-child,
+  .quotation-client-detail:last-child,
+  .quotation-client-detail:nth-child(2),
+  .quotation-client-detail:nth-child(3) {
+    grid-column: auto;
+    padding: 9px 0;
+    border-right: 0;
+    border-bottom: 1px solid #e8ebee;
+  }
+
+  .quotation-client-detail:last-child {
+    border-bottom: 0;
+  }
+
+  .quotation-operation-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .quotation-operation-heading span {
+    text-align: left;
   }
 
   .quotation-currency-section {
