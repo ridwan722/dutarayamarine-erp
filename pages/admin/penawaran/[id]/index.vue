@@ -1517,7 +1517,7 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div class="quotation-meta-row quotation-meta-client mt-2">
-                  <v-icon icon="mdi-domain" size="13" class="mb-1" />
+                  <v-icon icon="mdi-domain" size="13"  />
                   <p :title="detailpenawaran.nama_perusahaan || '-'">
                     {{ detailpenawaran.nama_perusahaan || "-" }}
                   </p>
@@ -2452,6 +2452,26 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 600px) {
+  .quotation-header-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .quotation-header-actions .quotation-scroll-top-btn {
+    width: 30px !important;
+    min-width: 30px !important;
+    padding-inline: 0 !important;
+  }
+
+  .quotation-header-actions .quotation-scroll-top-btn :deep(.v-btn__content) {
+    display: none;
+  }
+
+  .quotation-header-actions .quotation-scroll-top-btn :deep(.v-btn__prepend) {
+    margin-inline-end: 0 !important;
+  }
+
   .top-sticky-container {
     padding: 12px 14px 0;
   }
