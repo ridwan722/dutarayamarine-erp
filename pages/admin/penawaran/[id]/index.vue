@@ -24,6 +24,7 @@ import type { invoiceM } from "~/types/invoice";
 import type { dokumenSpkM, penawaranM } from "~/types/penawaranModel";
 
 const purchaseorderPreviewKey = ref(0);
+const quotationGridRefreshKey = ref(0);
 const hasPurchaseOrder = ref(false);
 const invoiceLinks = ref<(invoiceM & { id: string })[]>([]);
 const invoiceLinksLoading = ref(true);
@@ -377,10 +378,15 @@ function openRevisionDialog() {
 }
 
 async function handlePenawaranDialogSaved(
-  _quotation: penawaranM,
+  quotation: penawaranM,
   mode: "add" | "edit" | "revision",
 ) {
-  if (mode === "revision") await loadRevisionHistory();
+  if (mode === "revision") {
+    await loadRevisionHistory();
+    const savedRevisionId =
+      quotation.id_revisi || revisionHistory.value.at(-1)?.id_revisi;
+    if (savedRevisionId) await activateRevision(savedRevisionId);
+  }
 }
 
 function revisionIsUsedByInvoice(revision: penawaranM) {
@@ -1033,6 +1039,12 @@ function scrollQuotationToTop() {
   quotationPreview.value?.scrollTo({ top: 0, behavior });
 }
 
+async function refreshQuotationGrid() {
+  quotationGridRefreshKey.value++;
+  await nextTick();
+  useNotificationStore().showSuccess("Bagian quotation berhasil dimuat ulang");
+}
+
 // Nuxt berjalan sebagai SPA, jadi viewport sudah bisa dibaca saat setup. Ini
 // mencegah render desktop sesaat sebelum berubah menjadi tampilan mobile.
 const isMobile = ref(
@@ -1420,22 +1432,35 @@ onBeforeUnmount(() => {
               <h1>Detail Quotation</h1>
             </div>
           </div>
-          <v-btn
-            variant="outlined"
-            color="blue-grey-darken-1"
-            size="x-small"
-            prepend-icon="mdi-arrow-up"
-            class="quotation-scroll-top-btn text-none mb-3"
-            aria-label="Gulir ke bagian atas quotation"
-            @click="scrollQuotationToTop"
-          >
-            Scroll to Top
-          </v-btn>
+          <div class="quotation-header-actions">
+            <v-btn
+              variant="outlined"
+              color="blue-grey-darken-1"
+              size="x-small"
+              prepend-icon="mdi-refresh"
+              class="quotation-scroll-top-btn text-none mb-3"
+              aria-label="Muat ulang bagian quotation"
+              @click="refreshQuotationGrid"
+            >
+              Refresh
+            </v-btn>
+            <v-btn
+              variant="outlined"
+              color="blue-grey-darken-1"
+              size="x-small"
+              prepend-icon="mdi-arrow-up"
+              class="quotation-scroll-top-btn text-none mb-3"
+              aria-label="Gulir ke bagian atas quotation"
+              @click="scrollQuotationToTop"
+            >
+              Scroll to Top
+            </v-btn>
+          </div>
         </div>
       </div>
     </header>
 
-    <div class="grid-wrapper">
+    <div :key="quotationGridRefreshKey" class="grid-wrapper">
       <div class="quotation-grid">
         <aside ref="quotationSidebar" class="quotation-sidebar">
           <section class="info-card">
@@ -1462,9 +1487,9 @@ onBeforeUnmount(() => {
                     color="primary"
                     class="font-weight-medium text-capitalize"
                   >
-                    {{ detailpenawaran.status }}
+                    Status : {{ detailpenawaran.status }}
                   </v-chip>
-                  <v-chip
+                  <!-- <v-chip
                     v-if="Number(detailpenawaran.revision_number) > 0"
                     size="x-small"
                     variant="tonal"
@@ -1472,7 +1497,7 @@ onBeforeUnmount(() => {
                     class="font-weight-bold"
                   >
                     {{ revisionLabel(detailpenawaran) }}
-                  </v-chip>
+                  </v-chip> -->
                 </div>
               </div>
 
@@ -1960,6 +1985,13 @@ onBeforeUnmount(() => {
 
 .quotation-page-title > div {
   min-width: 0;
+}
+
+.quotation-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
 }
 
 .quotation-back-btn {

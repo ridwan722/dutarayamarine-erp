@@ -835,7 +835,9 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
     if (
       parent &&
       sourceText.trim() &&
-      !parent.closest(".no-print, .drag-icon, .no-print-cell")
+      !parent.closest(
+        ".no-print, .drag-icon, .no-print-cell, .modern-table tbody",
+      )
     ) {
       const style = window.getComputedStyle(parent);
       const fontSizePx = Number.parseFloat(style.fontSize);
@@ -1026,6 +1028,11 @@ const createPaginatedQuotationPdf = async () => {
       .querySelectorAll("#offer-to-print *")
       .forEach((element) => {
         const htmlElement = element as HTMLElement;
+        // Keep item rows as browser-rendered text. Rebuilding their lines with
+        // jsPDF's Helvetica changes glyph widths and makes long descriptions
+        // look crowded compared with the table layout in the preview.
+        if (htmlElement.closest(".modern-table tbody")) return;
+
         htmlElement.style.setProperty("color", "transparent", "important");
         htmlElement.style.setProperty(
           "-webkit-text-fill-color",

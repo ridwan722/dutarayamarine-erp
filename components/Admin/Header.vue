@@ -1285,7 +1285,7 @@ const logout = async () => {
     </template>
 
     <div v-if="isDesktopLayout" class="header-version" aria-label="Versi aplikasi 25.5.0">
-      Versi 25.5.1
+      Versi 25.5.2
     </div>
 
     <v-spacer />
