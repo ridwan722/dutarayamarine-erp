@@ -94,7 +94,7 @@
                 data.penawaranAddEdit === "add"
                   ? "Create"
                   : data.penawaranAddEdit === "revision"
-                    ? "Create Revision"
+                    ? "Revision"
                     : "Edit"
               }}
               Quotation
@@ -127,7 +127,7 @@
 
       <v-card-text class="quotation-dialog-workspace">
         <nav class="quotation-dialog-menu" aria-label="Menu form quotation">
-          <p class="quotation-dialog-menu-label">Menu Pengisian</p>
+          <!-- <p class="quotation-dialog-menu-label">Menu Pengisian</p> -->
           <button
             v-for="section in quotationFormSections"
             :key="section.id"
@@ -142,10 +142,10 @@
             "
             @click="activeQuotationSection = section.id"
           >
-            <span class="quotation-dialog-menu-number">{{ section.number }}</span>
+            <span class="quotation-dialog-menu-number"></span>
             <span class="quotation-dialog-menu-copy">
               <strong>{{ section.title }}</strong>
-              <small>{{ section.description }}</small>
+              <!-- <small>{{ section.description }}</small> -->
             </span>
             <v-icon
               class="quotation-dialog-menu-arrow"
@@ -607,13 +607,7 @@
           class="quotation-commercial-grid"
         >
           <section class="quotation-form-section quotation-summary-section">
-            <div class="quotation-section-header">
-              <div>
-                <!-- <span class="quotation-section-index">03</span> -->
-                <h3>Quotation Summary</h3>
-              </div>
-              <p>Nilai quotation dan diskon.</p>
-            </div>
+
             <div class="quotation-discount-fields">
               <v-text-field
                 v-model.number="discountPercentPenawaran"
@@ -2245,8 +2239,8 @@ defineExpose({
 
 .quotation-dialog-menu {
   display: flex;
-  flex: 0 0 238px;
-  width: 238px;
+  flex: 0 0 208px;
+  width: 208px;
   padding: 18px 12px;
   flex-direction: column;
   gap: 6px;
@@ -2266,7 +2260,7 @@ defineExpose({
 .quotation-dialog-menu-item {
   position: relative;
   display: grid;
-  min-height: 48px;
+  min-height: 38px;
   padding: 8px;
   grid-template-columns: 24px minmax(0, 1fr) 18px;
   align-items: center;
