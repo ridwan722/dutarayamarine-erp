@@ -21,11 +21,18 @@ import {
   useDashboardAnalytics,
 } from "~/components/dashboard/useDashboardAnalytics";
 
-const { mdAndUp } = useDisplay();
+const HEADER_DESKTOP_BREAKPOINT = 910;
+const { width: viewportWidth } = useDisplay();
+const isDesktopLayout = computed(
+  () => viewportWidth.value >= HEADER_DESKTOP_BREAKPOINT,
+);
 const route = useRoute();
 const useuser = useUserStore();
 const customerStore = usecustomerStore();
 const invoiceStore = useinvoiceStore();
+const desktopMenuExpanded = ref(false);
+const sideMenuQuery = ref("");
+const sideMenuSearchInput = ref(null);
 const mobileMenuOpen = ref(false);
 const accountMenuOpen = ref(false);
 const accountCompanyName = ref("");
@@ -47,6 +54,8 @@ let notificationLoadPromise = null;
 
 const WORKSPACE_TABS_STORAGE_PREFIX = "drm-erp:workspace-tabs:v2";
 const NOTIFICATION_SEEN_STORAGE_PREFIX = "drm-erp:notification-seen:v1";
+const DESKTOP_MENU_EXPANDED_STORAGE_KEY =
+  "drm-erp:desktop-menu-expanded:v1";
 
 const accountName = computed(() => {
   const name = useuser.getDisplayName?.trim();
@@ -232,21 +241,193 @@ watch(notificationMenuOpen, (isOpen) => {
   if (isOpen) void openNotificationPanel();
 });
 
+function restoreDesktopMenuState() {
+  try {
+    desktopMenuExpanded.value =
+      window.localStorage.getItem(DESKTOP_MENU_EXPANDED_STORAGE_KEY) ===
+      "true";
+  } catch {
+    desktopMenuExpanded.value = false;
+  }
+}
+
+function toggleDesktopMenu() {
+  desktopMenuExpanded.value = !desktopMenuExpanded.value;
+
+  if (!desktopMenuExpanded.value) {
+    sideMenuQuery.value = "";
+  }
+
+  try {
+    window.localStorage.setItem(
+      DESKTOP_MENU_EXPANDED_STORAGE_KEY,
+      String(desktopMenuExpanded.value),
+    );
+  } catch {
+    // Status expand tetap berlaku selama sesi jika storage tidak tersedia.
+  }
+}
+
+async function openDesktopMenuSearch() {
+  if (!desktopMenuExpanded.value) {
+    desktopMenuExpanded.value = true;
+
+    try {
+      window.localStorage.setItem(DESKTOP_MENU_EXPANDED_STORAGE_KEY, "true");
+    } catch {
+      // Pencarian tetap dapat digunakan jika storage tidak tersedia.
+    }
+  }
+
+  await nextTick();
+  sideMenuSearchInput.value?.focus();
+}
+
+function handleDesktopMenuShortcut(event) {
+  if (!isDesktopLayout.value || event.key.toLowerCase() !== "k") return;
+  if (!event.metaKey && !event.ctrlKey) return;
+
+  event.preventDefault();
+  void openDesktopMenuSearch();
+}
+
 onMounted(() => {
   currentTime.value = new Date();
+  restoreDesktopMenuState();
   restoreNotificationSeenState();
   void loadNotifications();
   clockInterval = window.setInterval(() => {
     currentTime.value = new Date();
   }, 1_000);
+  window.addEventListener("keydown", handleDesktopMenuShortcut);
   restoreWorkspaceTabs();
   void nextTick(initializeWorkspaceTabsSortable);
 });
 
 onBeforeUnmount(() => {
   if (clockInterval) window.clearInterval(clockInterval);
+  window.removeEventListener("keydown", handleDesktopMenuShortcut);
   destroyWorkspaceTabsSortable();
 });
+
+const sideMenuIconKeyByPath = {
+  "/admin/": "dashboard",
+  "/admin/penawaran": "quotation",
+  "/admin/invoice": "invoice",
+  "/admin/service-report": "service",
+  "/admin/purchase-order": "purchase",
+  "/admin/master/users": "users",
+  "/admin/master/client": "client",
+  "/admin/master/vendor": "vendor",
+  "/admin/master/leads-web": "leads",
+  "/admin/master/project-web": "projects",
+  "/admin/master/product-service": "website",
+  "/admin/master/barang": "inventory",
+  "/admin/master/termcondition": "terms",
+  "/admin/petty-cash": "finance",
+  "/admin/legalitas": "legal",
+  "/admin/master/penomoran": "numbering",
+};
+
+const sideMenuIconPaths = {
+  dashboard: [
+    "M4 4h6v8H4z",
+    "M14 4h6v4h-6z",
+    "M14 12h6v8h-6z",
+    "M4 16h6v4H4z",
+  ],
+  quotation: [
+    "M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z",
+    "M14 3v6h6",
+    "M9 17h2l6.5-6.5-2-2L9 15z",
+  ],
+  invoice: [
+    "M6 3v18l3-2 3 2 3-2 3 2V3l-3 2-3-2-3 2z",
+    "M9 9h6",
+    "M9 13h6",
+    "M9 17h3",
+  ],
+  service: [
+    "M9 4H6a2 2 0 0 0-2 2v14h16V6a2 2 0 0 0-2-2h-3",
+    "M9 2h6v4H9z",
+    "m9 12-5 5-3-3",
+  ],
+  purchase: [
+    "M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H7",
+    "M10 20h.01",
+    "M17 20h.01",
+  ],
+  users: [
+    "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2",
+    "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+    "M22 21v-2a4 4 0 0 0-3-3.87",
+    "M16 3.13a4 4 0 0 1 0 7.75",
+  ],
+  client: [
+    "M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16",
+    "M16 9h2a2 2 0 0 1 2 2v10",
+    "M8 7h4",
+    "M8 11h4",
+    "M8 15h4",
+    "M2 21h20",
+  ],
+  vendor: [
+    "M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2",
+    "M4 7h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z",
+    "M2 12h20",
+    "M10 12v2h4v-2",
+  ],
+  leads: [
+    "M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2",
+    "M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+    "M19 8v6",
+    "M16 11h6",
+  ],
+  projects: [
+    "M3 7h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+    "M3 7V5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2",
+  ],
+  website: [
+    "M4 4h6v6H4z",
+    "M14 4h6v6h-6z",
+    "M4 14h6v6H4z",
+    "M14 14h6v6h-6z",
+  ],
+  inventory: [
+    "m12 3 9 5-9 5-9-5z",
+    "m3 8 9 5 9-5",
+    "M3 8v8l9 5 9-5V8",
+    "M12 13v8",
+  ],
+  terms: [
+    "M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z",
+    "M14 3v6h6",
+    "M8 13h8",
+    "M8 17h6",
+  ],
+  finance: [
+    "M4 6h15a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h12",
+    "M16 12h5v4h-5a2 2 0 0 1 0-4z",
+  ],
+  legal: [
+    "M12 3 20 6v6c0 5-3.4 8.2-8 10-4.6-1.8-8-5-8-10V6z",
+    "m9 12 2 2 4-4",
+  ],
+  numbering: [
+    "M10 3 8 21",
+    "M16 3l-2 18",
+    "M4 9h16",
+    "M3 15h16",
+  ],
+  more: [
+    "M4 6h2",
+    "M10 6h10",
+    "M4 12h2",
+    "M10 12h10",
+    "M4 18h2",
+    "M10 18h10",
+  ],
+};
 
 const allMenuItems = [
   {
@@ -374,6 +555,15 @@ const menuItems = computed(() =>
     return permission ? useuser.canAccess(permission) : false;
   }),
 );
+
+const desktopMenuItems = computed(() => {
+  const query = sideMenuQuery.value.trim().toLocaleLowerCase("id-ID");
+  if (!query) return menuItems.value;
+
+  return menuItems.value.filter((item) =>
+    `${item.title} ${item.subtitle}`.toLocaleLowerCase("id-ID").includes(query),
+  );
+});
 
 const MOBILE_PRIMARY_PATHS = [
   "/admin/",
@@ -866,7 +1056,7 @@ const breadcrumbs = computed(() => {
   return items;
 });
 
-watch(mdAndUp, (isDesktop) => {
+watch(isDesktopLayout, (isDesktop) => {
   if (isDesktop) mobileMenuOpen.value = false;
 });
 
@@ -919,24 +1109,88 @@ const logout = async () => {
 
   <!-- SIDE NAVIGATION DRAWER -->
   <v-navigation-drawer
-    v-if="mdAndUp"
+    v-if="isDesktopLayout"
+    id="desktop-side-navigation"
     permanent
-    rail
-    width="72"
-    rail-width="72"
-    class="desktop-side-menu"
+    :rail="!desktopMenuExpanded"
+    :width="252"
+    :rail-width="72"
+    :class="[
+      'desktop-side-menu',
+      { 'desktop-side-menu--expanded': desktopMenuExpanded },
+    ]"
   >
     <div class="side-brand-header">
-      <div class="mini-logo-box">
-        <img src="/Logo-DRM.png" alt="DRM Logo" class="mini-logo-img" />
+      <div class="side-brand-lockup">
+        <div class="mini-logo-box">
+          <img src="/Logo-DRM.png" alt="DRM Logo" class="mini-logo-img" />
+        </div>
+        <div class="side-brand-copy">
+          <strong>Duta Raya Marine</strong>
+          <span>ERP Workspace</span>
+        </div>
       </div>
     </div>
 
-    <v-divider class="mx-3 my-2 border-opacity-25" />
+    <button
+      type="button"
+      class="side-menu-toggle"
+      :aria-label="desktopMenuExpanded ? 'Perkecil menu samping' : 'Perluas menu samping'"
+      :aria-expanded="desktopMenuExpanded"
+      aria-controls="desktop-side-navigation"
+      :title="desktopMenuExpanded ? 'Perkecil menu' : 'Tampilkan nama menu'"
+      @click="toggleDesktopMenu"
+    >
+      <svg
+        class="side-control-icon"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          :d="desktopMenuExpanded ? 'm15 18-6-6 6-6' : 'm9 18 6-6-6-6'"
+        />
+      </svg>
+    </button>
 
-    <v-list nav density="compact" class="side-nav-list px-2">
+    <div class="side-search-region">
+      <label
+        class="side-search-field"
+        :aria-hidden="!desktopMenuExpanded"
+      >
+        <svg class="side-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m21 21-4.35-4.35" />
+          <path d="M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0z" />
+        </svg>
+        <input
+          ref="sideMenuSearchInput"
+          v-model="sideMenuQuery"
+          type="search"
+          placeholder="Cari menu"
+          aria-label="Cari menu navigasi"
+          :tabindex="desktopMenuExpanded ? 0 : -1"
+        />
+        <kbd>⌘K</kbd>
+      </label>
+
+      <button
+        type="button"
+        class="side-search-trigger"
+        aria-label="Buka pencarian menu"
+        title="Cari menu"
+        :tabindex="desktopMenuExpanded ? -1 : 0"
+        :aria-hidden="desktopMenuExpanded"
+        @click="openDesktopMenuSearch"
+      >
+        <svg class="side-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m21 21-4.35-4.35" />
+          <path d="M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0z" />
+        </svg>
+      </button>
+    </div>
+
+    <v-list nav density="compact" class="side-nav-list">
       <v-list-item
-        v-for="item in menuItems"
+        v-for="item in desktopMenuItems"
         :key="item.to"
         :to="item.to"
         :exact="item.exact"
@@ -947,9 +1201,26 @@ const logout = async () => {
         active-class="side-nav-item--active"
       >
         <div class="nav-icon-wrapper">
-          <v-icon :icon="item.icon" size="20" />
+          <svg class="side-nav-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              v-for="(path, pathIndex) in sideMenuIconPaths[
+                sideMenuIconKeyByPath[item.to]
+              ]"
+              :key="`${item.to}-icon-${pathIndex}`"
+              :d="path"
+            />
+          </svg>
         </div>
+        <span class="side-nav-label">{{ item.title }}</span>
+        <svg
+          class="side-nav-indicator"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="m9 18 6-6-6-6" />
+        </svg>
         <v-tooltip
+          v-if="!desktopMenuExpanded"
           activator="parent"
           location="end"
           content-class="side-nav-tooltip"
@@ -957,6 +1228,20 @@ const logout = async () => {
           {{ item.title }}
         </v-tooltip>
       </v-list-item>
+
+      <div
+        v-if="desktopMenuExpanded && !desktopMenuItems.length"
+        class="side-nav-empty"
+        role="status"
+      >
+        <svg class="side-empty-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m21 21-4.35-4.35" />
+          <path d="M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0z" />
+          <path d="m8.5 8.5 5 5" />
+          <path d="m13.5 8.5-5 5" />
+        </svg>
+        <span>Menu tidak ditemukan</span>
+      </div>
     </v-list>
   </v-navigation-drawer>
 
@@ -964,7 +1249,7 @@ const logout = async () => {
   <v-app-bar flat height="62" extension-height="40" class="app-bar-border">
     <template #prepend>
       <div class="header-left">
-        <div v-if="!mdAndUp" class="logo-box">
+        <div v-if="!isDesktopLayout" class="logo-box">
           <img
             src="/Logo-DRM.png"
             alt="PT. DUTA RAYA MARINE"
@@ -977,7 +1262,7 @@ const logout = async () => {
           <span class="company-subtitle">ERP - Enterprise Resource Planning</span>
         </div>
 
-        <nav v-if="mdAndUp" class="header-breadcrumbs" aria-label="Breadcrumb">
+        <nav v-if="isDesktopLayout" class="header-breadcrumbs" aria-label="Breadcrumb">
           <span class="header-breadcrumb-divider" aria-hidden="true" />
           <ol>
             <li v-for="(item, index) in breadcrumbs" :key="`${item.title}-${index}`">
@@ -999,7 +1284,7 @@ const logout = async () => {
       </div>
     </template>
 
-    <div v-if="mdAndUp" class="header-version" aria-label="Versi aplikasi 25.5.0">
+    <div v-if="isDesktopLayout" class="header-version" aria-label="Versi aplikasi 25.5.0">
       Versi 25.5.1
     </div>
 
@@ -1115,13 +1400,13 @@ const logout = async () => {
         </v-menu>
 
         <span
-          v-if="mdAndUp"
+          v-if="isDesktopLayout"
           class="header-utility-divider"
           aria-hidden="true"
         />
 
         <div
-          v-if="mdAndUp"
+          v-if="isDesktopLayout"
           class="header-clock"
           role="timer"
           :aria-label="clockAriaLabel"
@@ -1268,7 +1553,7 @@ const logout = async () => {
   </v-app-bar>
 
   <v-bottom-navigation
-    v-if="!mdAndUp"
+    v-if="!isDesktopLayout"
     grow
     tag="nav"
     :height="68"
@@ -1285,7 +1570,15 @@ const logout = async () => {
       class="mobile-bottom-item"
       :aria-label="mobileMenuLabel(item)"
     >
-      <v-icon :icon="item.icon" size="21" />
+      <svg class="mobile-bottom-svg" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          v-for="(path, pathIndex) in sideMenuIconPaths[
+            sideMenuIconKeyByPath[item.to]
+          ]"
+          :key="`${item.to}-bottom-icon-${pathIndex}`"
+          :d="path"
+        />
+      </svg>
       <span>{{ mobileMenuLabel(item) }}</span>
     </v-btn>
 
@@ -1304,7 +1597,13 @@ const logout = async () => {
           aria-label="Buka menu lainnya"
           :aria-expanded="mobileMenuOpen"
         >
-          <v-icon icon="mdi-format-list-group" size="21" />
+          <svg class="mobile-bottom-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              v-for="(path, pathIndex) in sideMenuIconPaths.more"
+              :key="`more-bottom-icon-${pathIndex}`"
+              :d="path"
+            />
+          </svg>
           <span>Lainnya</span>
         </v-btn>
       </template>
@@ -1342,7 +1641,17 @@ const logout = async () => {
                 @click="mobileMenuOpen = false"
               >
                 <template #prepend>
-                  <v-icon class="mobile-nav-icon" :icon="item.icon" size="18" />
+                  <span class="mobile-nav-icon" aria-hidden="true">
+                    <svg class="mobile-nav-svg" viewBox="0 0 24 24">
+                      <path
+                        v-for="(path, pathIndex) in sideMenuIconPaths[
+                          sideMenuIconKeyByPath[item.to]
+                        ]"
+                        :key="`${item.to}-mobile-icon-${pathIndex}`"
+                        :d="path"
+                      />
+                    </svg>
+                  </span>
                 </template>
 
                 <v-list-item-title>{{ item.title }}</v-list-item-title>
@@ -1351,7 +1660,13 @@ const logout = async () => {
                 </v-list-item-subtitle>
 
                 <template #append>
-                  <v-icon icon="mdi-chevron-right" size="15" />
+                  <svg
+                    class="mobile-nav-chevron"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
                 </template>
               </v-list-item>
             </v-list>
@@ -1368,40 +1683,94 @@ const logout = async () => {
 ========================================================= */
 
 .desktop-side-menu {
-  border-right: 1px solid #e2e8f0 !important;
-  background-color: #0f172a !important;
+  isolation: isolate;
+  border-right: 1px solid #1d2a3e !important;
+  background: #ffffff !important;
+  box-shadow: 8px 0 28px rgba(15, 23, 42, 0.035) !important;
   overflow: visible !important;
+  transition-property:
+    transform,
+    visibility,
+    width,
+    border-color,
+    box-shadow !important;
+  transition-duration: 280ms !important;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+.desktop-side-menu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, #111d31 0%, #0b1423 100%);
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.desktop-side-menu--expanded {
+  border-right-color: #e7e9ed !important;
+}
+
+.desktop-side-menu--expanded::before {
+  opacity: 0;
+}
+
+.desktop-side-menu ~ .app-bar-border,
+:global(.desktop-side-menu ~ .v-main) {
+  transition-duration: 280ms !important;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;
 }
 
 .desktop-side-menu :deep(.v-navigation-drawer__content) {
-  overflow: hidden !important;
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
+  overflow: visible !important;
 }
 
 .side-brand-header {
+  position: relative;
   display: flex;
+  height: 86px;
+  padding: 0 14px;
+  flex: 0 0 86px;
   align-items: center;
-  justify-content: center;
-  height: 72px;
-  flex-shrink: 0;
+  transition: padding 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.desktop-side-menu--expanded .side-brand-header {
+  padding-inline: 18px;
+}
+
+.side-brand-lockup {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  column-gap: 0;
+  overflow: hidden;
+  transition: column-gap 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.desktop-side-menu--expanded .side-brand-lockup {
+  column-gap: 12px;
 }
 
 .mini-logo-box {
-  width: 50px;
-  height: 50px;
-  background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
   display: flex;
+  width: 44px;
+  height: 44px;
+  padding: 6px;
+  flex: 0 0 44px;
   align-items: center;
   justify-content: center;
-  padding: 5px;
-  transition: all 0.2s ease;
-}
-
-.mini-logo-box:hover {
-  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid #e2e5e9;
+  border-radius: 11px;
+  background: #ffffff;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.08);
 }
 
 .mini-logo-img {
@@ -1410,15 +1779,228 @@ const logout = async () => {
   object-fit: contain;
 }
 
+.side-brand-copy {
+  display: flex;
+  min-width: 0;
+  max-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-width 140ms ease,
+    opacity 90ms ease;
+}
+
+.desktop-side-menu--expanded .side-brand-copy {
+  max-width: 166px;
+  opacity: 1;
+  transition:
+    max-width 220ms ease 55ms,
+    opacity 140ms ease 90ms;
+}
+
+.side-brand-copy strong {
+  overflow: hidden;
+  color: #20242c;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-brand-copy span {
+  color: #9298a2;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.side-menu-toggle {
+  position: absolute;
+  top: 50%;
+  right: -13px;
+  z-index: 4;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #dfe3e8;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #7c838e;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.side-menu-toggle:hover {
+  border-color: #d5aeb2;
+  color: #a6202b;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+}
+
+.side-menu-toggle:focus-visible {
+  outline: 2px solid rgba(166, 32, 43, 0.35);
+  outline-offset: 2px;
+}
+
+.side-control-icon,
+.side-search-icon,
+.side-nav-svg,
+.side-nav-indicator,
+.side-empty-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.side-control-icon {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.9;
+}
+
+.side-search-region {
+  position: relative;
+  height: 52px;
+  flex: 0 0 52px;
+  overflow: hidden;
+}
+
+.side-search-field {
+  position: absolute;
+  inset: 6px 14px 8px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 12px;
+  border: 1px solid #dfe2e6;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #858c96;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-8px);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 100ms ease,
+    transform 180ms ease;
+}
+
+.desktop-side-menu--expanded .side-search-field {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition-delay: 70ms, 70ms, 70ms, 70ms;
+}
+
+.side-search-field:focus-within {
+  border-color: #cbd0d7;
+  box-shadow: 0 0 0 3px rgba(166, 32, 43, 0.08);
+}
+
+.side-search-field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #303640;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.side-search-field input::placeholder {
+  color: #a1a6af;
+}
+
+.side-search-field input::-webkit-search-cancel-button {
+  opacity: 0.45;
+}
+
+.side-search-field kbd {
+  display: inline-flex;
+  height: 22px;
+  padding: 0 6px;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 1px solid #e3e5e8;
+  border-radius: 6px;
+  background: #fafafa;
+  color: #8a9099;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.side-search-trigger {
+  position: absolute;
+  top: 6px;
+  left: 19px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #9ca8ba;
+  cursor: pointer;
+  opacity: 1;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    opacity 100ms ease;
+}
+
+.desktop-side-menu--expanded .side-search-trigger {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.side-search-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.side-search-trigger:focus-visible {
+  outline: 2px solid rgba(166, 32, 43, 0.28);
+  outline-offset: 2px;
+}
+
+.side-search-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.7;
+}
+
 .side-nav-list {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   overflow-x: hidden !important;
   overflow-y: auto !important;
-  padding-bottom: 12px !important;
+  padding: 3px 12px 14px !important;
   scrollbar-width: none;
   overscroll-behavior: contain;
 }
@@ -1429,18 +2011,34 @@ const logout = async () => {
 
 .side-nav-item {
   position: relative !important;
-  border-radius: 10px !important;
-  color: #94a3b8 !important;
-  height: 44px !important;
-  min-height: 44px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #737a85 !important;
+  height: 38px !important;
+  min-height: 38px !important;
   padding: 0 !important;
   margin-bottom: 0 !important;
   overflow: visible !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: color 0.16s ease !important;
 }
 
 .side-nav-item--bottom {
   margin-top: auto !important;
+}
+
+.side-nav-item--bottom::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 4px;
+  left: 4px;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.18);
+  transition: background-color 200ms ease;
+}
+
+.desktop-side-menu--expanded .side-nav-item--bottom::before {
+  background: #eceef1;
 }
 
 .side-nav-item :deep(.v-list-item__content) {
@@ -1448,73 +2046,210 @@ const logout = async () => {
   height: 100% !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
+  column-gap: 0;
+  padding: 0 9px !important;
   margin: 0 !important;
-  overflow: visible !important;
+  overflow: hidden !important;
+  transition:
+    column-gap 280ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.side-nav-item :deep(.v-list-item__overlay) {
-  border-radius: 10px !important;
+.desktop-side-menu--expanded
+  .side-nav-item
+  :deep(.v-list-item__content) {
+  column-gap: 8px;
+}
+
+.side-nav-item :deep(.v-list-item__overlay),
+.side-nav-item :deep(.v-list-item__underlay) {
+  background: transparent !important;
+  opacity: 0 !important;
+}
+
+.side-nav-item::after {
+  border: 0 !important;
 }
 
 .nav-icon-wrapper {
-  width: 100%;
-  height: 100%;
+  width: 30px;
+  height: 30px;
   display: flex;
+  flex: 0 0 30px;
   align-items: center;
   justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #98a5b8;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
 }
 
-.nav-icon-wrapper .v-icon {
-  color: #94a3b8;
+.desktop-side-menu--expanded .nav-icon-wrapper {
+  color: #858c96;
+}
+
+.side-nav-svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.65;
   transition:
-    color 0.2s ease,
-    transform 0.2s ease;
+    color 0.16s ease,
+    stroke-width 0.16s ease;
 }
 
 .side-nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.06) !important;
-  color: #ffffff !important;
+  background: transparent !important;
 }
 
-.side-nav-item:hover .nav-icon-wrapper .v-icon {
+.side-nav-item:hover .nav-icon-wrapper {
+  border-color: transparent;
+  background: transparent;
   color: #ffffff;
-  transform: scale(1.08);
+}
+
+.desktop-side-menu--expanded .side-nav-item:hover .nav-icon-wrapper {
+  color: #343a43;
+}
+
+.side-nav-item:hover .side-nav-svg {
+  stroke-width: 1.85;
 }
 
 .side-nav-item--active {
-  background-color: rgba(220, 38, 38, 0.12) !important;
+  background: transparent !important;
+  color: #252a33 !important;
 }
 
-.side-nav-item--active::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: -6px;
-  width: 8px;
+.side-nav-item--active .nav-icon-wrapper {
+  border-color: transparent;
+  background: transparent;
+  color: #f97882;
+  box-shadow: none;
+}
+
+.desktop-side-menu--expanded
+  .side-nav-item--active
+  .nav-icon-wrapper {
+  color: #a6202b;
+}
+
+.side-nav-item--active .side-nav-svg {
+  stroke-width: 1.9;
+}
+
+.side-nav-item:focus-visible .nav-icon-wrapper {
+  outline: 2px solid rgba(166, 32, 43, 0.28);
+  outline-offset: 2px;
+}
+
+.side-nav-label {
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  color: #505761;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  opacity: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    max-width 140ms ease,
+    opacity 90ms ease;
+}
+
+.desktop-side-menu--expanded .side-nav-label {
+  max-width: 146px;
+  opacity: 1;
+  transition:
+    max-width 220ms ease 55ms,
+    opacity 140ms ease 90ms;
+}
+
+.side-nav-item--active .side-nav-label {
+  color: #252a33;
+  font-weight: 700;
+}
+
+.side-nav-indicator {
+  width: 0;
   height: 14px;
-  background-color: #ef4444;
-  clip-path: polygon(100% 0, 100% 100%, 0 50%);
-  transform: translateY(-50%);
+  max-width: 0;
+  margin-left: auto;
+  flex: 0 0 0;
+  overflow: hidden;
+  color: #a6abb3;
+  opacity: 0;
+  stroke-width: 1.7;
+  transition:
+    width 140ms ease,
+    max-width 140ms ease,
+    flex-basis 140ms ease,
+    opacity 100ms ease;
 }
 
-.side-nav-item--active .nav-icon-wrapper .v-icon {
-  color: #ef4444 !important;
+.desktop-side-menu--expanded .side-nav-indicator {
+  width: 14px;
+  max-width: 14px;
+  flex-basis: 14px;
+  opacity: 1;
+  transition-delay: 55ms;
+}
+
+.side-nav-item:hover .side-nav-indicator,
+.side-nav-item--active .side-nav-indicator {
+  color: #a6202b;
+}
+
+.side-nav-empty {
+  display: flex;
+  min-height: 112px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: #9a9fa8;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.side-empty-icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.5;
 }
 
 :global(.side-nav-tooltip) {
-  padding: 6px 14px !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 6px !important;
-  background: #0f172a !important;
+  padding: 7px 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 7px !important;
+  background: #252a33 !important;
   color: #f8fafc !important;
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.3),
-    0 4px 6px -4px rgba(0, 0, 0, 0.2) !important;
-  font-size: 12.5px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.2px !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24) !important;
+  font-size: 11.5px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.01em !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-side-menu,
+  .desktop-side-menu::before,
+  .desktop-side-menu ~ .app-bar-border,
+  :global(.desktop-side-menu ~ .v-main),
+  .side-brand-header,
+  .side-brand-lockup,
+  .side-brand-copy,
+  .side-menu-toggle,
+  .side-search-field,
+  .side-search-trigger,
+  .side-nav-item :deep(.v-list-item__content),
+  .side-nav-label,
+  .side-nav-indicator {
+    transition: none !important;
+  }
 }
 
 /* =========================================================
@@ -2240,9 +2975,17 @@ const logout = async () => {
   gap: 4px !important;
 }
 
-.mobile-bottom-item :deep(.v-icon) {
-  color: #7b8797;
-  transition: color 0.16s ease;
+.mobile-bottom-svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition:
+    color 0.16s ease,
+    stroke-width 0.16s ease;
 }
 
 .mobile-bottom-item span {
@@ -2273,8 +3016,8 @@ const logout = async () => {
   transform: translateX(-50%);
 }
 
-.mobile-bottom-item.v-btn--active :deep(.v-icon) {
-  color: #14263d !important;
+.mobile-bottom-item.v-btn--active .mobile-bottom-svg {
+  stroke-width: 1.9;
 }
 
 .mobile-bottom-item:focus-visible {
@@ -2287,8 +3030,8 @@ const logout = async () => {
     color: #31465f !important;
   }
 
-  .mobile-bottom-item:hover :deep(.v-icon) {
-    color: #31465f;
+  .mobile-bottom-item:hover .mobile-bottom-svg {
+    stroke-width: 1.8;
   }
 }
 
@@ -2409,9 +3152,33 @@ const logout = async () => {
 .mobile-nav-icon {
   width: 32px;
   height: 32px;
+  display: flex;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
   border-radius: 7px;
-  background: #f2f5f7;
+  background: transparent;
   color: #637286;
+}
+
+.mobile-nav-svg,
+.mobile-nav-chevron {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mobile-nav-svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.65;
+}
+
+.mobile-nav-chevron {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.7;
 }
 
 .mobile-nav-item:focus-visible {
@@ -2436,7 +3203,7 @@ const logout = async () => {
 }
 
 .mobile-nav-item.v-list-item--active .mobile-nav-icon {
-  background: #e9eef3;
+  background: transparent;
   color: #14263d;
 }
 
