@@ -375,6 +375,24 @@ const menuItems = computed(() =>
   }),
 );
 
+const MOBILE_PRIMARY_PATHS = [
+  "/admin/",
+  "/admin/penawaran",
+  "/admin/invoice",
+  "/admin/service-report",
+];
+
+const mobilePrimaryItems = computed(() =>
+  MOBILE_PRIMARY_PATHS.map((path) =>
+    menuItems.value.find((item) => item.to === path),
+  ).filter(Boolean),
+);
+
+const mobileOverflowItems = computed(() => {
+  const primaryPaths = new Set(mobilePrimaryItems.value.map((item) => item.to));
+  return menuItems.value.filter((item) => !primaryPaths.has(item.to));
+});
+
 const mobileMenuGroups = computed(() => {
   const sectionForItem = (item) => {
     if (item.bottom) return "Pengaturan";
@@ -388,7 +406,7 @@ const mobileMenuGroups = computed(() => {
   return ["Utama", "Master Data", "Operasional", "Pengaturan"]
     .map((title) => ({
       title,
-      items: menuItems.value.filter((item) => {
+      items: mobileOverflowItems.value.filter((item) => {
         return sectionForItem(item) === title;
       }),
     }))
@@ -398,6 +416,27 @@ const mobileMenuGroups = computed(() => {
 const normalizePath = (path) => {
   const normalized = path.replace(/\/+$/, "");
   return normalized || "/";
+};
+
+const isMenuItemActive = (item) => {
+  const currentPath = normalizePath(route.path);
+  const itemPath = normalizePath(item.to);
+
+  if (itemPath === "/admin") return currentPath === itemPath;
+  return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
+};
+
+const mobileMoreActive = computed(() =>
+  mobileOverflowItems.value.some((item) => isMenuItemActive(item)),
+);
+
+const mobileMenuLabel = (item) => {
+  const labels = {
+    "/admin/": "Beranda",
+    "/admin/penawaran": "Penawaran",
+    "/admin/service-report": "Service",
+  };
+  return labels[item.to] || item.title;
 };
 
 const invoiceWorkspaceTabTitle = (documentId) => {
@@ -1094,58 +1133,6 @@ const logout = async () => {
         </div>
 
         <v-menu
-          v-if="!mdAndUp"
-          v-model="mobileMenuOpen"
-          location="bottom end"
-          :offset="10"
-          :close-on-content-click="true"
-        >
-          <template #activator="{ props: menuProps }">
-            <v-btn
-              v-bind="menuProps"
-              icon
-              variant="outlined"
-              class="mobile-menu-btn"
-              aria-label="Buka menu navigasi"
-              :aria-expanded="mobileMenuOpen"
-            >
-              <v-icon size="17" :icon="mobileMenuOpen ? 'mdi-close' : 'mdi-menu'" />
-            </v-btn>
-          </template>
-
-          <v-card class="mobile-menu-card" width="300" elevation="0">
-            <div class="mobile-nav-scroll">
-              <section v-for="group in mobileMenuGroups" :key="group.title" class="mobile-nav-section">
-                <h3>{{ group.title }}</h3>
-                <v-list density="compact" nav>
-                  <v-list-item
-                    v-for="item in group.items"
-                    :key="`mobile-${item.to}`"
-                    :to="item.to"
-                    :exact="item.exact"
-                    class="mobile-nav-item"
-                    active-class="mobile-nav-item--active"
-                    @click="mobileMenuOpen = false"
-                  >
-                    <template #prepend>
-                      <v-icon class="mobile-nav-icon" :icon="item.icon" size="18" />
-                    </template>
-
-                    <v-list-item-title>{{ item.title }}</v-list-item-title>
-
-                    <template #append>
-                      <v-icon icon="mdi-chevron-right" size="15" />
-                    </template>
-                  </v-list-item>
-                </v-list>
-              </section>
-
-            </div>
-
-          </v-card>
-        </v-menu>
-
-        <v-menu
           v-model="accountMenuOpen"
           location="bottom end"
           :offset="10"
@@ -1279,6 +1266,100 @@ const logout = async () => {
       </div>
     </template>
   </v-app-bar>
+
+  <v-bottom-navigation
+    v-if="!mdAndUp"
+    grow
+    tag="nav"
+    :height="68"
+    :elevation="0"
+    class="mobile-bottom-navigation"
+    aria-label="Navigasi utama"
+  >
+    <v-btn
+      v-for="item in mobilePrimaryItems"
+      :key="`bottom-${item.to}`"
+      :to="item.to"
+      :exact="item.exact"
+      :active="isMenuItemActive(item)"
+      class="mobile-bottom-item"
+      :aria-label="mobileMenuLabel(item)"
+    >
+      <v-icon :icon="item.icon" size="21" />
+      <span>{{ mobileMenuLabel(item) }}</span>
+    </v-btn>
+
+    <v-menu
+      v-if="mobileOverflowItems.length"
+      v-model="mobileMenuOpen"
+      location="top end"
+      :offset="12"
+      :close-on-content-click="true"
+    >
+      <template #activator="{ props: menuProps }">
+        <v-btn
+          v-bind="menuProps"
+          :active="mobileMoreActive || mobileMenuOpen"
+          class="mobile-bottom-item mobile-bottom-more"
+          aria-label="Buka menu lainnya"
+          :aria-expanded="mobileMenuOpen"
+        >
+          <v-icon icon="mdi-format-list-group" size="21" />
+          <span>Lainnya</span>
+        </v-btn>
+      </template>
+
+      <v-card class="mobile-menu-card" width="380" elevation="0">
+        <div class="mobile-menu-heading">
+          <div>
+            <strong>Menu lainnya</strong>
+            <span>Fitur operasional dan pengaturan ERP</span>
+          </div>
+          <button
+            type="button"
+            aria-label="Tutup menu lainnya"
+            @click="mobileMenuOpen = false"
+          >
+            <v-icon icon="mdi-close" size="17" />
+          </button>
+        </div>
+
+        <div class="mobile-nav-scroll">
+          <section
+            v-for="group in mobileMenuGroups"
+            :key="group.title"
+            class="mobile-nav-section"
+          >
+            <h3>{{ group.title }}</h3>
+            <v-list density="compact" nav>
+              <v-list-item
+                v-for="item in group.items"
+                :key="`mobile-${item.to}`"
+                :to="item.to"
+                :exact="item.exact"
+                :active="isMenuItemActive(item)"
+                class="mobile-nav-item"
+                @click="mobileMenuOpen = false"
+              >
+                <template #prepend>
+                  <v-icon class="mobile-nav-icon" :icon="item.icon" size="18" />
+                </template>
+
+                <v-list-item-title>{{ item.title }}</v-list-item-title>
+                <v-list-item-subtitle>
+                  {{ item.subtitle }}
+                </v-list-item-subtitle>
+
+                <template #append>
+                  <v-icon icon="mdi-chevron-right" size="15" />
+                </template>
+              </v-list-item>
+            </v-list>
+          </section>
+        </div>
+      </v-card>
+    </v-menu>
+  </v-bottom-navigation>
 </template>
 
 <style scoped>
@@ -1875,7 +1956,7 @@ const logout = async () => {
   gap: 15px;
 }
 
-@media (max-width: 959px) {
+@media (max-width: 559px) {
   .header-version {
     display: none;
   }
@@ -2126,37 +2207,162 @@ const logout = async () => {
   }
 }
 
-.mobile-menu-btn {
-  width: 30px !important;
-  height: 30px !important;
-  border-color: #dbe3ee !important;
-  border-radius: 10px !important;
+.mobile-bottom-navigation {
+  z-index: 1200 !important;
+  overflow: visible !important;
+  border-top: 1px solid #dbe2ea !important;
   background: #ffffff !important;
-  color: #334155 !important;
+  box-shadow: 0 -3px 14px rgba(15, 23, 42, 0.07) !important;
+}
+
+.mobile-bottom-navigation :deep(.v-bottom-navigation__content) {
+  padding: 5px 8px 4px;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.mobile-bottom-navigation :deep(.v-bottom-navigation__content > .v-btn) {
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 58px !important;
+  padding: 0 3px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #7b8797 !important;
+  letter-spacing: 0 !important;
+}
+
+.mobile-bottom-navigation :deep(.v-btn__overlay) {
+  opacity: 0 !important;
+}
+
+.mobile-bottom-item :deep(.v-btn__content) {
+  gap: 4px !important;
+}
+
+.mobile-bottom-item :deep(.v-icon) {
+  color: #7b8797;
+  transition: color 0.16s ease;
+}
+
+.mobile-bottom-item span {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-bottom-item.v-btn--active {
+  color: #14263d !important;
+}
+
+.mobile-bottom-item.v-btn--active::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 30px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: #c92a2a;
+  transform: translateX(-50%);
+}
+
+.mobile-bottom-item.v-btn--active :deep(.v-icon) {
+  color: #14263d !important;
+}
+
+.mobile-bottom-item:focus-visible {
+  outline: 2px solid #315f8d;
+  outline-offset: -4px;
+}
+
+@media (hover: hover) {
+  .mobile-bottom-item:hover {
+    color: #31465f !important;
+  }
+
+  .mobile-bottom-item:hover :deep(.v-icon) {
+    color: #31465f;
+  }
 }
 
 .mobile-menu-card {
-  width: min(300px, calc(100vw - 16px)) !important;
+  width: min(380px, calc(100vw - 16px)) !important;
   overflow: hidden !important;
-  border: 1px solid #dce2e8 !important;
-  border-radius: 8px !important;
+  border: 1px solid #dbe2ea !important;
+  border-radius: 12px !important;
   background: #ffffff !important;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14) !important;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16) !important;
+}
+
+.mobile-menu-heading {
+  display: flex;
+  min-height: 62px;
+  padding: 11px 12px 11px 16px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e4e9ef;
+}
+
+.mobile-menu-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-menu-heading strong {
+  color: #14263d;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.mobile-menu-heading span {
+  color: #7d8998;
+  font-size: 9.5px;
+}
+
+.mobile-menu-heading button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #718095;
+  cursor: pointer;
+}
+
+.mobile-menu-heading button:hover {
+  background: #f3f5f7;
+  color: #14263d;
+}
+
+.mobile-menu-heading button:focus-visible {
+  outline: 2px solid #315f8d;
+  outline-offset: 1px;
 }
 
 .mobile-nav-scroll {
-  max-height: min(60vh, 500px);
-  padding: 0 7px 7px;
+  max-height: min(66vh, 520px);
+  padding: 2px 8px 10px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .mobile-nav-section h3 {
   margin: 0;
-  padding: 10px 8px 4px;
-  color: #8b96a5;
-  font-size: 8px;
-  font-weight: 750;
+  padding: 12px 8px 5px;
+  color: #7b8797;
+  font-size: 8.5px;
+  font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
@@ -2167,47 +2373,77 @@ const logout = async () => {
 }
 
 .mobile-nav-item {
-  min-height: 42px !important;
-  margin-bottom: 1px !important;
-  padding-inline: 10px !important;
-  border-left: 2px solid transparent !important;
-  border-radius: 4px !important;
-  color: #3d4a5c !important;
+  position: relative;
+  min-height: 56px !important;
+  padding: 6px 9px !important;
+  border-radius: 7px !important;
+  color: #314157 !important;
 }
 
 .mobile-nav-section .mobile-nav-item:not(:last-child) {
-  border-bottom: 1px solid #edf0f3 !important;
+  border-bottom: 1px solid #edf1f5 !important;
 }
 
 .mobile-nav-item :deep(.v-list-item__prepend) {
-  margin-right: 10px !important;
+  margin-right: 11px !important;
 }
 
 .mobile-nav-item :deep(.v-list-item__append) {
-  color: #a5aeba;
+  color: #9aa5b2;
 }
 
 .mobile-nav-item :deep(.v-list-item-title) {
-  font-size: 11px !important;
-  font-weight: 650 !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
+.mobile-nav-item :deep(.v-list-item-subtitle) {
+  margin-top: 2px;
+  color: #84909f !important;
+  font-size: 9.25px !important;
+  line-height: 1.25 !important;
+  opacity: 1 !important;
 }
 
 .mobile-nav-icon {
-  color: #697688;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: #f2f5f7;
+  color: #637286;
 }
 
-.mobile-nav-item:hover {
-  background: #f6f7f9 !important;
+.mobile-nav-item:focus-visible {
+  outline: 2px solid #315f8d;
+  outline-offset: -2px;
 }
 
-.mobile-nav-item--active {
-  color: #243447 !important;
-  background: #eef1f4 !important;
-  border-left-color: #526579 !important;
+.mobile-nav-item.v-list-item--active {
+  color: #14263d !important;
+  background: #f5f7f9 !important;
 }
 
-.mobile-nav-item--active .mobile-nav-icon {
-  color: #34465a;
+.mobile-nav-item.v-list-item--active::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: #c92a2a;
+}
+
+.mobile-nav-item.v-list-item--active .mobile-nav-icon {
+  background: #e9eef3;
+  color: #14263d;
+}
+
+@media (hover: hover) {
+  .mobile-nav-item:hover {
+    background: #f7f9fa !important;
+  }
 }
 
 .account-avatar {
@@ -2532,11 +2768,6 @@ const logout = async () => {
     width: 28px !important;
     height: 28px !important;
     flex-basis: 28px;
-  }
-
-  .mobile-menu-btn {
-    width: 22px !important;
-    height: 22px !important;
   }
 
   .account-menu-trigger {

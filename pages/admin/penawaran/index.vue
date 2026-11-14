@@ -327,7 +327,7 @@
           >
             <div class="financial-graph-heading">
               <div>
-                <div class="financial-graph-eyebrow">Grafik keuangan</div>
+                <div class="financial-graph-eyebrow">Summary</div>
                 <strong>{{ item.no_penawaran || "Quotation" }}</strong>
               </div>
               <v-btn
