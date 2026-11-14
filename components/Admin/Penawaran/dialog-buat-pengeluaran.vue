@@ -91,7 +91,7 @@
               v-model="form.satuan"
               class="expense-horizontal-field"
               label="Satuan"
-              :items="['Unit', 'Pcs', 'Kg']"
+              :items="['Unit', 'Pcs', 'Kg', 'Lot']"
               :disabled="saving"
             />
             <a-field-number-new
@@ -99,6 +99,13 @@
               class="expense-horizontal-field"
               label="Nominal"
               placeholder="Masukkan nominal"
+              :disabled="saving"
+            />
+            <a-select-new
+              v-model="form.status_pengeluaran"
+              class="expense-horizontal-field"
+              label="Status"
+              :items="['Hutang', 'Lunas']"
               :disabled="saving"
             />
           </div>

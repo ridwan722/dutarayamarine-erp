@@ -1518,15 +1518,15 @@ onBeforeUnmount(() => {
 
                 <div class="quotation-meta-row quotation-meta-client mt-2">
                   <v-icon icon="mdi-domain" size="13" class="mb-1" />
-                  <strong :title="detailpenawaran.nama_perusahaan || '-'">
+                  <p :title="detailpenawaran.nama_perusahaan || '-'">
                     {{ detailpenawaran.nama_perusahaan || "-" }}
-                  </strong>
+                  </p>
                   <template v-if="detailpenawaran.vessel">
                     <i aria-hidden="true"></i>
                     <v-icon icon="mdi-ferry" size="13" />
-                    <span :title="detailpenawaran.vessel">
+                    <p :title="detailpenawaran.vessel">
                       {{ detailpenawaran.vessel }}
-                    </span>
+                    </p>
                   </template>
                 </div>
               </div>
@@ -1599,7 +1599,7 @@ onBeforeUnmount(() => {
                       @click="openRevisionDialog"
                     >
                       <span class="action-card-icon">
-                        <v-icon icon="mdi-file-sync-outline" />
+                        <v-icon icon="mdi-file-edit-outline" />
                       </span>
                       <span class="action-card-label">
                         {{ invoiceLinks.length ? "Revisi Transaksi" : "Revisi Quotation" }}
@@ -1770,11 +1770,11 @@ onBeforeUnmount(() => {
           <!-- TAB SELECTION -->
           <div class="preview-tabs-wrapper">
             <div class="preview-revision-heading">
-              <v-icon icon="mdi-pencil-circle" size="16" />
+              <v-icon icon="mdi-file-edit-outline" size="16" />
               <span>History</span>
-              <small v-if="revisionHistory.length">
+              <!-- <small v-if="revisionHistory.length">
                 {{ revisionHistory.length }}
-              </small>
+              </small> -->
             </div>
             <v-progress-circular
               v-if="revisionHistoryLoading"
@@ -2561,7 +2561,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  min-height: 48px;
+  min-height: 30px;
   overflow: hidden;
   padding: 0 14px;
   border-bottom: 1px solid #e9edf2;

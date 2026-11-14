@@ -190,6 +190,16 @@ const deletingPengeluaranId = ref<string | null>(null);
 const editingPengeluaranId = ref<string | null>(null);
 const editingPengeluaranSnapshot = ref("");
 const editFiles = ref<File[]>([]);
+const editTanggalPengeluaranPicker = ref<{ validate: () => boolean } | null>(
+  null,
+);
+const editInvoiceOutSelect = ref<{ validate: () => boolean } | null>(null);
+const editTanggalPengeluaranRules = [
+  (value: string) => Boolean(value) || "Tanggal pengeluaran wajib diisi",
+];
+const editInvoiceOutRules = [
+  (value: string) => Boolean(value) || "Invoice wajib dipilih",
+];
 const notificationStore = useNotificationStore();
 const loadingStore = useloadingStore();
 
@@ -879,7 +889,7 @@ const openEdit = (item: any) => {
   editForm.lokasi_vendor = item.lokasi_vendor || "";
   editForm.dikeluarkan_oleh = item.dikeluarkan_oleh || "";
   editForm.doc_pengeluaran = [...(item.doc_pengeluaran || [])];
-  editForm.status_pengeluaran = item.status_pengeluaran || "";
+  editForm.status_pengeluaran = item.status_pengeluaran || "Hutang";
   editFiles.value = [];
 
   editDialog.value = true;
@@ -930,13 +940,17 @@ const saveEdit = async () => {
   ) {
     return;
   }
+  const tanggalPengeluaran = String(editForm.tanggal_pengeluaran || "").trim();
   if (
-    !editForm.keterangan.trim() ||
-    !editForm.tanggal_pengeluaran ||
-    !editForm.dikeluarkan_oleh
+    !editTanggalPengeluaranPicker.value?.validate() ||
+    Number.isNaN(new Date(`${tanggalPengeluaran}T00:00:00`).getTime())
   ) {
+    notificationStore.showError("Tanggal pengeluaran wajib diisi");
+    return;
+  }
+  if (!editForm.keterangan.trim() || !editForm.dikeluarkan_oleh) {
     notificationStore.showError(
-      "Keterangan, tanggal, dan dikeluarkan oleh wajib diisi",
+      "Keterangan dan dikeluarkan oleh wajib diisi",
     );
     return;
   }
@@ -951,7 +965,9 @@ const saveEdit = async () => {
   }
   if (
     invoiceOptions.value.length > 0 &&
-    !invoiceOptions.value.some((option) => option.id === editForm.invoice_out)
+    (!invoiceOptions.value.some((option) => option.id === editForm.invoice_out) ||
+      (invoiceOptions.value.length > 1 &&
+        !editInvoiceOutSelect.value?.validate()))
   ) {
     notificationStore.showError("Pilih invoice untuk pengeluaran ini");
     return;
@@ -1815,24 +1831,28 @@ const previewImage = (dataUrl: string) => {
             <div class="edit-fields">
               <a-select-new
                 v-if="invoiceOptions.length > 1"
+                ref="editInvoiceOutSelect"
                 v-model="editForm.invoice_out"
                 class="edit-horizontal-field"
                 label="Invoice Pengeluaran"
                 placeholder="Pilih invoice"
                 :items="invoiceSelectItems"
+                :rules="editInvoiceOutRules"
                 :disabled="savingEdit"
               />
               <a-date-picker-new
+                ref="editTanggalPengeluaranPicker"
                 v-model="editForm.tanggal_pengeluaran"
                 class="edit-horizontal-field"
                 label="Tanggal Pengeluaran"
+                :rules="editTanggalPengeluaranRules"
                 :disabled="savingEdit"
               />
-              <a-text-field-new
+              <a-select-new
                 v-model="editForm.dikeluarkan_oleh"
                 class="edit-horizontal-field"
                 label="Dikeluarkan Oleh"
-                placeholder="Nama penanggung jawab"
+                :items="['Seilla', 'Ridwan', 'Leo']"
                 :disabled="savingEdit"
               />
               <a-textarea-new
