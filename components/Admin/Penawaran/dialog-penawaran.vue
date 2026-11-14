@@ -513,6 +513,7 @@
                     'Lot',
                     'Set',
                     'Meter',
+                    'Rol',
                     'Box',
                     'Liter',
                     'Jerigen',
