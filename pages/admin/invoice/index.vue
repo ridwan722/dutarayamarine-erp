@@ -1419,7 +1419,7 @@
           class="invoice-page-create-btn invoice-page-soa-btn text-none"
           prepend-icon="mdi-message-plus"
           :disabled="isLoading"
-          @click="openSoaDialog"
+          @click="openSoaDialog()"
         >
           Create SOA
         </v-btn>

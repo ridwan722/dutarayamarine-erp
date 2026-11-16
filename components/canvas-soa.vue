@@ -142,16 +142,28 @@
           <section class="remittance-section">
             <div class="remittance-heading-row" >
               <h2 v-if="showBankDetails">KINDLY REMIT THE AMOUNT TO OUR BANKER AS FOLLOWS:</h2>
-              <v-chip
-                size="x-small"
-                variant="tonal"
-                color="primary"
-                class="no-print bank-visibility-chip"
-                :prepend-icon="showBankDetails ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-                @click="showBankDetails = !showBankDetails"
-              >
-                {{ showBankDetails ? "Sembunyikan Rekening" : "Tampilkan Rekening" }}
-              </v-chip>
+              <div class="remittance-visibility-controls">
+                <v-chip
+                  size="x-small"
+                  variant="tonal"
+                  color="primary"
+                  class="no-print bank-visibility-chip"
+                  :prepend-icon="showBankDetails ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                  @click="showBankDetails = !showBankDetails"
+                >
+                  {{ showBankDetails ? "Sembunyikan Rekening" : "Tampilkan Rekening" }}
+                </v-chip>
+                <v-chip
+                  size="x-small"
+                  variant="tonal"
+                  color="primary"
+                  class="no-print bank-visibility-chip"
+                  :prepend-icon="showSignature ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                  @click="showSignature = !showSignature"
+                >
+                  {{ showSignature ? "Sembunyikan TTD" : "Tampilkan TTD" }}
+                </v-chip>
+              </div>
             </div>
             <div class="remittance-content">
               <table v-if="showBankDetails" class="remittance-table">
@@ -201,6 +213,7 @@
               </table>
 
               <div
+                v-if="showSignature"
                 class="soa-signature"
                 :class="{
                   'has-stamped-signature': usesStampedSignature,
@@ -286,6 +299,7 @@ const props = defineProps<{ soaDetail: SoaDetail }>();
 const printArea = ref<HTMLElement | null>(null);
 const isSavingPdf = ref(false);
 const showBankDetails = ref(false);
+const showSignature = ref(true);
 const previewZoom = ref(1);
 let previewResizeObserver: ResizeObserver | null = null;
 const soaNoteDisplay = reactive({
@@ -967,6 +981,10 @@ function printSoa() {
   height: auto;
 }
 
+.logo-wrapper {
+  transform: translateX(170px);
+}
+
 .letterhead-info {
   text-align: center;
 }
@@ -1012,6 +1030,11 @@ function printSoa() {
   max-width: none !important;
   border: 0 !important;
   box-shadow: none !important;
+}
+
+.soa-paper.soa-pdf-capture .logo-wrapper img {
+  width: 245px;
+  margin-left: -20px;
 }
 
 .soa-paper.soa-pdf-capture .no-print,
@@ -1189,6 +1212,14 @@ function printSoa() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.remittance-visibility-controls {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
 .remittance-section h2 {
