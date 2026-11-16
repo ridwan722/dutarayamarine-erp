@@ -15,6 +15,7 @@
           'input-error': hasError,
           'input-disabled': disabled,
           'has-edit-icon': editable,
+          'input-field--auto-grow': autoGrow,
         }"
         :value="displayValue"
         :placeholder="placeholder"
@@ -70,7 +71,14 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import {
+  ref,
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  watch,
+} from "vue";
 
 /* =========================
    PROPS
@@ -145,6 +153,11 @@ const props = defineProps({
     type: Number,
     default: 1,
   },
+
+  autoGrow: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 /* =========================
@@ -158,6 +171,31 @@ const emit = defineEmits(["update:modelValue"]);
 const textareaRef = ref(null);
 const errorMessages = ref([]);
 const showError = ref(false);
+let textareaResizeObserver = null;
+let lastObservedWidth = 0;
+
+function resizeToContent() {
+  if (!props.autoGrow || !textareaRef.value) return;
+
+  textareaRef.value.style.height = "auto";
+  textareaRef.value.style.height = `${textareaRef.value.scrollHeight}px`;
+}
+
+onMounted(() => {
+  resizeToContent();
+  if (!props.autoGrow || typeof ResizeObserver === "undefined") return;
+
+  textareaResizeObserver = new ResizeObserver(([entry]) => {
+    const width = entry?.contentRect.width || 0;
+    if (width > 0 && width !== lastObservedWidth) {
+      lastObservedWidth = width;
+      resizeToContent();
+    }
+  });
+  textareaResizeObserver.observe(textareaRef.value);
+});
+onBeforeUnmount(() => textareaResizeObserver?.disconnect());
+watch(() => props.modelValue, () => nextTick(resizeToContent));
 
 /* =========================
    FORMAT NUMBER
@@ -236,6 +274,8 @@ function onInput(event) {
     errorMessages.value = [];
     showError.value = false;
   }
+
+  resizeToContent();
 }
 
 /* =========================
@@ -292,6 +332,7 @@ const firstErrorMessage = computed(() => {
 defineExpose({
   validate,
   focus: () => textareaRef.value?.focus(),
+  resizeToContent,
 });
 </script>
 
@@ -360,6 +401,12 @@ defineExpose({
     border-color 0.15s ease-in-out,
     box-shadow 0.15s ease-in-out,
     background-color 0.15s ease-in-out;
+}
+
+.input-field--auto-grow {
+  height: auto;
+  overflow-y: hidden;
+  resize: none;
 }
 
 /* =========================

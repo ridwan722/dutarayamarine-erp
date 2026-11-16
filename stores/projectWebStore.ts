@@ -28,13 +28,19 @@ function normalizeProject(
   const englishParagraphs = Array.isArray(data.paragraf_en)
     ? data.paragraf_en.map((item) => String(item || ""))
     : [];
-
+  const paragraphCount = Math.max(paragraphs.length, englishParagraphs.length);
   return {
     id_project_web: id,
     judul: String(data.judul || ""),
     sub_judul: String(data.sub_judul || ""),
-    paragraf: paragraphs,
-    paragraf_en: paragraphs.map((_, index) => englishParagraphs[index] || ""),
+    paragraf: Array.from(
+      { length: paragraphCount },
+      (_, index) => paragraphs[index] || "",
+    ),
+    paragraf_en: Array.from(
+      { length: paragraphCount },
+      (_, index) => englishParagraphs[index] || "",
+    ),
     foto: Array.isArray(data.foto)
       ? data.foto
           .filter((item): item is projectWebPhotoM => Boolean(item?.url))

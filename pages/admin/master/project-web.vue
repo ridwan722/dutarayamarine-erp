@@ -11,6 +11,8 @@ import {
 import moment from "moment";
 import Sortable from "sortablejs";
 import { getAuth } from "firebase/auth";
+import { QuillEditor } from "@vueup/vue-quill";
+import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import type { ConfirmationDialog } from "#components";
 import type { projectWebM, projectWebPhotoM } from "~/types/projectWebModel";
 
@@ -49,6 +51,14 @@ type ProjectFormSection = "main" | "narrative" | "gallery" | "closing";
 
 interface TranslationResponse {
   translatedText: string;
+}
+
+interface RichTextEditorInstance {
+  getHTML: () => string;
+  getQuill: () => {
+    clipboard: { convert: (content: { html: string }) => unknown };
+    setContents: (content: unknown, source?: string) => void;
+  };
 }
 
 type ProjectPhotoDraft =
@@ -136,7 +146,81 @@ function emptyProject(): projectWebM {
   };
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function asRichText(value: string) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/<\/?[a-z][\s\S]*>/i.test(text)) return text;
+  return `<p>${escapeHtml(text).replace(/\r?\n/g, "<br>")}</p>`;
+}
+
+function paragraphArrayToRichText(paragraphs: string[]) {
+  return paragraphs.map(asRichText).filter(Boolean).join("");
+}
+
+function setParagraphEditorInitial(language: ProjectLanguage, value: string) {
+  const html = value || "<p><br></p>";
+  if (language === "id") {
+    setRichEditorHtml(paragraphIdEditor.value, html);
+  } else {
+    setRichEditorHtml(paragraphEnEditor.value, html);
+  }
+}
+
+function setRichEditorHtml(editor: RichTextEditorInstance | null, html: string) {
+  if (!editor) return;
+  const quill = editor.getQuill();
+  quill.setContents(quill.clipboard.convert({ html }), "api");
+}
+
+function initializeParagraphEditor(language: ProjectLanguage) {
+  const editor = language === "id" ? paragraphIdEditor.value : paragraphEnEditor.value;
+  const content =
+    language === "id"
+      ? projectForm.value.paragraf[0]
+      : projectForm.value.paragraf_en[0];
+  setRichEditorHtml(editor, content || "<p><br></p>");
+}
+
+function plainTextFromHtml(value: string) {
+  return String(value || "")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, " ")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const projectForm = ref<projectWebM>(emptyProject());
+const paragraphIdEditor = ref<RichTextEditorInstance | null>(null);
+const paragraphEnEditor = ref<RichTextEditorInstance | null>(null);
+const narrativeEditorOptions = {
+  modules: {
+    toolbar: [
+      [{ header: [2, 3, false] }],
+      ["bold", "italic", "underline", "strike"],
+      [{ color: [] }, { background: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ align: [] }],
+      ["link", "clean"],
+    ],
+  },
+  placeholder: "Tulis narasi project di sini...",
+};
 const isTranslating = computed(() => translatingFields.value.size > 0);
 const projects = computed(() => projectWebStore.getDataProjectWeb);
 const totalPhotos = computed(() =>
@@ -307,11 +391,7 @@ async function translateText(
   const response = await $fetch<TranslationResponse>("/api/translate", {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: {
-      text,
-      source: sourceLanguage,
-      target: targetLanguage,
-    },
+    body: { text, source: sourceLanguage, target: targetLanguage },
   });
   const translatedText = response.translatedText?.trim();
   if (!translatedText) throw new Error("Hasil terjemahan kosong");
@@ -343,16 +423,10 @@ function scheduleTranslation(options: {
 
   const targetEditVersion = fieldEditVersions.get(options.targetKey) || 0;
   setFieldTranslating(options.targetKey, true);
-
   const timer = setTimeout(async () => {
     translationTimers.delete(options.targetKey);
     try {
-      const translatedText = await translateText(
-        text,
-        options.source,
-        options.target,
-      );
-
+      const translatedText = await translateText(text, options.source, options.target);
       const isLatestRequest =
         translationRequestVersions.get(options.targetKey) === requestVersion;
       const targetWasNotEdited =
@@ -372,14 +446,11 @@ function scheduleTranslation(options: {
         translationErrorShown = true;
       }
     } finally {
-      if (
-        translationRequestVersions.get(options.targetKey) === requestVersion
-      ) {
+      if (translationRequestVersions.get(options.targetKey) === requestVersion) {
         setFieldTranslating(options.targetKey, false);
       }
     }
   }, TRANSLATION_DEBOUNCE_MS);
-
   translationTimers.set(options.targetKey, timer);
 }
 
@@ -395,13 +466,15 @@ function updateParagraph(
   if (language === "id") {
     projectForm.value.paragraf[index] = nextValue;
     scheduleTranslation({
-      text: nextValue,
+      text: plainTextFromHtml(nextValue),
       source: "id",
       target: "en",
       targetKey: paragraphFieldKey(index, "en"),
       isSourceCurrent: () => projectForm.value.paragraf[index] === nextValue,
       apply: (translatedText) => {
-        projectForm.value.paragraf_en[index] = translatedText;
+        const translatedRichText = asRichText(translatedText);
+        projectForm.value.paragraf_en[index] = translatedRichText;
+        if (index === 0) setParagraphEditorInitial("en", translatedRichText);
       },
     });
     return;
@@ -409,13 +482,15 @@ function updateParagraph(
 
   projectForm.value.paragraf_en[index] = nextValue;
   scheduleTranslation({
-    text: nextValue,
+    text: plainTextFromHtml(nextValue),
     source: "en",
     target: "id",
     targetKey: paragraphFieldKey(index, "id"),
     isSourceCurrent: () => projectForm.value.paragraf_en[index] === nextValue,
     apply: (translatedText) => {
-      projectForm.value.paragraf[index] = translatedText;
+      const translatedRichText = asRichText(translatedText);
+      projectForm.value.paragraf[index] = translatedRichText;
+      if (index === 0) setParagraphEditorInitial("id", translatedRichText);
     },
   });
 }
@@ -423,7 +498,6 @@ function updateParagraph(
 function updateClosingParagraph(language: ProjectLanguage, value: unknown) {
   const nextValue = String(value ?? "");
   markFieldEdited(closingFieldKey(language));
-
   if (language === "id") {
     projectForm.value.paragraf_penutup = nextValue;
     scheduleTranslation({
@@ -452,34 +526,48 @@ function updateClosingParagraph(language: ProjectLanguage, value: unknown) {
   });
 }
 
+function captureParagraphEditorChange(
+  language: ProjectLanguage,
+  event: { source?: string },
+) {
+  if (event?.source !== "user") return;
+  const editor =
+    language === "id" ? paragraphIdEditor.value : paragraphEnEditor.value;
+  if (editor) updateParagraph(0, language, editor.getHTML());
+}
+
 function translateMissingContent() {
-  projectForm.value.paragraf.forEach((paragraph, index) => {
-    const englishParagraph = projectForm.value.paragraf_en[index] || "";
-    if (paragraph.trim() && !englishParagraph.trim()) {
-      scheduleTranslation({
-        text: paragraph,
-        source: "id",
-        target: "en",
-        targetKey: paragraphFieldKey(index, "en"),
-        isSourceCurrent: () => projectForm.value.paragraf[index] === paragraph,
-        apply: (translatedText) => {
-          projectForm.value.paragraf_en[index] = translatedText;
-        },
-      });
-    } else if (!paragraph.trim() && englishParagraph.trim()) {
-      scheduleTranslation({
-        text: englishParagraph,
-        source: "en",
-        target: "id",
-        targetKey: paragraphFieldKey(index, "id"),
-        isSourceCurrent: () =>
-          projectForm.value.paragraf_en[index] === englishParagraph,
-        apply: (translatedText) => {
-          projectForm.value.paragraf[index] = translatedText;
-        },
-      });
-    }
-  });
+  const paragraph = projectForm.value.paragraf[0] || "";
+  const englishParagraph = projectForm.value.paragraf_en[0] || "";
+  const paragraphText = plainTextFromHtml(paragraph);
+  const englishParagraphText = plainTextFromHtml(englishParagraph);
+  if (paragraphText && !englishParagraphText) {
+    scheduleTranslation({
+      text: paragraphText,
+      source: "id",
+      target: "en",
+      targetKey: paragraphFieldKey(0, "en"),
+      isSourceCurrent: () => projectForm.value.paragraf[0] === paragraph,
+      apply: (translatedText) => {
+        const translatedRichText = asRichText(translatedText);
+        projectForm.value.paragraf_en[0] = translatedRichText;
+        setParagraphEditorInitial("en", translatedRichText);
+      },
+    });
+  } else if (!paragraphText && englishParagraphText) {
+    scheduleTranslation({
+      text: englishParagraphText,
+      source: "en",
+      target: "id",
+      targetKey: paragraphFieldKey(0, "id"),
+      isSourceCurrent: () => projectForm.value.paragraf_en[0] === englishParagraph,
+      apply: (translatedText) => {
+        const translatedRichText = asRichText(translatedText);
+        projectForm.value.paragraf[0] = translatedRichText;
+        setParagraphEditorInitial("id", translatedRichText);
+      },
+    });
+  }
 
   const closingId = projectForm.value.paragraf_penutup;
   const closingEn = projectForm.value.paragraf_penutup_en;
@@ -500,8 +588,7 @@ function translateMissingContent() {
       source: "en",
       target: "id",
       targetKey: closingFieldKey("id"),
-      isSourceCurrent: () =>
-        projectForm.value.paragraf_penutup_en === closingEn,
+      isSourceCurrent: () => projectForm.value.paragraf_penutup_en === closingEn,
       apply: (translatedText) => {
         projectForm.value.paragraf_penutup = translatedText;
       },
@@ -616,6 +703,8 @@ function openDialogAddProject() {
   data.formMode = "add";
   activeFormSection.value = "main";
   projectForm.value = emptyProject();
+  setParagraphEditorInitial("id", "");
+  setParagraphEditorInitial("en", "");
   initializePhotoDrafts();
   data.dialogForm = true;
 }
@@ -626,13 +715,13 @@ function openDialogEditProject(project: projectWebM) {
   data.formMode = "edit";
   activeFormSection.value = "main";
   projectForm.value = cloneProject(project);
+  projectForm.value.paragraf = [paragraphArrayToRichText(projectForm.value.paragraf)];
+  projectForm.value.paragraf_en = [
+    paragraphArrayToRichText(projectForm.value.paragraf_en),
+  ];
+  setParagraphEditorInitial("id", projectForm.value.paragraf[0]);
+  setParagraphEditorInitial("en", projectForm.value.paragraf_en[0]);
   initializePhotoDrafts();
-  if (!projectForm.value.paragraf.length) projectForm.value.paragraf = [""];
-  while (
-    projectForm.value.paragraf_en.length < projectForm.value.paragraf.length
-  ) {
-    projectForm.value.paragraf_en.push("");
-  }
   data.dialogForm = true;
   translateMissingContent();
 }
@@ -654,23 +743,6 @@ function editDetailProject() {
   const project = cloneProject(detailProject.value);
   data.dialogDetail = false;
   openDialogEditProject(project);
-}
-
-function addParagraph() {
-  projectForm.value.paragraf.push("");
-  projectForm.value.paragraf_en.push("");
-}
-
-function removeParagraph(index: number) {
-  resetTranslationState();
-  if (projectForm.value.paragraf.length === 1) {
-    projectForm.value.paragraf[0] = "";
-    projectForm.value.paragraf_en[0] = "";
-    return;
-  }
-  projectForm.value.paragraf.splice(index, 1);
-  projectForm.value.paragraf_en.splice(index, 1);
-  translateMissingContent();
 }
 
 function addPhotoFiles(event: Event) {
@@ -835,31 +907,20 @@ async function saveProject() {
 
   const judul = projectForm.value.judul.trim();
   const subJudul = projectForm.value.sub_judul.trim();
-  const paragraphPairs = projectForm.value.paragraf
-    .map((paragraph, index) => ({
-      id: paragraph.trim(),
-      en: (projectForm.value.paragraf_en[index] || "").trim(),
-    }))
-    .filter((paragraph) => paragraph.id || paragraph.en);
-  const paragraf = paragraphPairs.map((paragraph) => paragraph.id);
-  const paragrafEn = paragraphPairs.map((paragraph) => paragraph.en);
+  const paragraphId = (projectForm.value.paragraf[0] || "").trim();
+  const paragraphEn = (projectForm.value.paragraf_en[0] || "").trim();
+  const paragraf = paragraphId ? [paragraphId] : [];
+  const paragrafEn = paragraphEn ? [paragraphEn] : [];
   const paragrafPenutup = projectForm.value.paragraf_penutup.trim();
   const paragrafPenutupEn = projectForm.value.paragraf_penutup_en.trim();
 
   if (!judul) return notificationStore.showError("Judul tidak boleh kosong");
   if (!subJudul)
     return notificationStore.showError("Subjudul tidak boleh kosong");
-  if (!paragraphPairs.length)
+  if (!plainTextFromHtml(paragraphId))
     return notificationStore.showError("Tambahkan minimal satu paragraf");
-  if (paragraphPairs.some((paragraph) => !paragraph.id)) {
-    return notificationStore.showError(
-      "Lengkapi semua paragraf Bahasa Indonesia",
-    );
-  }
-  if (paragraphPairs.some((paragraph) => !paragraph.en)) {
-    return notificationStore.showError(
-      "Lengkapi semua paragraf Bahasa Inggris",
-    );
+  if (!plainTextFromHtml(paragraphEn)) {
+    return notificationStore.showError("Lengkapi paragraf Bahasa Inggris");
   }
   if (!paragrafPenutup) {
     return notificationStore.showError(
@@ -1238,7 +1299,7 @@ async function deleteProject(project: projectWebM) {
                     : "Edit Project Website"
                 }}
               </h2>
-              <p>Lengkapi informasi, narasi, dan galeri project.</p>
+              <!-- <p>Lengkapi informasi, narasi, dan galeri project.</p> -->
             </div>
           </div>
           <button
@@ -1309,63 +1370,49 @@ async function deleteProject(project: projectWebM) {
               <div>
                 <h3>Narasi Project</h3>
                 <p>
-                  Isi salah satu bahasa; kolom pasangannya diterjemahkan
-                  otomatis.
+                  Tulis di salah satu bahasa; kolom pasangan diterjemahkan
+                  otomatis. Format teks dengan toolbar.
                 </p>
               </div>
             </div>
-            <div class="paragraph-list">
-              <div
-                v-for="(_, index) in projectForm.paragraf"
-                :key="index"
-                class="paragraph-item"
-              >
-                <span class="paragraph-number">{{ index + 1 }}</span>
-                <div class="translation-fields">
-                  <a-textarea-new
-                    :model-value="projectForm.paragraf[index]"
-                    :label="`Paragraf ${index + 1} · Bahasa Indonesia`"
-                    placeholder="Tuliskan isi paragraf dalam Bahasa Indonesia"
-                    rows="3"
-                    :hint="
-                      isTranslatingField(paragraphFieldKey(index, 'id'))
-                        ? 'Menerjemahkan dari Bahasa Inggris...'
-                        : ''
-                    "
-                    :persistent-hint="
-                      isTranslatingField(paragraphFieldKey(index, 'id'))
-                    "
-                    @update:model-value="updateParagraph(index, 'id', $event)"
+            <div class="translation-fields narrative-rich-fields">
+              <div class="narrative-editor-field">
+                <label>Paragraf · Bahasa Indonesia</label>
+                <ClientOnly>
+                  <QuillEditor
+                    ref="paragraphIdEditor"
+                    content-type="html"
+                    :options="narrativeEditorOptions"
+                    @ready="initializeParagraphEditor('id')"
+                    @text-change="captureParagraphEditorChange('id', $event)"
                   />
-                  <a-textarea-new
-                    :model-value="projectForm.paragraf_en[index]"
-                    :label="`Paragraph ${index + 1} · English`"
-                    placeholder="Write the paragraph in English"
-                    rows="3"
-                    :hint="
-                      isTranslatingField(paragraphFieldKey(index, 'en'))
-                        ? 'Translating from Indonesian...'
-                        : ''
-                    "
-                    :persistent-hint="
-                      isTranslatingField(paragraphFieldKey(index, 'en'))
-                    "
-                    @update:model-value="updateParagraph(index, 'en', $event)"
+                  <template #fallback>
+                    <div class="narrative-editor-loading">Memuat editor...</div>
+                  </template>
+                </ClientOnly>
+                <small v-if="isTranslatingField(paragraphFieldKey(0, 'id'))">
+                  Menerjemahkan dari Bahasa Inggris...
+                </small>
+              </div>
+              <div class="narrative-editor-field">
+                <label>Paragraph · English</label>
+                <ClientOnly>
+                  <QuillEditor
+                    ref="paragraphEnEditor"
+                    content-type="html"
+                    :options="narrativeEditorOptions"
+                    @ready="initializeParagraphEditor('en')"
+                    @text-change="captureParagraphEditorChange('en', $event)"
                   />
-                </div>
-                <button
-                  type="button"
-                  class="remove-item"
-                  :aria-label="`Hapus paragraf ${index + 1}`"
-                  @click="removeParagraph(index)"
-                >
-                  <v-icon icon="mdi-delete-outline" size="17" />
-                </button>
+                  <template #fallback>
+                    <div class="narrative-editor-loading">Loading editor...</div>
+                  </template>
+                </ClientOnly>
+                <small v-if="isTranslatingField(paragraphFieldKey(0, 'en'))">
+                  Translating from Indonesian...
+                </small>
               </div>
             </div>
-             <button type="button" class="add-inline" @click="addParagraph">
-                <v-icon icon="mdi-plus" size="15" /> Tambah Paragraf
-              </button>
           </section>
 
           <section v-show="activeFormSection === 'gallery'" class="dialog-section">
@@ -1441,17 +1488,15 @@ async function deleteProject(project: projectWebM) {
               <span>04</span>
               <div>
                 <h3>Paragraf Penutup</h3>
-                <p>
-                  Tambahkan kesimpulan project dalam dua bahasa.
-                </p>
+                <p>Tambahkan kesimpulan project dalam dua bahasa.</p>
               </div>
             </div>
             <div class="translation-fields">
               <a-textarea-new
                 :model-value="projectForm.paragraf_penutup"
                 label="Paragraf Penutup · Bahasa Indonesia"
-                placeholder="Tuliskan penutup project dalam Bahasa Indonesia"
-                rows="3"
+                placeholder="Tuliskan kesimpulan project dalam Bahasa Indonesia"
+                rows="4"
                 :hint="
                   isTranslatingField(closingFieldKey('id'))
                     ? 'Menerjemahkan dari Bahasa Inggris...'
@@ -1464,7 +1509,7 @@ async function deleteProject(project: projectWebM) {
                 :model-value="projectForm.paragraf_penutup_en"
                 label="Closing Paragraph · English"
                 placeholder="Write the project closing paragraph in English"
-                rows="3"
+                rows="4"
                 :hint="
                   isTranslatingField(closingFieldKey('en'))
                     ? 'Translating from Indonesian...'
@@ -1500,7 +1545,7 @@ async function deleteProject(project: projectWebM) {
               variant="outlined"
               color="grey-darken-1"
               class="text-none dialog-cancel"
-              :disabled="isSaving"
+              :disabled="isSaving || isTranslating"
               @click="closeFormDialog"
               >Batal</v-btn
             >
@@ -1511,7 +1556,7 @@ async function deleteProject(project: projectWebM) {
               prepend-icon="mdi-content-save-outline"
               class="text-none dialog-save"
               :loading="isSaving"
-              :disabled="isSaving || isTranslating"
+              :disabled="isSaving"
             >
               {{
                 data.formMode === "add" ? "Simpan Project" : "Simpan Perubahan"
@@ -1595,18 +1640,10 @@ async function deleteProject(project: projectWebM) {
                   </div>
                 </header>
                 <div class="detail-paragraphs">
-                  <p
-                    v-for="(paragraph, index) in detailProject.paragraf.filter(
-                      Boolean,
-                    )"
-                    :key="`id-${index}`"
-                  >
-                    {{ paragraph }}
-                  </p>
+                  <div v-html="paragraphArrayToRichText(detailProject.paragraf)" />
                 </div>
                 <blockquote>{{ detailProject.paragraf_penutup }}</blockquote>
               </article>
-
               <article
                 class="detail-language-card detail-language-card--en"
                 lang="en"
@@ -1625,14 +1662,9 @@ async function deleteProject(project: projectWebM) {
                   "
                 >
                   <div class="detail-paragraphs">
-                    <p
-                      v-for="(
-                        paragraph, index
-                      ) in detailProject.paragraf_en.filter(Boolean)"
-                      :key="`en-${index}`"
-                    >
-                      {{ paragraph }}
-                    </p>
+                    <div
+                      v-html="paragraphArrayToRichText(detailProject.paragraf_en)"
+                    />
                   </div>
                   <blockquote>
                     {{ detailProject.paragraf_penutup_en }}
@@ -2136,8 +2168,7 @@ async function deleteProject(project: projectWebM) {
 }
 .dialog-section {
   padding: 13px;
-  background: #fff;
-  border: 1px solid #dfe4e8;
+
   border-radius: 6px;
 }
 .dialog-section-heading {
@@ -2207,6 +2238,45 @@ async function deleteProject(project: projectWebM) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+.narrative-editor-field {
+  min-width: 0;
+}
+.narrative-editor-field > label {
+  display: block;
+  margin-bottom: 6px;
+  color: #495057;
+  font-size: 11px;
+  font-weight: 650;
+}
+.narrative-editor-field :deep(.ql-toolbar.ql-snow) {
+  padding: 7px;
+  border-color: #ced4da;
+  border-radius: 5px 5px 0 0;
+}
+.narrative-editor-field :deep(.ql-container.ql-snow) {
+  border-color: #ced4da;
+  border-radius: 0 0 5px 5px;
+  font-family: inherit;
+  font-size: 13px;
+}
+.narrative-editor-field :deep(.ql-editor) {
+  min-height: 190px;
+  line-height: 1.65;
+}
+.narrative-editor-field > small {
+  display: block;
+  margin-top: 5px;
+  color: #53789a;
+  font-size: 10px;
+}
+.narrative-editor-loading {
+  min-height: 240px;
+  padding: 12px;
+  color: #7a8793;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 5px;
 }
 .paragraph-number {
   display: grid;
@@ -2553,6 +2623,9 @@ async function deleteProject(project: projectWebM) {
   gap: 12px;
   padding-top: 14px;
 }
+.detail-language-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
 .detail-language-card {
   min-width: 0;
   padding: 14px;
@@ -2604,12 +2677,24 @@ async function deleteProject(project: projectWebM) {
 .detail-paragraphs {
   padding: 8px 0;
 }
-.detail-paragraphs p {
+.detail-paragraphs :deep(p) {
   margin: 12px 0;
   color: #445363;
   font-size: 11px;
   line-height: 1.8;
   white-space: pre-line;
+}
+.detail-paragraphs :deep(ul),
+.detail-paragraphs :deep(ol) {
+  margin: 10px 0;
+  padding-left: 22px;
+  color: #445363;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.detail-paragraphs :deep(a) {
+  color: #315f8c;
+  text-decoration: underline;
 }
 .detail-content blockquote {
   margin: 12px 0 0;
