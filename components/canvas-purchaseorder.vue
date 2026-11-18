@@ -44,24 +44,58 @@
     </v-card>
   </v-dialog>
 
-  <div class="top-bar-actions d-flex justify-center align-center mb-4 no-print">
-    <v-btn-toggle
-      v-model="lang"
-      mandatory
-      color="primary"
-      variant="outlined"
-      density="comfortable"
-      class="rounded-lg bg-white elevation-1"
+  <div class="purchaseorder-toolbar no-print">
+    <div
+      class="document-actions"
+      role="group"
+      aria-label="Purchase order document actions"
     >
-      <v-btn value="id" class="px-4 font-weight-bold text-caption">
-        <v-icon start size="16">mdi-translate</v-icon>
-        Bahasa Indonesia
+      <v-btn
+        height="38"
+        color="blue-grey-darken-2"
+        variant="outlined"
+        prepend-icon="mdi-printer-outline"
+        class="quotation-action-btn quotation-action-btn--print"
+        :disabled="isSavingPdf"
+        aria-label="Print purchase order"
+        @click="handlePrint"
+      >
+        Print
       </v-btn>
-      <v-btn value="en" class="px-4 font-weight-bold text-caption">
-        <v-icon start size="16">mdi-earth</v-icon>
-        English
+      <v-btn
+        height="38"
+        color="indigo-darken-3"
+        variant="flat"
+        prepend-icon="mdi-file-pdf-box"
+        class="quotation-action-btn quotation-action-btn--primary"
+        :loading="isSavingPdf"
+        :disabled="isSavingPdf"
+        aria-label="Download purchase order as PDF"
+        @click="handleSavePdf"
+      >
+        Download PDF
       </v-btn>
-    </v-btn-toggle>
+    </div>
+
+    <div class="language-switch" aria-label="Pilih bahasa">
+      <button
+        type="button"
+        :class="{ active: lang === 'en' }"
+        :aria-pressed="lang === 'en'"
+        @click="lang = 'en'"
+      >
+        EN
+      </button>
+      <span aria-hidden="true">|</span>
+      <button
+        type="button"
+        :class="{ active: lang === 'id' }"
+        :aria-pressed="lang === 'id'"
+        @click="lang = 'id'"
+      >
+        ID
+      </button>
+    </div>
   </div>
 
   <div>
@@ -451,34 +485,6 @@
       </div>
     </div>
 
-    <div
-      class="document-actions d-flex flex-wrap justify-center align-center mt-6 mb-12 no-print"
-    >
-      <v-btn
-        width="300"
-        height="46"
-        color="indigo-darken-3"
-        elevation="3"
-        prepend-icon="mdi-printer"
-        class="quotation-action-btn text-capitalize font-weight-bold rounded-lg text-subtitle-2"
-        @click="handlePrint"
-      >
-        Print Purchase Order (PO)
-      </v-btn>
-      <v-btn
-        width="300"
-        height="46"
-        color="red-darken-2"
-        elevation="3"
-        prepend-icon="mdi-file-pdf-box"
-        class="quotation-action-btn text-capitalize font-weight-bold rounded-lg text-subtitle-2"
-        :loading="isSavingPdf"
-        :disabled="isSavingPdf"
-        @click="handleSavePdf"
-      >
-        Save PDF Purchase Order (PO)
-      </v-btn>
-    </div>
   </div>
 </template>
 
@@ -1458,6 +1464,96 @@ const handleSavePdf = async () => {
 </script>
 
 <style scoped>
+.purchaseorder-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  display: flex;
+  width: 210mm;
+  max-width: 100%;
+  min-height: 56px;
+  margin: 6px auto 12px;
+  padding: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.document-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.quotation-action-btn {
+  min-width: 0 !important;
+  padding-inline: 14px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+}
+
+.quotation-action-btn--print {
+  color: #475569 !important;
+}
+
+.quotation-action-btn--primary {
+  box-shadow: 0 4px 10px rgba(49, 46, 129, 0.2) !important;
+}
+
+.language-switch {
+  display: inline-flex;
+  height: 24px;
+  padding: 0 5px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #94a3b8;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.language-switch button {
+  min-width: 25px;
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.language-switch button:hover,
+.language-switch button.active {
+  color: #1d4ed8;
+}
+
+.language-switch button:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #93c5fd;
+  outline-offset: -1px;
+}
+
+.language-switch span {
+  color: #cbd5e1;
+  font-size: 9px;
+}
+
 .offer-card {
   width: 210mm;
   min-height: 297mm;
@@ -1893,17 +1989,40 @@ const handleSavePdf = async () => {
   }
 }
 
-.document-actions {
-  gap: 16px;
-}
-
 @media (max-width: 600px) {
+  .purchaseorder-toolbar {
+    min-height: 82px;
+    padding: 12px 14px;
+    gap: 18px;
+    border-radius: 14px;
+  }
+
   .document-actions {
-    padding: 0 16px;
+    flex-wrap: nowrap;
+    gap: 10px;
   }
 
   .quotation-action-btn {
-    width: 100% !important;
+    min-width: 170px !important;
+    height: 58px !important;
+    padding-inline: 18px !important;
+    border-radius: 10px !important;
+    font-size: 17px !important;
+  }
+
+  .language-switch {
+    height: 46px;
+    padding-inline: 9px;
+  }
+
+  .language-switch button {
+    min-width: 38px;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  .language-switch span {
+    font-size: 14px;
   }
 }
 </style>

@@ -1850,7 +1850,7 @@ onBeforeUnmount(() => {
               ref="penawaranWrapper"
               class="penawaran-wrapper"
               :style="{
-                height:
+                minHeight:
                   isMobile && penawaranHeight
                     ? `${penawaranHeight}px`
                     : undefined,
@@ -1873,7 +1873,7 @@ onBeforeUnmount(() => {
                 id="purchase-order-preview"
                 class="po-wrapper"
                 :style="{
-                  height: isMobile && poHeight ? `${poHeight}px` : undefined,
+                  minHeight: isMobile && poHeight ? `${poHeight}px` : undefined,
                 }"
               >
                 <div
@@ -1903,7 +1903,7 @@ onBeforeUnmount(() => {
   max-width: 100%;
   min-width: 0;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   scroll-margin-top: 16px;
 }
 
@@ -1914,6 +1914,9 @@ onBeforeUnmount(() => {
 
 @media (max-width: 600px) {
   .po-content {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: max-content;
     min-width: 100%;
   }
@@ -1922,7 +1925,7 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 }
 
@@ -1933,6 +1936,9 @@ onBeforeUnmount(() => {
 
 @media (max-width: 600px) {
   .penawaran-content {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: max-content;
     min-width: 100%;
   }
@@ -2211,12 +2217,13 @@ onBeforeUnmount(() => {
 }
 
 .quotation-meta-value {
+  flex: 1;
   min-width: 0;
-  overflow: hidden;
   color: #334155;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .quotation-meta-client {

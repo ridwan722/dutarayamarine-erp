@@ -157,7 +157,8 @@ function printDeliveryOrder() {
 
           @page {
             size: A4 portrait;
-            margin: ${CONTINUATION_PAGE_TOP_PADDING_MM}mm 0 ${PAGE_BOTTOM_PADDING_MM}mm;
+            margin: ${CONTINUATION_PAGE_TOP_PADDING_MM}mm 0
+              ${PAGE_BOTTOM_PADDING_MM}mm;
           }
 
           @page :first {
@@ -192,6 +193,7 @@ function printDeliveryOrder() {
 type PdfTextFragment = {
   text: string;
   left: number;
+  width: number;
   top: number;
   height: number;
   baseline: number;
@@ -218,8 +220,6 @@ const applyTextTransform = (text: string, transform: string) => {
   return text;
 };
 
-// Keep the document frame as a lossless image, then restore every visible
-// text line as native PDF text so it stays sharp and selectable when zoomed.
 const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
   const rootRect = root.getBoundingClientRect();
   const fragments: PdfTextFragment[] = [];
@@ -230,7 +230,11 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
     const parent = textNode.parentElement;
     const sourceText = textNode.data;
 
-    if (parent && sourceText.trim() && !parent.closest(".no-print")) {
+    if (
+      parent &&
+      sourceText.trim() &&
+      !parent.closest(".no-print, .editable-description")
+    ) {
       const style = window.getComputedStyle(parent);
       const fontSizePx = Number.parseFloat(style.fontSize);
 
@@ -241,59 +245,47 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
         fontSizePx > 0 &&
         parent.getClientRects().length
       ) {
-        type CharacterRect = { character: string; rect: DOMRect };
-        let currentLine: CharacterRect[] = [];
+        type WordRect = { word: string; rect: DOMRect };
+        let currentLine: WordRect[] = [];
         let currentTop: number | null = null;
+        const parsedLineHeight = Number.parseFloat(style.lineHeight);
+        const lineHeightPx = Number.isFinite(parsedLineHeight)
+          ? parsedLineHeight
+          : fontSizePx * 1.25;
+        const lineTopTolerance = Math.max(2, lineHeightPx * 0.45);
         const range = document.createRange();
 
         const flushLine = () => {
-          const firstVisible = currentLine.findIndex(
-            ({ character }) => !/\s/.test(character),
-          );
-          let lastVisible = currentLine.length - 1;
-
-          while (
-            lastVisible >= firstVisible &&
-            /\s/.test(currentLine[lastVisible]?.character || "")
-          ) {
-            lastVisible--;
-          }
-
-          if (firstVisible >= 0 && lastVisible >= firstVisible) {
-            const visibleCharacters = currentLine.slice(
-              firstVisible,
-              lastVisible + 1,
-            );
+          if (currentLine.length) {
             const lineTop = Math.min(
-              ...visibleCharacters.map(({ rect }) => rect.top),
+              ...currentLine.map(({ rect }) => rect.top),
             );
             const lineBottom = Math.max(
-              ...visibleCharacters.map(({ rect }) => rect.bottom),
+              ...currentLine.map(({ rect }) => rect.bottom),
             );
-            const normalizedText = visibleCharacters
-              .map(({ character }) => character)
-              .join("")
-              .replace(/\s+/g, " ");
+            const normalizedText = currentLine
+              .map(({ word }) => word)
+              .join(" ");
             const alignment =
               style.textAlign === "right" || style.textAlign === "end"
                 ? "right"
                 : style.textAlign === "center"
                   ? "center"
                   : "left";
-            const firstCharacterRect = visibleCharacters[0].rect;
-            const lastCharacterRect =
-              visibleCharacters[visibleCharacters.length - 1].rect;
+            const firstWordRect = currentLine[0].rect;
+            const lastWordRect = currentLine[currentLine.length - 1].rect;
             const textAnchor =
               alignment === "right"
-                ? lastCharacterRect.right - rootRect.left
+                ? lastWordRect.right - rootRect.left
                 : alignment === "center"
-                  ? (firstCharacterRect.left + lastCharacterRect.right) / 2 -
+                  ? (firstWordRect.left + lastWordRect.right) / 2 -
                     rootRect.left
-                  : firstCharacterRect.left - rootRect.left;
+                  : firstWordRect.left - rootRect.left;
 
             fragments.push({
               text: applyTextTransform(normalizedText, style.textTransform),
               left: textAnchor,
+              width: lastWordRect.right - firstWordRect.left,
               top: lineTop - rootRect.top,
               height: lineBottom - lineTop,
               baseline: lineTop - rootRect.top + (lineBottom - lineTop) * 0.8,
@@ -309,24 +301,24 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
           currentTop = null;
         };
 
-        for (let index = 0; index < sourceText.length; index++) {
-          const character = sourceText[index];
-
-          if (character === "\n" || character === "\r") {
-            flushLine();
-            continue;
-          }
-
-          range.setStart(textNode, index);
-          range.setEnd(textNode, index + 1);
+        const wordPattern = /\S+/g;
+        let match: RegExpExecArray | null;
+        while ((match = wordPattern.exec(sourceText))) {
+          const wordStart = match.index;
+          const wordEnd = wordStart + match[0].length;
+          range.setStart(textNode, wordStart);
+          range.setEnd(textNode, wordEnd);
           const rect = range.getBoundingClientRect();
           if (!rect.width && !rect.height) continue;
 
-          if (currentTop !== null && Math.abs(rect.top - currentTop) > 0.75) {
+          if (
+            currentTop !== null &&
+            Math.abs(rect.top - currentTop) > lineTopTolerance
+          ) {
             flushLine();
           }
           if (currentTop === null) currentTop = rect.top;
-          currentLine.push({ character, rect });
+          currentLine.push({ word: match[0], rect });
         }
 
         flushLine();
@@ -350,7 +342,6 @@ const createExactDeliveryOrderPdf = async () => {
     ".penawaran-content",
   );
   previewContainer?.classList.add("delivery-order-pdf-unscaled");
-  paperElement.classList.add("delivery-order-pdf-capture");
   void paperElement.offsetHeight;
 
   try {
@@ -392,6 +383,8 @@ const createExactDeliveryOrderPdf = async () => {
           .querySelectorAll(".invoice-paper *")
           .forEach((element) => {
             const htmlElement = element as HTMLElement;
+            if (htmlElement.closest(".editable-description")) return;
+
             htmlElement.style.setProperty("color", "transparent", "important");
             htmlElement.style.setProperty(
               "-webkit-text-fill-color",
@@ -401,18 +394,20 @@ const createExactDeliveryOrderPdf = async () => {
             htmlElement.style.setProperty("text-shadow", "none", "important");
           });
 
-        // Colons are CSS pseudo-elements rather than DOM text nodes, so keep
-        // them in the lossless canvas layer while other glyphs become native
-        // PDF text.
-        const pseudoTextStyle = clonedDocument.createElement("style");
-        pseudoTextStyle.textContent = `
-          .invoice-paper .document-meta dt::after,
-          .invoice-paper .party-details dt::after {
+        const captureTextStyle = clonedDocument.createElement("style");
+        captureTextStyle.textContent = `
+          .invoice-paper .editable-description {
             color: #111827 !important;
             -webkit-text-fill-color: #111827 !important;
+            letter-spacing: 0 !important;
+            line-height: 1.35 !important;
+            text-align: left !important;
+            text-align-last: left !important;
+            white-space: normal !important;
+            word-spacing: 0 !important;
           }
         `;
-        clonedDocument.head.appendChild(pseudoTextStyle);
+        clonedDocument.head.appendChild(captureTextStyle);
       },
     });
 
@@ -451,12 +446,16 @@ const createExactDeliveryOrderPdf = async () => {
         pdf.setFont("helvetica", fontStyle);
         pdf.setFontSize(fragment.fontSizePx * mmPerCssPixel * (72 / 25.4));
         pdf.setTextColor(...fragment.color);
+        const targetWidth = fragment.width * mmPerCssPixel;
+        const measuredWidth = pdf.getTextWidth(fragment.text);
+        const horizontalScale =
+          measuredWidth > 0 ? targetWidth / measuredWidth : 1;
         pdf.text(
           fragment.text,
           fragment.left * mmPerCssPixel,
           pageTopPadding +
             (fragment.baseline - sourceTop) * mmPerCssPixel,
-          { align: fragment.alignment },
+          { align: fragment.alignment, horizontalScale },
         );
       });
     };
@@ -475,8 +474,6 @@ const createExactDeliveryOrderPdf = async () => {
         canvas.width * (availablePageHeight / pageWidth),
       );
       const remainingHeight = canvas.height - sourceY;
-      // html2canvas can round an exact A4 height up by a pixel. Keep that
-      // rounding residue on the current page instead of creating a blank page.
       const sliceHeight =
         remainingHeight <= pageSliceHeight + Math.ceil(canvasScale)
           ? remainingHeight
@@ -522,34 +519,73 @@ const createExactDeliveryOrderPdf = async () => {
 
     return pdf;
   } finally {
-    paperElement.classList.remove("delivery-order-pdf-capture");
     previewContainer?.classList.remove("delivery-order-pdf-unscaled");
   }
 };
 
-const handleSavePdf = async () => {
+function handleSavePdf() {
   if (isSavingPdf.value) return;
   isSavingPdf.value = true;
 
-  try {
-    const pdf = await createExactDeliveryOrderPdf();
-    if (!pdf) return;
+  void createExactDeliveryOrderPdf()
+    .then((pdf) => {
+      if (!pdf) return;
 
-    const fileSubject = (props.invoiceDetail.perihal || "delivery-order")
-      .replace(/[^a-z0-9-_]+/gi, "-")
-      .replace(/^-+|-+$/g, "");
-    pdf.save(`DO-DRM-${fileSubject || "delivery-order"}.pdf`);
-  } catch (error) {
-    console.error("Gagal menyimpan PDF Delivery Order:", error);
-    useNotificationStore().showError("Gagal membuat PDF Delivery Order");
-  } finally {
-    isSavingPdf.value = false;
-  }
-};
+      const fileSubject = (props.invoiceDetail.perihal || "delivery-order")
+        .replace(/[^a-z0-9-_]+/gi, "-")
+        .replace(/^-+|-+$/g, "");
+      pdf.save(`DO-DRM-${fileSubject || "delivery-order"}.pdf`);
+    })
+    .catch((error) => {
+      console.error("Gagal menyimpan PDF Delivery Order:", error);
+      useNotificationStore().showError("Gagal membuat PDF Delivery Order");
+    })
+    .finally(() => {
+      isSavingPdf.value = false;
+    });
+}
+
 </script>
 
 <template>
   <div class="delivery-order-wrapper">
+    <Teleport :to="actionsTarget || 'body'" :disabled="!actionsTarget">
+      <div
+        class="no-print delivery-order-toolbar"
+        role="group"
+        aria-label="Delivery order document actions"
+      >
+        <div class="document-actions">
+          <v-btn
+            height="38"
+            color="blue-grey-darken-2"
+            variant="outlined"
+            prepend-icon="mdi-printer-outline"
+            class="delivery-order-action delivery-order-action--print"
+            :disabled="isSavingPdf"
+            aria-label="Print delivery order"
+            @click="printDeliveryOrder"
+          >
+            Print
+          </v-btn>
+
+          <v-btn
+            height="38"
+            color="indigo-darken-3"
+            variant="flat"
+            prepend-icon="mdi-file-pdf-box"
+            class="delivery-order-action delivery-order-action--primary"
+            :loading="isSavingPdf"
+            :disabled="isSavingPdf"
+            aria-label="Download delivery order as PDF"
+            @click="handleSavePdf"
+          >
+            Download PDF
+          </v-btn>
+        </div>
+      </div>
+    </Teleport>
+
     <div ref="printArea" class="invoice-paper-wrapper">
       <article class="invoice-paper">
         <div class="document-frame">
@@ -580,6 +616,7 @@ const handleSavePdf = async () => {
               <dl class="document-meta">
                 <div>
                   <dt>DO No.</dt>
+                  <span class="document-meta-separator" aria-hidden="true">:</span>
                   <dd>{{ deliveryOrderNumber }}</dd>
                 </div>
               </dl>
@@ -594,10 +631,12 @@ const handleSavePdf = async () => {
               <dl class="party-details">
                 <div>
                   <dt>Delivered To</dt>
+                  <span class="party-detail-separator" aria-hidden="true">:</span>
                   <dd>{{ invoiceDetail.nama_customer || "-" }}</dd>
                 </div>
                 <div>
                   <dt>Address</dt>
+                  <span class="party-detail-separator" aria-hidden="true">:</span>
                   <dd>{{ invoiceDetail.alamat_customer || "-" }}</dd>
                 </div>
               </dl>
@@ -608,10 +647,12 @@ const handleSavePdf = async () => {
               <dl class="party-details">
                 <div>
                   <dt>Vessel</dt>
+                  <span class="party-detail-separator" aria-hidden="true">:</span>
                   <dd>{{ invoiceDetail.vessel || "-" }}</dd>
                 </div>
                 <div>
                   <dt>Location</dt>
+                  <span class="party-detail-separator" aria-hidden="true">:</span>
                   <dd>{{ invoiceDetail.location || "-" }}</dd>
                 </div>
 
@@ -664,8 +705,16 @@ const handleSavePdf = async () => {
                   class="editable-display-value editable-description"
                   contenteditable="true"
                   role="textbox"
+                  dir="ltr"
                   aria-label="Ubah deskripsi item untuk tampilan Delivery Order"
                   spellcheck="false"
+                  style="
+                    letter-spacing: 0 !important;
+                    text-align: left !important;
+                    text-align-last: left !important;
+                    white-space: normal !important;
+                    word-spacing: 0 !important;
+                  "
                   @blur="updateDisplayItem(sourceIndex, 'nama', $event)"
                 >{{ item.nama }}</div>
               </td>
@@ -748,35 +797,6 @@ const handleSavePdf = async () => {
         </div>
       </article>
     </div>
-    <Teleport
-      :to="actionsTarget || 'body'"
-      :disabled="!actionsTarget"
-    >
-      <div
-        class="no-print action-bar d-flex flex-wrap justify-center gap-2 mt-4"
-      >
-        <v-btn
-          class="delivery-order-action"
-          color="primary"
-          variant="elevated"
-          prepend-icon="mdi-printer"
-          @click="printDeliveryOrder"
-        >
-          Cetak Delivery Order
-        </v-btn>
-
-        <v-btn
-          class="delivery-order-action ml-2"
-          color="red"
-          variant="elevated"
-          prepend-icon="mdi-file-pdf-box"
-          :loading="isSavingPdf"
-          @click="handleSavePdf"
-        >
-          Save PDF Delivery Order
-        </v-btn>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -785,36 +805,73 @@ const handleSavePdf = async () => {
 .delivery-order-wrapper {
   box-sizing: border-box;
   width: 100%;
-  padding: 20px 0 12px;
+  padding: 0px 0 12px;
 }
 
 :global(.penawaran-content.delivery-order-pdf-unscaled) {
   transform: none !important;
 }
 
-.action-bar {
-  width: 100%;
-  max-width: 210mm;
-  margin: 0 auto;
+.delivery-order-toolbar {
+  box-sizing: border-box;
+  display: flex;
+  width: 210mm;
+  max-width: 100%;
+  min-height: 56px;
+  margin: 6px auto 12px;
+  padding: 8px;
+  align-items: center;
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.document-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.delivery-order-action {
+  min-width: 0 !important;
+  padding-inline: 14px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+}
+
+.delivery-order-action--print {
+  color: #475569 !important;
+}
+
+.delivery-order-action--primary {
+  box-shadow: 0 4px 10px rgba(49, 46, 129, 0.2) !important;
 }
 
 @media screen and (max-width: 600px) {
-  .action-bar {
-    flex-wrap: nowrap !important;
-    gap: 6px !important;
-    padding: 0 8px;
+  .delivery-order-toolbar {
+    min-height: 58px;
+    margin-block: 6px 10px;
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .document-actions {
+    width: 100%;
+    gap: 8px;
   }
 
   .delivery-order-action {
-    min-width: 0 !important;
-    height: 26px !important;
-    padding: 0 8px !important;
-    font-size: 9px !important;
-    letter-spacing: 0.3px !important;
-  }
-
-  .delivery-order-action :deep(.v-icon) {
-    font-size: 13px !important;
+    height: 40px !important;
+    flex: 1 1 0;
+    padding-inline: 10px !important;
+    font-size: 11px !important;
   }
 }
 
@@ -956,9 +1013,9 @@ const handleSavePdf = async () => {
   font-weight: 700;
 }
 
-.document-meta dt::after {
-  float: right;
-  content: ":";
+.document-meta-separator {
+  grid-column: 2;
+  font-weight: 700;
 }
 
 .document-meta dd {
@@ -1007,24 +1064,22 @@ const handleSavePdf = async () => {
 
 .party-details div {
   display: grid;
-  grid-template-columns: 34mm minmax(0, 1fr);
+  grid-template-columns: 31mm 3mm minmax(0, 1fr);
   align-items: start;
   font-size: 10px;
 }
 
 .party-details dt {
-  position: relative;
-  padding-right: 4mm;
-
+  grid-column: 1;
 }
 
-.party-details dt::after {
-  position: absolute;
-  right: 1.5mm;
-  content: ":";
+.party-detail-separator {
+  grid-column: 2;
+  font-weight: 600;
 }
 
 .party-details dd {
+  grid-column: 3;
   min-width: 0;
   margin: 0;
 
@@ -1091,6 +1146,10 @@ const handleSavePdf = async () => {
   font-size: 10px;
 }
 
+.main-table td:nth-child(2) {
+  text-align: left;
+}
+
 .item-number-column {
   width: 8%;
 }
@@ -1130,8 +1189,21 @@ const handleSavePdf = async () => {
 }
 
 .editable-description {
+  display: block;
+  width: 100%;
   min-height: 1.4em;
-  white-space: pre-line;
+  margin: 0;
+  overflow-wrap: break-word;
+  font-kerning: normal;
+  hyphens: none;
+  letter-spacing: normal !important;
+  line-height: 1.35;
+  text-align: left !important;
+  text-align-last: left !important;
+  text-justify: none;
+  white-space: normal;
+  word-break: normal;
+  word-spacing: normal !important;
 }
 
 .editable-quantity-value,

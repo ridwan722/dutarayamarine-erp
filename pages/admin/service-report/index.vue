@@ -29,20 +29,40 @@ const headers = [
     title: "No",
     value: "no",
     width: "48px",
+    minWidth: "48px",
     align: "center" as const,
     sortable: false,
   },
-  { title: "Report No", value: "reportNo", width: "190px" },
-  { title: "Service Period", value: "servicePeriod", width: "180px" },
-  { title: "Client / Attention", value: "customer", width: "220px" },
-  { title: "Vessel / Project", value: "vessel", width: "210px" },
-  { title: "Scope of Work", value: "scope", width: "260px" },
-  { title: "Source", value: "source", width: "150px" },
+  {
+    title: "Report No",
+    value: "reportNo",
+  },
+  {
+    title: "Service Period",
+    value: "servicePeriod",
+  },
+  {
+    title: "Client / Attention",
+    value: "customer",
+  },
+  {
+    title: "Vessel / Project",
+    value: "vessel",
+  },
+  {
+    title: "Scope of Work",
+    value: "scope",
+  },
+  {
+    title: "Source",
+    value: "source",
+  },
   // { title: "Photos", value: "photos", width: "80px", align: "center" as const },
   {
     title: "Action",
     value: "aksi",
     width: "58px",
+    minWidth: "58px",
     align: "center" as const,
     sortable: false,
   },
@@ -339,10 +359,14 @@ onMounted(() => loadData());
         </div></template
       >
       <template #item.vessel="{ item }"
-        ><span class="sr-wrap-cell">{{ item.vessel }}</span></template
+        ><span class="sr-wrap-cell sr-vessel-cell">{{
+          item.vessel
+        }}</span></template
       >
       <template #item.scope="{ item }"
-        ><span class="sr-wrap-cell">{{ item.scope }}</span></template
+        ><span class="sr-wrap-cell sr-scope-cell">{{
+          item.scope
+        }}</span></template
       >
       <template #item.source="{ item }">
         <div class="sr-source-chips">
@@ -541,18 +565,31 @@ onMounted(() => loadData());
   color: #718b98;
   font-size: 10px;
 }
+.sr-table :deep(.v-table__wrapper) {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.sr-table :deep(table) {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
 .sr-table :deep(th) {
   height: 38px !important;
   background: #f7f9fa !important;
   color: #71818c !important;
   font-size: 8px !important;
   letter-spacing: 0.05em;
+  white-space: nowrap;
+  word-break: normal;
   text-transform: uppercase;
 }
 .sr-table :deep(td) {
   height: 52px !important;
   color: #526674;
   font-size: 9px;
+  word-break: normal;
 }
 .sr-row-index {
   color: #91a0aa;
@@ -575,21 +612,36 @@ onMounted(() => loadData());
 }
 .sr-primary-cell {
   display: grid;
+  width: max-content;
+  min-width: 130px;
+  max-width: 180px;
   gap: 2px;
 }
 .sr-primary-cell strong {
   color: #344b5a;
   font-size: 9px;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .sr-primary-cell small {
   color: #92a0aa;
   font-size: 8px;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .sr-wrap-cell {
   display: block;
-  min-width: 150px;
+  width: max-content;
+  max-width: 100%;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.sr-vessel-cell {
+  max-width: 170px;
+}
+.sr-scope-cell {
+  max-width: 230px;
 }
 .sr-source-chips {
   display: flex;

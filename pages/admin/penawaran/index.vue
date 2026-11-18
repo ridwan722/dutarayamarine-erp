@@ -1275,6 +1275,10 @@ const penawaranTampilTersaring = computed(() => {
   const amountQuery = data.filterAmount.replace(/\D/g, "");
 
   return activeQuotationRows.value.filter((quotation) => {
+    // Sembunyikan quotation Cancel pada tampilan default. Pengguna masih bisa
+    // memilih status Cancel dari filter untuk melihat dan mengembalikannya.
+    if (!data.filterStatus && quotation.status === "Cancel") return false;
+
     const quotationAmount = Number(quotation.grand_total_penawaran) || 0;
     const quotationDate = String(quotation.tanggal_penawaran || "").slice(
       0,

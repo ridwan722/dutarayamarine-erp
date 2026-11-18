@@ -540,6 +540,7 @@
                     'Can',
                     'Pail',
                     'Pack',
+                    'LS'
                   ]"
                   v-model="item.uom"
                   label="UOM"

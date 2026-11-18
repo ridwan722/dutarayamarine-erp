@@ -44,7 +44,52 @@
     </v-card>
   </v-dialog>
 
-  <div class="language-switch-bar no-print">
+  <div class="quotation-toolbar no-print">
+    <div
+      class="document-actions"
+      role="group"
+      aria-label="Quotation document actions"
+    >
+      <v-btn
+        height="38"
+        color="blue-grey-darken-2"
+        variant="outlined"
+        prepend-icon="mdi-printer-outline"
+        class="quotation-action-btn quotation-action-btn--print"
+        :disabled="isSavingPdf || isSavingDocx"
+        aria-label="Print quotation"
+        @click="handlePrint"
+      >
+        Print
+      </v-btn>
+      <v-btn
+        height="38"
+        color="indigo-darken-3"
+        variant="flat"
+        prepend-icon="mdi-file-pdf-box"
+        class="quotation-action-btn quotation-action-btn--primary"
+        :loading="isSavingPdf"
+        :disabled="isSavingPdf || isSavingDocx"
+        aria-label="Download quotation as PDF"
+        @click="handleSavePdf"
+      >
+        Download PDF
+      </v-btn>
+      <v-btn
+        height="38"
+        color="indigo-darken-3"
+        variant="outlined"
+        prepend-icon="mdi-file-word-box"
+        class="quotation-action-btn"
+        :loading="isSavingDocx"
+        :disabled="isSavingPdf || isSavingDocx"
+        aria-label="Download quotation as editable DOCX"
+        @click="handleSaveDocx"
+      >
+        Download DOCX
+      </v-btn>
+    </div>
+
     <div class="language-switch" aria-label="Pilih bahasa">
       <button
         type="button"
@@ -447,40 +492,13 @@
       </div>
     </div>
 
-    <div
-      class="document-actions d-flex flex-wrap justify-center align-center mt-6 mb-12 no-print"
-    >
-      <v-btn
-        width="300"
-        height="46"
-        color="indigo-darken-3"
-        elevation="3"
-        prepend-icon="mdi-printer"
-        class="quotation-action-btn text-capitalize font-weight-bold rounded-lg text-subtitle-2"
-        @click="handlePrint"
-      >
-        Print Quotation
-      </v-btn>
-      <v-btn
-        width="300"
-        height="46"
-        color="red-darken-2"
-        elevation="3"
-        prepend-icon="mdi-file-pdf-box"
-        class="quotation-action-btn text-capitalize font-weight-bold rounded-lg text-subtitle-2"
-        :loading="isSavingPdf"
-        :disabled="isSavingPdf"
-        @click="handleSavePdf"
-      >
-        Save PDF
-      </v-btn>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import type { penawaranM } from "~/types/penawaranModel";
+import { createEditableQuotationDocx } from "~/utils/quotationDocx";
 import moment from "moment";
 
 const props = defineProps<{
@@ -501,6 +519,7 @@ const warnaBackgroundCustom = ref("#061b3c");
 const showTable = ref(true);
 const tableBodyRef = ref<HTMLElement | null>(null);
 const isSavingPdf = ref(false);
+const isSavingDocx = ref(false);
 
 const t = computed(() => {
   if (lang.value === "id") {
@@ -794,6 +813,7 @@ const createSaturatedImageDataUrl = async (
 type PdfTextFragment = {
   text: string;
   left: number;
+  width: number;
   top: number;
   height: number;
   baseline: number;
@@ -835,9 +855,7 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
     if (
       parent &&
       sourceText.trim() &&
-      !parent.closest(
-        ".no-print, .drag-icon, .no-print-cell, .modern-table tbody",
-      )
+      !parent.closest(".no-print, .drag-icon, .no-print-cell")
     ) {
       const style = window.getComputedStyle(parent);
       const fontSizePx = Number.parseFloat(style.fontSize);
@@ -848,39 +866,26 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
         fontSizePx > 0 &&
         parent.getClientRects().length
       ) {
-        type CharacterRect = { character: string; rect: DOMRect };
-        let currentLine: CharacterRect[] = [];
+        type WordRect = { word: string; rect: DOMRect };
+        let currentLine: WordRect[] = [];
         let currentTop: number | null = null;
+        const parsedLineHeight = Number.parseFloat(style.lineHeight);
+        const lineHeightPx = Number.isFinite(parsedLineHeight)
+          ? parsedLineHeight
+          : fontSizePx * 1.25;
+        const lineTopTolerance = Math.max(2, lineHeightPx * 0.45);
         const range = document.createRange();
 
         const flushLine = () => {
-          const firstVisible = currentLine.findIndex(
-            ({ character }) => !/\s/.test(character),
-          );
-          let lastVisible = currentLine.length - 1;
-          while (
-            lastVisible >= firstVisible &&
-            /\s/.test(currentLine[lastVisible]?.character || "")
-          ) {
-            lastVisible--;
-          }
-
-          if (firstVisible >= 0 && lastVisible >= firstVisible) {
-            const visibleCharacters = currentLine.slice(
-              firstVisible,
-              lastVisible + 1,
-            );
+          if (currentLine.length) {
             const centeredSignatureLine = parent.closest(".sig-person-name");
             const lineTop = Math.min(
-              ...visibleCharacters.map(({ rect }) => rect.top),
+              ...currentLine.map(({ rect }) => rect.top),
             );
             const lineBottom = Math.max(
-              ...visibleCharacters.map(({ rect }) => rect.bottom),
+              ...currentLine.map(({ rect }) => rect.bottom),
             );
-            const normalizedText = visibleCharacters
-              .map(({ character }) => character)
-              .join("")
-              .replace(/\s+/g, " ");
+            const normalizedText = currentLine.map(({ word }) => word).join(" ");
             const alignment = centeredSignatureLine
               ? "center"
               : style.textAlign === "right" || style.textAlign === "end"
@@ -888,23 +893,23 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
                 : style.textAlign === "center"
                   ? "center"
                   : "left";
-            const firstCharacterRect = visibleCharacters[0].rect;
-            const lastCharacterRect =
-              visibleCharacters[visibleCharacters.length - 1].rect;
+            const firstWordRect = currentLine[0].rect;
+            const lastWordRect = currentLine[currentLine.length - 1].rect;
             const textAnchor = centeredSignatureLine
               ? centeredSignatureLine.getBoundingClientRect().left -
                 rootRect.left +
                 centeredSignatureLine.getBoundingClientRect().width / 2
               : alignment === "right"
-                ? lastCharacterRect.right - rootRect.left
+                ? lastWordRect.right - rootRect.left
                 : alignment === "center"
-                  ? (firstCharacterRect.left + lastCharacterRect.right) / 2 -
+                  ? (firstWordRect.left + lastWordRect.right) / 2 -
                     rootRect.left
-                  : firstCharacterRect.left - rootRect.left;
+                  : firstWordRect.left - rootRect.left;
 
             fragments.push({
               text: applyTextTransform(normalizedText, style.textTransform),
               left: textAnchor,
+              width: lastWordRect.right - firstWordRect.left,
               top: lineTop - rootRect.top,
               height: lineBottom - lineTop,
               baseline: lineTop - rootRect.top + (lineBottom - lineTop) * 0.8,
@@ -920,23 +925,24 @@ const extractPdfTextFragments = (root: Element): PdfTextFragment[] => {
           currentTop = null;
         };
 
-        for (let index = 0; index < sourceText.length; index++) {
-          const character = sourceText[index];
-          if (character === "\n" || character === "\r") {
-            flushLine();
-            continue;
-          }
-
-          range.setStart(textNode, index);
-          range.setEnd(textNode, index + 1);
+        const wordPattern = /\S+/g;
+        let match: RegExpExecArray | null;
+        while ((match = wordPattern.exec(sourceText))) {
+          const wordStart = match.index;
+          const wordEnd = wordStart + match[0].length;
+          range.setStart(textNode, wordStart);
+          range.setEnd(textNode, wordEnd);
           const rect = range.getBoundingClientRect();
           if (!rect.width && !rect.height) continue;
 
-          if (currentTop !== null && Math.abs(rect.top - currentTop) > 0.75) {
+          if (
+            currentTop !== null &&
+            Math.abs(rect.top - currentTop) > lineTopTolerance
+          ) {
             flushLine();
           }
           if (currentTop === null) currentTop = rect.top;
-          currentLine.push({ character, rect });
+          currentLine.push({ word: match[0], rect });
         }
         flushLine();
       }
@@ -1022,17 +1028,12 @@ const createPaginatedQuotationPdf = async () => {
         (element as HTMLElement).style.verticalAlign = "top";
       });
 
-    // Preserve every background, border and image in the canvas layer, but
-    // omit rasterized glyphs. Text is added later as native PDF vectors.
+    // Preserve backgrounds, borders and images in the canvas layer. All text,
+    // including table body rows, is added later as native PDF text.
     clonedDocument
       .querySelectorAll("#offer-to-print *")
       .forEach((element) => {
         const htmlElement = element as HTMLElement;
-        // Keep item rows as browser-rendered text. Rebuilding their lines with
-        // jsPDF's Helvetica changes glyph widths and makes long descriptions
-        // look crowded compared with the table layout in the preview.
-        if (htmlElement.closest(".modern-table tbody")) return;
-
         htmlElement.style.setProperty("color", "transparent", "important");
         htmlElement.style.setProperty(
           "-webkit-text-fill-color",
@@ -1137,11 +1138,21 @@ const createPaginatedQuotationPdf = async () => {
         fragment.fontSizePx * mmPerCssPixel * (72 / 25.4),
       );
       pdf.setTextColor(...fragment.color);
+      const targetWidth = fragment.width * mmPerCssPixel;
+      const measuredWidth = pdf.getTextWidth(fragment.text);
+      const horizontalScale =
+        measuredWidth > 0 ? targetWidth / measuredWidth : 1;
+      const textLeft =
+        fragment.alignment === "right"
+          ? fragment.left * mmPerCssPixel - targetWidth
+          : fragment.alignment === "center"
+            ? fragment.left * mmPerCssPixel - targetWidth / 2
+            : fragment.left * mmPerCssPixel;
       pdf.text(
         fragment.text,
-        originX + fragment.left * mmPerCssPixel,
+        originX + textLeft,
         originY + (fragment.baseline - sourceTop) * mmPerCssPixel,
-        { align: fragment.alignment },
+        { horizontalScale },
       );
     });
   };
@@ -1432,19 +1443,96 @@ const handleSavePdf = async () => {
     isSavingPdf.value = false;
   }
 };
+
+const handleSaveDocx = async () => {
+  if (isSavingDocx.value) return;
+  isSavingDocx.value = true;
+
+  try {
+    const quotationId = String(
+      props.detailpenawaran?.id_penawaran || "DRM",
+    );
+    const docx = await createEditableQuotationDocx({
+      detail: props.detailpenawaran,
+      labels: t.value,
+      language: lang.value,
+      quotationId,
+      formattedDate: props.detailpenawaran.tanggal_penawaran
+        ? moment(props.detailpenawaran.tanggal_penawaran).format("DD-MM-YYYY")
+        : "-",
+      currencyLabel: currencyLabel.value,
+      amountInWords: teksTerbilang.value,
+      headerColor: warnaBackgroundCustom.value,
+      headerTextColor: warnaTeksHeader.value,
+      showTotal: showTotal.value,
+      formatCurrency,
+    });
+    const docxUrl = URL.createObjectURL(docx);
+    const link = document.createElement("a");
+    link.href = docxUrl;
+    link.download = `${quotationId}.docx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(docxUrl), 1_000);
+  } catch (error) {
+    console.error("Gagal membuat DOCX quotation:", error);
+    useNotificationStore().showError("Gagal membuat DOCX quotation");
+  } finally {
+    isSavingDocx.value = false;
+  }
+};
 </script>
 
 <style scoped>
-.language-switch-bar {
+.quotation-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
   display: flex;
   width: 210mm;
   max-width: 100%;
-  margin: 0 auto 6px;
-  justify-content: flex-end;
-  margin-top: 6px;
+  min-height: 56px;
+  margin: 6px auto 12px;
+  padding: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.document-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.quotation-action-btn {
+  min-width: 0 !important;
+  padding-inline: 14px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+}
+
+.quotation-action-btn--print {
+  color: #475569 !important;
+}
+
+.quotation-action-btn--primary {
+  box-shadow: 0 4px 10px rgba(49, 46, 129, 0.2) !important;
 }
 
 .language-switch {
+  flex: 0 0 auto;
   display: inline-flex;
   height: 24px;
   padding: 0 5px;
@@ -1957,17 +2045,40 @@ const handleSavePdf = async () => {
   }
 }
 
-.document-actions {
-  gap: 16px;
-}
-
 @media (max-width: 600px) {
+  .quotation-toolbar {
+    min-height: 82px;
+    padding: 12px 14px;
+    gap: 18px;
+    border-radius: 14px;
+  }
+
   .document-actions {
-    padding: 0 16px;
+    flex-wrap: nowrap;
+    gap: 10px;
   }
 
   .quotation-action-btn {
-    width: 100% !important;
+    min-width: 170px !important;
+    height: 58px !important;
+    padding-inline: 18px !important;
+    border-radius: 10px !important;
+    font-size: 17px !important;
+  }
+
+  .language-switch {
+    height: 46px;
+    padding-inline: 9px;
+  }
+
+  .language-switch button {
+    min-width: 38px;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  .language-switch span {
+    font-size: 14px;
   }
 }
 </style>

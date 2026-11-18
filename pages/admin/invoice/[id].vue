@@ -898,8 +898,13 @@
     <v-divider class="my-1 mt-10" opacity="100" color="primary"></v-divider>
 
     <div
+      ref="deliveryOrderActionsHost"
+      class="delivery-order-actions-host"
+    ></div>
+
+    <div
       ref="deliveryOrderWrapper"
-      class="penawaran-wrapper mt-8"
+      class="penawaran-wrapper"
       :style="{
         height:
           isMobile && deliveryOrderHeight
@@ -920,7 +925,6 @@
         />
       </div>
     </div>
-    <div ref="deliveryOrderActionsHost"></div>
     <!-- <div class="preview-container d-flex justify-center mt-8">
       <work-complete-report :invoice-detail="invoiceDetail" />
     </div> -->
@@ -2001,6 +2005,12 @@ async function ubahStatusSelesai() {
 </script>
 
 <style scoped>
+.delivery-order-actions-host {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+}
+
 .penawaran-wrapper {
   position: relative;
   width: 100%;

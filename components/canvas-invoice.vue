@@ -1,18 +1,61 @@
 <template>
   <div class="invoice-canvas">
+    <div class="invoice-toolbar no-print">
+      <div
+        class="document-actions"
+        role="group"
+        aria-label="Invoice document actions"
+      >
+        <v-btn
+          height="38"
+          color="blue-grey-darken-2"
+          variant="outlined"
+          prepend-icon="mdi-printer-outline"
+          class="invoice-action-btn invoice-action-btn--print"
+          :disabled="isSavingPdf"
+          aria-label="Print invoice"
+          @click="printInvoice"
+        >
+          Print
+        </v-btn>
+        <v-btn
+          height="38"
+          color="indigo-darken-3"
+          variant="flat"
+          prepend-icon="mdi-file-pdf-box"
+          class="invoice-action-btn invoice-action-btn--primary"
+          :loading="isSavingPdf"
+          :disabled="isSavingPdf"
+          aria-label="Download invoice as PDF"
+          @click="handleSavePdf"
+        >
+          Download PDF
+        </v-btn>
+      </div>
+
+      <div class="language-switch" aria-label="Pilih bahasa">
+        <button
+          type="button"
+          :class="{ active: invoiceLanguage === 'en' }"
+          :aria-pressed="invoiceLanguage === 'en'"
+          @click="invoiceLanguage = 'en'"
+        >
+          EN
+        </button>
+        <span aria-hidden="true">|</span>
+        <button
+          type="button"
+          :class="{ active: invoiceLanguage === 'id' }"
+          :aria-pressed="invoiceLanguage === 'id'"
+          @click="invoiceLanguage = 'id'"
+        >
+          ID
+        </button>
+      </div>
+    </div>
+
     <div class="preview-container d-flex justify-center">
       <div ref="printArea" class="invoice-paper-wrapper">
-        <v-btn
-          class="no-print text-center mx-auto mb-3"
-          size="x-small"
-          color="primary"
-          prepend-icon="mdi-translate-variant"
-          block
-          @click="invoiceLanguage = invoiceLanguage === 'en' ? 'id' : 'en'"
-        >
-          {{ invoiceLanguage === "en" ? "English" : "Indonesia" }}
-        </v-btn>
-
         <v-card
           width="850"
           class="px-10 pb-10 pt-6 invoice-paper elevation-2"
@@ -206,7 +249,7 @@
                   {{ invoiceLanguage === "id" ? "SATUAN" : "UOM" }}
                 </th>
                 <th width="35%">
-                  {{ invoiceLanguage === "id" ? "JUMLAH" : "AMOUNT" }}
+                  {{ invoiceLanguage === "id" ? "TOTAL" : "AMOUNT" }}
                 </th>
               </tr>
             </thead>
@@ -436,25 +479,6 @@
       </div>
     </div>
 
-    <div class="document-actions d-flex flex-wrap justify-center ga-3 mt-4 no-print">
-      <v-btn
-        prepend-icon="mdi-printer"
-        color="indigo"
-        variant="elevated"
-        @click="printInvoice"
-      >
-        Print Invoice
-      </v-btn>
-      <v-btn
-        prepend-icon="mdi-file-pdf-box"
-        color="red-darken-1"
-        variant="elevated"
-        :loading="isSavingPdf"
-        @click="handleSavePdf"
-      >
-        Save PDF Invoice
-      </v-btn>
-    </div>
   </div>
 </template>
 
@@ -1376,6 +1400,96 @@ const handleSavePdf = async () => {
   width: 100%;
 }
 
+.invoice-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  display: flex;
+  width: 850px;
+  max-width: 100%;
+  min-height: 56px;
+  margin: 6px auto 12px;
+  padding: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.document-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.invoice-action-btn {
+  min-width: 0 !important;
+  padding-inline: 14px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+}
+
+.invoice-action-btn--print {
+  color: #475569 !important;
+}
+
+.invoice-action-btn--primary {
+  box-shadow: 0 4px 10px rgba(49, 46, 129, 0.2) !important;
+}
+
+.language-switch {
+  display: inline-flex;
+  height: 24px;
+  padding: 0 5px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #94a3b8;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.language-switch button {
+  min-width: 25px;
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.language-switch button:hover,
+.language-switch button.active {
+  color: #1d4ed8;
+}
+
+.language-switch button:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #93c5fd;
+  outline-offset: -1px;
+}
+
+.language-switch span {
+  color: #cbd5e1;
+  font-size: 9px;
+}
+
 :global(.penawaran-content.invoice-pdf-unscaled) {
   transform: none !important;
 }
@@ -1622,6 +1736,43 @@ const handleSavePdf = async () => {
 .terbilang-strip {
   break-inside: avoid !important;
   page-break-inside: avoid !important;
+}
+
+@media (max-width: 600px) {
+  .invoice-toolbar {
+    min-height: 82px;
+    padding: 12px 14px;
+    gap: 18px;
+    border-radius: 14px;
+  }
+
+  .document-actions {
+    flex-wrap: nowrap;
+    gap: 10px;
+  }
+
+  .invoice-action-btn {
+    min-width: 170px !important;
+    height: 58px !important;
+    padding-inline: 18px !important;
+    border-radius: 10px !important;
+    font-size: 17px !important;
+  }
+
+  .language-switch {
+    height: 46px;
+    padding-inline: 9px;
+  }
+
+  .language-switch button {
+    min-width: 38px;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  .language-switch span {
+    font-size: 14px;
+  }
 }
 
 @media print {

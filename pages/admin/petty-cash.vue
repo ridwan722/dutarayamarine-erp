@@ -618,7 +618,6 @@ function downloadExcel() {
       <article class="category-overview-card">
         <div class="section-heading">
           <div>
-            <!-- <span class="section-kicker">Expense allocation</span> -->
             <h2>Pengeluaran per Kategori</h2>
           </div>
           <span class="section-count">{{ categoryBreakdown.length }} kategori</span>
@@ -656,7 +655,6 @@ function downloadExcel() {
       <article class="period-card">
         <div class="section-heading">
           <div>
-            <!-- <span class="section-kicker">Reporting period</span> -->
             <h2>Periode Laporan</h2>
           </div>
           <v-icon icon="mdi-calendar-month-outline" size="21" />
@@ -686,7 +684,6 @@ function downloadExcel() {
         </div>
         <div class="period-summary">
           <div><span>Transaksi</span><strong>{{ transactionsByPeriod.length }}</strong></div>
-          <!-- <div><span>Kategori Aktif</span><strong>{{ categoryBreakdown.length }}</strong></div> -->
         </div>
       </article>
     </section>
@@ -694,7 +691,6 @@ function downloadExcel() {
     <section class="transaction-panel">
       <div class="transaction-panel-header">
         <div>
-          <!-- <span class="section-kicker">Office ledger</span> -->
           <div class="transaction-title-row">
             <h2>Daftar Transaksi</h2>
             <span>{{ filteredTransactions.length }} data</span>
